@@ -1,0 +1,692 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import DataTable from "../../../Components/AdminComponents/DataTable"
+import TableActions from "../../../Components/AdminComponents/TableActions"
+import "../../../Styles/AdminStyles/Usuarios.css"
+import { ToastContainer, toast } from "react-toastify"
+import "react-toastify/dist/ReactToastify.css"
+import "../../../Styles/AdminStyles/ToastStyles.css"
+import UserForm from "../../../Components/AdminComponents/UsuariosComponents/UserForm"
+import StatusConfirmModal from "../../../Components/AdminComponents/UsuariosComponents/StatusConfirmModal"
+import usuariosService from "../../../Services/ConsumoAdmin/usuariosService"
+import rolesService from "../../../Services/ConsumoAdmin/rolesService"
+
+/**
+ * Componente para la gestión de usuarios
+ * Permite visualizar, crear, editar y cambiar el estado de usuarios en el sistema
+ */
+const Usuarios = () => {
+  // Estado para los usuarios
+  const [usuarios, setUsuarios] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  // Estado para los roles disponibles
+  const [roles, setRoles] = useState([])
+
+  // Estado para el modal
+  const [showModal, setShowModal] = useState(false)
+  const [modalTitle, setModalTitle] = useState("Agregar Usuario")
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // Estado para el formulario
+  const [formData, setFormData] = useState({
+    documento: "",
+    correo: "",
+    nombre: "",
+    apellido: "",
+    telefono: "",
+    direccion: "",
+    foto: "",
+    rol: "",
+    contrasena: "",
+    confirmarContrasena: "",
+  })
+
+  // Estado para errores de validación
+  const [formErrors, setFormErrors] = useState({
+    documento: "",
+    correo: "",
+    nombre: "",
+    apellido: "",
+    telefono: "",
+    direccion: "",
+    rol: "",
+    contrasena: "",
+    confirmarContrasena: "",
+  })
+
+  // Estado para el modal de confirmación de cambio de estado
+  const [showStatusConfirm, setShowStatusConfirm] = useState(false)
+  const [userToToggle, setUserToToggle] = useState(null)
+
+  /**
+   * Efecto para cargar datos iniciales
+   */
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true)
+
+        // Cargar roles
+        const rolesData = await rolesService.getAll()
+        setRoles(
+          rolesData.map((rol) => ({
+            id: rol.IdRol,
+            nombre: rol.NombreRol,
+          })),
+        )
+
+        // Cargar usuarios
+        const usuariosData = await usuariosService.getAll()
+        console.log("Datos de usuarios recibidos:", usuariosData)
+
+        // Procesar los datos de usuarios para asegurar que tengan la estructura correcta
+        const processedUsuarios = usuariosData.map((usuario) => {
+          // Asegurar que el documento esté presente y sea una cadena
+          const documento =
+            usuario.Documento !== undefined && usuario.Documento !== null ? String(usuario.Documento) : "No disponible"
+
+          console.log(`Usuario ${usuario.IdUsuario}, Documento: ${documento}`)
+
+          // Asegurar que el rol esté correctamente formateado
+          const rolInfo = usuario.Rol || {}
+          const rolId = rolInfo.IdRol || usuario.IdRol
+          const rolNombre =
+            rolInfo.NombreRol ||
+            (rolId ? rolesData.find((r) => r.IdRol === rolId)?.NombreRol || `Rol ${rolId}` : "Sin rol")
+
+          return {
+            ...usuario,
+            Documento: documento,
+            Rol: {
+              IdRol: rolId,
+              NombreRol: rolNombre,
+            },
+          }
+        })
+
+        console.log("Usuarios procesados:", processedUsuarios)
+        setUsuarios(processedUsuarios)
+        setError(null)
+      } catch (err) {
+        console.error("Error al cargar datos:", err)
+        setError("Error al cargar los datos. Por favor, intente nuevamente.")
+        toast.error("Error al cargar los datos", {
+          position: "top-right",
+          autoClose: 5000,
+        })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchData()
+  }, [])
+
+  // Modificar la definición de columnas para asegurar que el documento se muestre correctamente
+  const columns = [
+    {
+      field: "Nombre",
+      header: "Nombre",
+      render: (row) => `${row.Nombre} ${row.Apellido || ""}`,
+    },
+    { field: "Correo", header: "Correo" },
+    {
+      field: "Documento",
+      header: "Documento",
+      render: (row) => {
+        // Asegurar que el documento se muestre correctamente
+        const doc = row.Documento !== undefined && row.Documento !== null ? String(row.Documento) : "No disponible"
+        console.log(`Renderizando documento para ${row.Nombre}: ${doc}`)
+        return doc
+      },
+    },
+    {
+      field: "Rol",
+      header: "Rol",
+      render: (row) => row.Rol?.NombreRol || "Sin rol",
+    },
+    {
+      field: "Estado",
+      header: "Estado",
+      render: (row) => (
+        <span className={`badge ${row.Estado ? "bg-success" : "bg-danger"}`}>{row.Estado ? "Activo" : "Inactivo"}</span>
+      ),
+    },
+    {
+      field: "acciones",
+      header: "Acciones",
+      render: (row) => (
+        <TableActions
+          actions={["view", "edit", "toggleStatus"]}
+          row={row}
+          onView={handleView}
+          onEdit={handleEdit}
+          onToggleStatus={handleConfirmToggleStatus}
+          disableToggle={row.IdRol === 1} // No permitir desactivar al Super Admin
+        />
+      ),
+    },
+  ]
+
+  /**
+   * Manejador para ver detalles de un usuario
+   * @param {Object} user - Objeto de usuario a visualizar
+   */
+  const handleView = (user) => {
+    setCurrentUser(user)
+    setModalTitle("Ver Detalles del Usuario")
+
+    // Cargar datos del usuario en el formulario
+    setFormData({
+      documento: user.Documento,
+      correo: user.Correo,
+      nombre: user.Nombre,
+      apellido: user.Apellido || "",
+      telefono: user.Telefono || "",
+      direccion: user.Direccion || "",
+      foto: user.FotoURL || "",
+      rol: user.Rol?.IdRol || "",
+      contrasena: "********", // Placeholder para contraseña
+      confirmarContrasena: "********", // Placeholder para confirmar contraseña
+    })
+
+    // Resetear errores
+    setFormErrors({
+      documento: "",
+      correo: "",
+      nombre: "",
+      apellido: "",
+      telefono: "",
+      direccion: "",
+      rol: "",
+      contrasena: "",
+      confirmarContrasena: "",
+    })
+
+    setShowModal(true)
+  }
+
+  /**
+   * Manejador para editar un usuario
+   * @param {Object} user - Objeto de usuario a editar
+   */
+  const handleEdit = (user) => {
+    setCurrentUser(user)
+    setModalTitle("Editar Usuario")
+
+    // Cargar datos del usuario en el formulario
+    setFormData({
+      documento: user.Documento,
+      correo: user.Correo,
+      nombre: user.Nombre,
+      apellido: user.Apellido || "",
+      telefono: user.Telefono || "",
+      direccion: user.Direccion || "",
+      foto: user.FotoURL || "",
+      rol: user.Rol?.IdRol || "",
+      contrasena: "", // Vacío para edición
+      confirmarContrasena: "", // Vacío para edición
+    })
+
+    // Resetear errores
+    setFormErrors({
+      documento: "",
+      correo: "",
+      nombre: "",
+      apellido: "",
+      telefono: "",
+      direccion: "",
+      rol: "",
+      contrasena: "",
+      confirmarContrasena: "",
+    })
+
+    setShowModal(true)
+  }
+
+  /**
+   * Manejador para confirmar el cambio de estado de un usuario
+   * @param {Object} user - Objeto de usuario a cambiar estado
+   */
+  const handleConfirmToggleStatus = (user) => {
+    setUserToToggle(user)
+    setShowStatusConfirm(true)
+  }
+
+  /**
+   * Manejador para cambiar el estado de un usuario (Activo/Inactivo)
+   */
+  const handleToggleStatus = async () => {
+    if (!userToToggle) return
+
+    try {
+      // Cambiar el estado del usuario
+      const nuevoEstado = !userToToggle.Estado
+      await usuariosService.changeStatus(userToToggle.IdUsuario, nuevoEstado)
+
+      // Actualizar la lista de usuarios
+      const updatedUsers = usuarios.map((u) => {
+        if (u.IdUsuario === userToToggle.IdUsuario) {
+          return {
+            ...u,
+            Estado: nuevoEstado,
+          }
+        }
+        return u
+      })
+
+      setUsuarios(updatedUsers)
+
+      // Añadir notificación
+      const newStatus = nuevoEstado ? "activo" : "inactivo"
+      toast.success(`El usuario "${userToToggle.Nombre}" ahora está ${newStatus}`, {
+        position: "top-right",
+        autoClose: 5000,
+      })
+    } catch (error) {
+      console.error("Error al cambiar estado del usuario:", error)
+      toast.error("Error al cambiar el estado del usuario", {
+        position: "top-right",
+        autoClose: 5000,
+      })
+    }
+
+    // Cerrar el modal de confirmación
+    setShowStatusConfirm(false)
+    setUserToToggle(null)
+  }
+
+  /**
+   * Manejador para cancelar el cambio de estado
+   */
+  const handleCancelToggleStatus = () => {
+    setShowStatusConfirm(false)
+    setUserToToggle(null)
+  }
+
+  /**
+   * Manejador para abrir el modal de agregar usuario
+   */
+  const handleAddUser = () => {
+    setCurrentUser(null)
+    setModalTitle("Agregar Usuario")
+
+    // Resetear el formulario
+    setFormData({
+      documento: "",
+      correo: "",
+      nombre: "",
+      apellido: "",
+      telefono: "",
+      direccion: "",
+      foto: "",
+      rol: "",
+      contrasena: "",
+      confirmarContrasena: "",
+    })
+
+    // Resetear errores
+    setFormErrors({
+      documento: "",
+      correo: "",
+      nombre: "",
+      apellido: "",
+      telefono: "",
+      direccion: "",
+      rol: "",
+      contrasena: "",
+      confirmarContrasena: "",
+    })
+
+    setShowModal(true)
+  }
+
+  /**
+   * Manejador para cerrar el modal
+   */
+  const handleCloseModal = () => {
+    setShowModal(false)
+  }
+
+  /**
+   * Manejador para cambios en los inputs del formulario
+   * @param {Event} e - Evento del input
+   */
+  const handleInputChange = (e) => {
+    const { name, value, type, files } = e.target
+
+    // Si es un input de tipo file, guardar el archivo
+    if (type === "file") {
+      if (files && files[0]) {
+        setFormData({
+          ...formData,
+          [name]: files[0],
+        })
+      }
+    } else {
+      // Para otros tipos de input, guardar el valor
+      setFormData({
+        ...formData,
+        [name]: value,
+      })
+    }
+
+    // Limpiar el error específico cuando el usuario comienza a escribir
+    setFormErrors({
+      ...formErrors,
+      [name]: "",
+    })
+  }
+
+  /**
+   * Validar el formulario completo
+   * @returns {boolean} - True si el formulario es válido, false en caso contrario
+   */
+  const validateForm = () => {
+    let isValid = true
+    const errors = {
+      documento: "",
+      correo: "",
+      nombre: "",
+      apellido: "",
+      telefono: "",
+      direccion: "",
+      rol: "",
+      contrasena: "",
+      confirmarContrasena: "",
+    }
+
+    // Validar documento (requerido y formato)
+    if (!formData.documento.trim()) {
+      errors.documento = "El documento es obligatorio"
+      isValid = false
+    } else if (!/^\d{7,12}$/.test(formData.documento)) {
+      errors.documento = "El documento debe tener entre 7 y 12 dígitos"
+      isValid = false
+    } else {
+      // Verificar si el documento ya existe (excepto para el usuario actual en edición)
+      const documentoExiste = usuarios.some(
+        (user) => user.Documento === formData.documento && (!currentUser || user.IdUsuario !== currentUser.IdUsuario),
+      )
+      if (documentoExiste) {
+        errors.documento = "Este documento ya está registrado"
+        isValid = false
+      }
+    }
+
+    // Validar correo (requerido y formato)
+    if (!formData.correo.trim()) {
+      errors.correo = "El correo es obligatorio"
+      isValid = false
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+      if (!emailRegex.test(formData.correo)) {
+        errors.correo = "Formato de correo inválido"
+        isValid = false
+      } else {
+        // Verificar si el correo ya existe (excepto para el usuario actual en edición)
+        const correoExiste = usuarios.some(
+          (user) => user.Correo === formData.correo && (!currentUser || user.IdUsuario !== currentUser.IdUsuario),
+        )
+        if (correoExiste) {
+          errors.correo = "Este correo ya está registrado"
+          isValid = false
+        }
+      }
+    }
+
+    // Validar nombre (requerido)
+    if (!formData.nombre.trim()) {
+      errors.nombre = "El nombre es obligatorio"
+      isValid = false
+    }
+
+    // Validar apellido (requerido)
+    if (!formData.apellido.trim()) {
+      errors.apellido = "El apellido es obligatorio"
+      isValid = false
+    }
+
+    // Validar teléfono (formato)
+    if (formData.telefono.trim() && !/^\d{7,10}$/.test(formData.telefono)) {
+      errors.telefono = "El teléfono debe tener entre 7 y 10 dígitos"
+      isValid = false
+    }
+
+    // Validar dirección (requerido)
+    if (!formData.direccion.trim()) {
+      errors.direccion = "La dirección es obligatoria"
+      isValid = false
+    }
+
+    // Validar rol (requerido)
+    if (!formData.rol) {
+      errors.rol = "Debe seleccionar un rol"
+      isValid = false
+    }
+
+    // Validar contraseña (requerida para nuevos usuarios, opcional para edición)
+    if (!currentUser) {
+      // Nuevo usuario - contraseña requerida
+      if (!formData.contrasena) {
+        errors.contrasena = "La contraseña es obligatoria"
+        isValid = false
+      } else if (formData.contrasena.length < 6) {
+        errors.contrasena = "La contraseña debe tener al menos 6 caracteres"
+        isValid = false
+      } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/.test(formData.contrasena)) {
+        errors.contrasena =
+          "La contraseña debe incluir al menos una mayúscula, una minúscula, un número y un carácter especial"
+        isValid = false
+      }
+
+      // Confirmar contraseña
+      if (!formData.confirmarContrasena) {
+        errors.confirmarContrasena = "Debe confirmar la contraseña"
+        isValid = false
+      } else if (formData.contrasena !== formData.confirmarContrasena) {
+        errors.confirmarContrasena = "Las contraseñas no coinciden"
+        isValid = false
+      }
+    } else if (formData.contrasena && formData.contrasena !== "********") {
+      // Usuario existente - contraseña opcional pero debe cumplir requisitos si se proporciona
+      if (formData.contrasena.length < 6) {
+        errors.contrasena = "La contraseña debe tener al menos 6 caracteres"
+        isValid = false
+      } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/.test(formData.contrasena)) {
+        errors.contrasena =
+          "La contraseña debe incluir al menos una mayúscula, una minúscula, un número y un carácter especial"
+        isValid = false
+      }
+
+      // Confirmar contraseña si se está cambiando
+      if (!formData.confirmarContrasena) {
+        errors.confirmarContrasena = "Debe confirmar la contraseña"
+        isValid = false
+      } else if (formData.contrasena !== formData.confirmarContrasena) {
+        errors.confirmarContrasena = "Las contraseñas no coinciden"
+        isValid = false
+      }
+    }
+
+    setFormErrors(errors)
+    return isValid
+  }
+
+  /**
+   * Manejador para guardar el usuario (crear nuevo o actualizar existente)
+   * Valida los datos y envía la información
+   */
+  const handleSaveUser = async () => {
+    // Validar el formulario
+    if (!validateForm()) {
+      toast.error("Por favor, corrija los errores en el formulario", {
+        position: "top-right",
+        autoClose: 5000,
+      })
+      return
+    }
+
+    try {
+      // Preparar datos del usuario
+      const userData = {
+        Documento: formData.documento,
+        Correo: formData.correo,
+        Nombre: formData.nombre,
+        Apellido: formData.apellido,
+        Telefono: formData.telefono,
+        Direccion: formData.direccion,
+        FotoURL: formData.foto,
+        IdRol: Number.parseInt(formData.rol, 10),
+      }
+
+      // Agregar contraseña si es un nuevo usuario o si se está cambiando
+      if (!currentUser || (formData.contrasena && formData.contrasena !== "********")) {
+        userData.Password = formData.contrasena
+      }
+
+      if (currentUser) {
+        // Actualizar usuario existente
+        await usuariosService.update(currentUser.IdUsuario, userData)
+
+        // Actualizar la lista de usuarios
+        const updatedUsers = await usuariosService.getAll()
+        setUsuarios(updatedUsers)
+
+        toast.success(`El usuario "${formData.nombre} ${formData.apellido}" ha sido actualizado correctamente`, {
+          position: "top-right",
+          autoClose: 5000,
+        })
+      } else {
+        // Crear nuevo usuario
+        await usuariosService.create(userData)
+
+        // Actualizar la lista de usuarios
+        const updatedUsers = await usuariosService.getAll()
+        setUsuarios(updatedUsers)
+
+        toast.success(`El usuario "${formData.nombre} ${formData.apellido}" ha sido creado correctamente`, {
+          position: "top-right",
+          autoClose: 5000,
+        })
+      }
+
+      // Cerrar el modal
+      setShowModal(false)
+    } catch (error) {
+      console.error("Error al guardar usuario:", error)
+      toast.error(`Error al guardar el usuario: ${error.message || "Error desconocido"}`, {
+        position: "top-right",
+        autoClose: 5000,
+      })
+    }
+  }
+
+  /**
+   * Efecto para inicializar el modal de Bootstrap
+   */
+  useEffect(() => {
+    let modalInstance = null
+    const modalElement = document.getElementById("userModal")
+
+    if (showModal) {
+      import("bootstrap").then((bootstrap) => {
+        modalInstance = new bootstrap.Modal(modalElement)
+        modalInstance.show()
+      })
+    } else {
+      // Si showModal es false y el modal está abierto, cerrarlo programáticamente
+      if (modalElement && modalElement.classList.contains("show")) {
+        import("bootstrap").then((bootstrap) => {
+          modalInstance = bootstrap.Modal.getInstance(modalElement)
+          if (modalInstance) {
+            modalInstance.hide()
+          }
+        })
+      }
+    }
+
+    // Evento para cuando el modal se cierra con el botón X o haciendo clic fuera
+    const handleHidden = () => {
+      setShowModal(false)
+    }
+
+    modalElement?.addEventListener("hidden.bs.modal", handleHidden)
+
+    return () => {
+      modalElement?.removeEventListener("hidden.bs.modal", handleHidden)
+      // Asegurarse de que se elimine cualquier backdrop residual al desmontar
+      const backdrop = document.querySelector(".modal-backdrop")
+      if (backdrop) {
+        backdrop.remove()
+      }
+      document.body.classList.remove("modal-open")
+      document.body.style.overflow = ""
+      document.body.style.paddingRight = ""
+    }
+  }, [showModal])
+
+  return (
+    <div className="usuarios-container">
+      <h2 className="mb-4">Gestión de Usuarios</h2>
+
+      {loading ? (
+        <div className="d-flex justify-content-center">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Cargando...</span>
+          </div>
+        </div>
+      ) : error ? (
+        <div className="alert alert-danger">{error}</div>
+      ) : (
+        <DataTable
+          columns={columns}
+          data={usuarios}
+          onAdd={handleAddUser}
+          addButtonLabel="Agregar Usuario"
+          searchPlaceholder="Buscar usuarios..."
+        />
+      )}
+
+      {/* Modal para Agregar/Editar/Ver Usuario */}
+      <UserForm
+        showModal={showModal}
+        modalTitle={modalTitle}
+        formData={formData}
+        formErrors={formErrors}
+        roles={roles}
+        currentUser={currentUser}
+        onInputChange={handleInputChange}
+        onSave={handleSaveUser}
+        onClose={handleCloseModal}
+      />
+
+      {/* Modal de confirmación para cambio de estado */}
+      <StatusConfirmModal
+        show={showStatusConfirm}
+        user={userToToggle}
+        onConfirm={handleToggleStatus}
+        onCancel={handleCancelToggleStatus}
+      />
+
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+        limit={3}
+      />
+    </div>
+  )
+}
+
+export default Usuarios
