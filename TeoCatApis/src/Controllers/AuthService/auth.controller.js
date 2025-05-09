@@ -1,11 +1,4 @@
-import {
-  permisosModel,
-  rolesModel,
-  rolPermisoModel,
-  usuariosModel,
-  sesionesUsuariosModel,
-  tokensRecuperacionModel,
-} from "../../Models/AuthService/auth.model.js"
+import {permisosModel,rolesModel,rolPermisoModel,usuariosModel,sesionesUsuariosModel,tokensRecuperacionModel,} from "../../Models/AuthService/auth.model.js"
 import jwt from "jsonwebtoken"
 import bcrypt from "bcrypt"
 import crypto from "crypto"
@@ -14,6 +7,59 @@ import { clientesModel } from "../../Models/CustomerService/customers.model.js"
 import { uploadToCloudinary, deleteFromCloudinary } from "../../Utils/Cloudinary.js"
 import permissionCache from "../../Utils/PermissionCache.js"
 import { query } from "../../Config/Database.js"
+
+// Función para generar contraseña temporal
+function generateTemporaryPassword(length = 10) {
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*"
+  let password = ""
+
+  // Asegurar al menos un carácter de cada tipo
+  password += charset.substring(0, 26).charAt(Math.floor(Math.random() * 26)) // minúscula
+  password += charset.substring(26, 52).charAt(Math.floor(Math.random() * 26)) // mayúscula
+  password += charset.substring(52, 62).charAt(Math.floor(Math.random() * 10)) // número
+  password += charset.substring(62).charAt(Math.floor(Math.random() * (charset.length - 62))) // especial
+
+  // Completar con caracteres aleatorios
+  for (let i = 4; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * charset.length)
+    password += charset[randomIndex]
+  }
+
+  // Mezclar los caracteres
+  return password
+    .split("")
+    .sort(() => 0.5 - Math.random())
+    .join("")
+}
+
+// Función para enviar correo de bienvenida a usuarios
+async function sendUserWelcomeEmail(email, nombre, password, rolNombre) {
+  try {
+    const loginUrl = `${process.env.FRONTEND_URL}/login`
+
+    await sendEmail({
+      to: email,
+      subject: "Bienvenido a TeoCat - Información de acceso",
+      text: `Hola ${nombre},\n\nSe ha creado una cuenta para ti en TeoCat con rol de ${rolNombre}. Tus credenciales de acceso son:\n\nCorreo: ${email}\nContraseña temporal: ${password}\n\nPor seguridad, deberás cambiar esta contraseña en las próximas 24 horas.\n\nPuedes iniciar sesión aquí: ${loginUrl}\n\nSaludos,\nEquipo TeoCat`,
+      html: `
+        <h2>Bienvenido a TeoCat</h2>
+        <p>Hola ${nombre},</p>
+        <p>Se ha creado una cuenta para ti en TeoCat con rol de <strong>${rolNombre}</strong>. Tus credenciales de acceso son:</p>
+        <p><strong>Correo:</strong> ${email}<br>
+        <strong>Contraseña temporal:</strong> ${password}</p>
+        <p><strong>Por seguridad, deberás cambiar esta contraseña en las próximas 24 horas.</strong></p>
+        <p><a href="${loginUrl}" target="_blank">Iniciar sesión</a></p>
+        <p>Saludos,<br>Equipo TeoCat</p>
+      `,
+    })
+
+    console.log(`Correo de bienvenida enviado a ${email}`)
+    return true
+  } catch (error) {
+    console.error("Error al enviar correo de bienvenida:", error)
+    throw error
+  }
+}
 
 // Controlador para permisos
 export const permisosController = {
@@ -494,66 +540,95 @@ export const usuariosController = {
   },
 
   // Crear un nuevo usuario
-  create: async (req, res) => {
-    try {
-      const usuarioData = req.body
+create: async (req, res) => {
+  try {
+    const usuarioData = req.body
+    const sendTempPassword = req.body.sendTempPassword !== false // Por defecto, enviar contraseña temporal
 
-      // Validar datos
-      if (
-        !usuarioData.Nombre ||
-        !usuarioData.Apellido ||
-        !usuarioData.Correo ||
-        !usuarioData.Password ||
-        !usuarioData.IdRol ||
-        !usuarioData.Documento
-      ) {
-        return res
-          .status(400)
-          .json({ message: "Nombre, Apellido, Correo, Password, Documento e IdRol son campos requeridos" })
-      }
-
-      // Verificar si el correo ya está registrado
-      const existingUser = await usuariosModel.getByEmail(usuarioData.Correo)
-      if (existingUser) {
-        return res.status(400).json({ message: "El correo electrónico ya está registrado" })
-      }
-
-      // Verificar si el rol existe
-      const rol = await rolesModel.getById(usuarioData.IdRol)
-      if (!rol) {
-        return res.status(404).json({ message: "Rol no encontrado" })
-      }
-
-      // Procesar imagen si se proporciona
-      if (req.file) {
-        try {
-          const result = await uploadToCloudinary(req.file.path, "usuarios");
-          usuarioData.Foto = result.secure_url; // Asegurarse de usar el mismo nombre de campo que en el modelo
-        } catch (uploadError) {
-          console.error("Error al subir imagen a Cloudinary:", uploadError);
-          // Continuar sin imagen si hay error
-        }
-      }
-
-      // Crear usuario
-      const nuevoUsuario = await usuariosModel.create(usuarioData)
-
-      // Obtener el usuario recién creado con todos sus datos
-      const usuarioCompleto = await usuariosController.getById(
-        { params: { id: nuevoUsuario.id } },
-        {
-          status: () => ({
-            json: (data) => data,
-          }),
-        },
-      )
-
-      res.status(201).json(usuarioCompleto)
-    } catch (error) {
-      console.error("Error al crear usuario:", error)
-      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    // Validar datos
+    if (
+      !usuarioData.Nombre ||
+      !usuarioData.Apellido ||
+      !usuarioData.Correo ||
+      !usuarioData.IdRol ||
+      !usuarioData.Documento
+    ) {
+      return res.status(400).json({ message: "Nombre, Apellido, Correo, Documento e IdRol son campos requeridos" })
     }
-  },
+
+    // Verificar si el correo ya está registrado
+    const existingUser = await usuariosModel.getByEmail(usuarioData.Correo)
+    if (existingUser) {
+      return res.status(400).json({ message: "El correo electrónico ya está registrado" })
+    }
+
+    // Verificar si el rol existe
+    const rol = await rolesModel.getById(usuarioData.IdRol)
+    if (!rol) {
+      return res.status(404).json({ message: "Rol no encontrado" })
+    }
+
+    // Si se solicita enviar contraseña temporal o no se proporciona contraseña
+    if (sendTempPassword || !usuarioData.Password) {
+      // Generar una contraseña temporal aleatoria
+      const tempPassword = generateTemporaryPassword(10)
+      usuarioData.Password = tempPassword
+    }
+
+    // Procesar imagen si se proporciona
+    if (req.file) {
+      try {
+        const result = await uploadToCloudinary(req.file.path, "usuarios")
+        usuarioData.Foto = result.secure_url
+      } catch (uploadError) {
+        console.error("Error al subir imagen a Cloudinary:", uploadError)
+        // Continuar sin imagen si hay error
+      }
+    }
+
+    // Crear usuario
+    const nuevoUsuario = await usuariosModel.create(usuarioData)
+
+    // Si se solicitó enviar contraseña temporal, enviar correo y crear token
+    if (sendTempPassword || !req.body.Password) {
+      try {
+        // Enviar correo con credenciales temporales
+        await sendUserWelcomeEmail(usuarioData.Correo, usuarioData.Nombre, usuarioData.Password, rol.NombreRol)
+
+        // Crear token de recuperación que expira en 24 horas para forzar cambio de contraseña
+        const token = crypto.randomBytes(32).toString("hex")
+        const expiracion = new Date()
+        expiracion.setHours(expiracion.getHours() + 24)
+
+        await tokensRecuperacionModel.create({
+          IdUsuario: nuevoUsuario.id,
+          Token: token,
+          FechaCreacion: new Date(),
+          FechaExpiracion: expiracion,
+          Utilizado: false,
+        })
+      } catch (emailError) {
+        console.error("Error al enviar correo o crear token:", emailError)
+        // Continuar con la creación del usuario aunque falle el correo
+      }
+    }
+
+    // Obtener el usuario recién creado con todos sus datos
+    const usuarioCompleto = await usuariosController.getById(
+      { params: { id: nuevoUsuario.id } },
+      {
+        status: () => ({
+          json: (data) => data,
+        }),
+      },
+    )
+
+    res.status(201).json(usuarioCompleto)
+  } catch (error) {
+    console.error("Error al crear usuario:", error)
+    res.status(500).json({ message: "Error en el servidor", error: error.message })
+  }
+},
 
   // Actualizar un usuario
   update: async (req, res) => {

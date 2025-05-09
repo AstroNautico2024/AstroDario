@@ -474,28 +474,33 @@ export const detalleComprasModel = {
   },
 
   // Crear un nuevo detalle de compra
-  create: async (compraId, detalleData) => {
-    try {
-      const result = await query(
-        `INSERT INTO DetalleCompras 
-        (IdCompra, IdProducto, Cantidad, PrecioUnitario, Subtotal, iva) 
-        VALUES (?, ?, ?, ?, ?, ?)`,
-        [
-          compraId,
-          detalleData.IdProducto,
-          detalleData.Cantidad,
-          detalleData.PrecioUnitario,
-          detalleData.Subtotal,
-          detalleData.iva || 0,
-        ],
-      )
+create: async (compraId, detalleData) => {
+  try {
+    const result = await query(
+      `INSERT INTO DetalleCompras 
+      (IdCompra, IdProducto, Cantidad, PrecioUnitario, Subtotal, IvaUnitario, SubtotalConIva, UnidadMedida, FactorConversion, CantidadConvertida, PrecioVentaSugerido) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        compraId,
+        detalleData.IdProducto,
+        detalleData.Cantidad,
+        detalleData.PrecioUnitario,
+        detalleData.Subtotal,
+        detalleData.IvaUnitario || 0,
+        detalleData.SubtotalConIva || detalleData.Subtotal,
+        detalleData.UnidadMedida || 'Unidad',
+        detalleData.FactorConversion || 1,
+        detalleData.CantidadConvertida || detalleData.Cantidad,
+        detalleData.PrecioVentaSugerido || 0
+      ],
+    )
 
-      return { id: result.insertId, ...detalleData }
-    } catch (error) {
-      console.error(`Error en detalleComprasModel.create(${compraId}):`, error)
-      throw error
-    }
-  },
+    return { id: result.insertId, ...detalleData }
+  } catch (error) {
+    console.error(`Error en detalleComprasModel.create(${compraId}):`, error)
+    throw error
+  }
+},
 
   // Eliminar todos los detalles de una compra
   deleteByCompraId: async (compraId) => {

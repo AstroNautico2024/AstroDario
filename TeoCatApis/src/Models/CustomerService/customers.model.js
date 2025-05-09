@@ -163,9 +163,10 @@ export const mascotasModel = {
   // Obtener todas las mascotas
   getAll: async () => {
     return await query(
-      `SELECT m.*, c.Nombre AS NombreCliente, c.Apellido AS ApellidoCliente 
+      `SELECT m.*, c.Nombre AS NombreCliente, c.Apellido AS ApellidoCliente, e.NombreEspecie 
       FROM Mascotas m
       JOIN Clientes c ON m.IdCliente = c.IdCliente
+      JOIN Especies e ON m.IdEspecie = e.IdEspecie
       ORDER BY m.IdMascota`,
     )
   },
@@ -173,9 +174,10 @@ export const mascotasModel = {
   // Obtener una mascota por ID
   getById: async (id) => {
     const mascotas = await query(
-      `SELECT m.*, c.Nombre AS NombreCliente, c.Apellido AS ApellidoCliente 
+      `SELECT m.*, c.Nombre AS NombreCliente, c.Apellido AS ApellidoCliente, e.NombreEspecie 
       FROM Mascotas m
       JOIN Clientes c ON m.IdCliente = c.IdCliente
+      JOIN Especies e ON m.IdEspecie = e.IdEspecie
       WHERE m.IdMascota = ?`,
       [id],
     )
@@ -184,7 +186,14 @@ export const mascotasModel = {
 
   // Obtener mascotas por cliente
   getByCliente: async (idCliente) => {
-    return await query(`SELECT * FROM Mascotas WHERE IdCliente = ? ORDER BY Nombre`, [idCliente])
+    return await query(
+      `SELECT m.*, e.NombreEspecie 
+       FROM Mascotas m
+       JOIN Especies e ON m.IdEspecie = e.IdEspecie
+       WHERE m.IdCliente = ? 
+       ORDER BY m.Nombre`, 
+      [idCliente]
+    )
   },
 
   // Crear una nueva mascota
@@ -192,17 +201,17 @@ export const mascotasModel = {
     try {
       const result = await query(
         `INSERT INTO Mascotas 
-        (IdCliente, Nombre, Foto, Especie, Raza, Tamaño, Pelaje, FechaNacimiento) 
+        (IdCliente, IdEspecie, Nombre, Foto, Raza, Tamaño, FechaNacimiento, Estado) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           mascotaData.IdCliente,
+          mascotaData.IdEspecie,
           mascotaData.Nombre,
           mascotaData.Foto || null,
-          mascotaData.Especie,
           mascotaData.Raza || null,
           mascotaData.Tamaño || null,
-          mascotaData.Pelaje || null,
           mascotaData.FechaNacimiento || null,
+          mascotaData.Estado !== undefined ? mascotaData.Estado : true,
         ],
       )
       return { id: result.insertId, ...mascotaData }
@@ -227,6 +236,10 @@ export const mascotasModel = {
       query_str += `IdCliente = ?, `
       params.push(mascotaData.IdCliente)
     }
+    if (mascotaData.IdEspecie) {
+      query_str += `IdEspecie = ?, `
+      params.push(mascotaData.IdEspecie)
+    }
     if (mascotaData.Nombre) {
       query_str += `Nombre = ?, `
       params.push(mascotaData.Nombre)
@@ -235,25 +248,21 @@ export const mascotasModel = {
       query_str += `Foto = ?, `
       params.push(mascotaData.Foto)
     }
-    if (mascotaData.Especie) {
-      query_str += `Especie = ?, `
-      params.push(mascotaData.Especie)
-    }
-    if (mascotaData.Raza) {
+    if (mascotaData.Raza !== undefined) {
       query_str += `Raza = ?, `
       params.push(mascotaData.Raza)
     }
-    if (mascotaData.Tamaño) {
+    if (mascotaData.Tamaño !== undefined) {
       query_str += `Tamaño = ?, `
       params.push(mascotaData.Tamaño)
     }
-    if (mascotaData.Pelaje) {
-      query_str += `Pelaje = ?, `
-      params.push(mascotaData.Pelaje)
-    }
-    if (mascotaData.FechaNacimiento) {
+    if (mascotaData.FechaNacimiento !== undefined) {
       query_str += `FechaNacimiento = ?, `
       params.push(mascotaData.FechaNacimiento)
+    }
+    if (mascotaData.Estado !== undefined) {
+      query_str += `Estado = ?, `
+      params.push(mascotaData.Estado)
     }
 
     // Eliminar la última coma y espacio
@@ -276,17 +285,79 @@ export const mascotasModel = {
   // Buscar mascotas por nombre, especie o raza
   search: async (searchTerm) => {
     return await query(
-      `SELECT m.*, c.Nombre AS NombreCliente, c.Apellido AS ApellidoCliente 
+      `SELECT m.*, c.Nombre AS NombreCliente, c.Apellido AS ApellidoCliente, e.NombreEspecie 
       FROM Mascotas m
       JOIN Clientes c ON m.IdCliente = c.IdCliente
-      WHERE m.Nombre LIKE ? OR m.Especie LIKE ? OR m.Raza LIKE ?
+      JOIN Especies e ON m.IdEspecie = e.IdEspecie
+      WHERE m.Nombre LIKE ? OR e.NombreEspecie LIKE ? OR m.Raza LIKE ?
       ORDER BY m.IdMascota`,
       [`%${searchTerm}%`, `%${searchTerm}%`, `%${searchTerm}%`],
     )
   },
 }
 
+// Añadir modelo para especies
+export const especiesModel = {
+  // Obtener todas las especies
+  getAll: async () => {
+    return await query(`SELECT * FROM Especies ORDER BY NombreEspecie`)
+  },
+
+  // Obtener una especie por ID
+  getById: async (id) => {
+    const especies = await query(`SELECT * FROM Especies WHERE IdEspecie = ?`, [id])
+    return especies[0]
+  },
+
+  // Crear una nueva especie
+  create: async (especieData) => {
+    const result = await query(
+      `INSERT INTO Especies (NombreEspecie, Estado) VALUES (?, ?)`,
+      [especieData.NombreEspecie, especieData.Estado !== undefined ? especieData.Estado : true]
+    )
+    return { id: result.insertId, ...especieData }
+  },
+
+  // Actualizar una especie
+  update: async (id, especieData) => {
+    let query_str = `UPDATE Especies SET `
+    const params = []
+
+    if (especieData.NombreEspecie) {
+      query_str += `NombreEspecie = ?, `
+      params.push(especieData.NombreEspecie)
+    }
+    if (especieData.Estado !== undefined) {
+      query_str += `Estado = ?, `
+      params.push(especieData.Estado)
+    }
+
+    // Eliminar la última coma y espacio
+    query_str = query_str.slice(0, -2)
+
+    // Añadir la condición WHERE
+    query_str += ` WHERE IdEspecie = ?`
+    params.push(id)
+
+    await query(query_str, params)
+    return { id, ...especieData }
+  },
+
+  // Eliminar una especie
+  delete: async (id) => {
+    // Verificar si hay mascotas asociadas
+    const [mascotas] = await query(`SELECT COUNT(*) as count FROM Mascotas WHERE IdEspecie = ?`, [id])
+    if (mascotas[0].count > 0) {
+      throw new Error("No se puede eliminar la especie porque tiene mascotas asociadas")
+    }
+    
+    await query(`DELETE FROM Especies WHERE IdEspecie = ?`, [id])
+    return { id }
+  },
+}
+
 export default {
   clientes: clientesModel,
   mascotas: mascotasModel,
+  especies: especiesModel
 }

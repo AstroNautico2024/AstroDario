@@ -69,38 +69,39 @@ export const ventasController = {
       }
 
       // Obtener detalles de servicios
-      let detallesServicios = []
-      try {
-        const [servicios] = await query(
-          `
-        SELECT ds.*, s.Nombre AS NombreServicio, 
-        m.Nombre AS NombreMascota, m.Especie AS TipoMascota,
-        ds.NombreMascotaTemporal, ds.TipoMascotaTemporal
-        FROM DetalleVentasServicios ds
-        LEFT JOIN Servicios s ON ds.IdServicio = s.IdServicio
-        LEFT JOIN Mascotas m ON ds.IdMascota = m.IdMascota
-        WHERE ds.IdVenta = ?
-      `,
-          [ventaId],
-        )
+let detallesServicios = []
+try {
+  const [servicios] = await query(
+    `
+  SELECT ds.*, s.Nombre AS NombreServicio, 
+  m.Nombre AS NombreMascota, e.NombreEspecie AS TipoMascota,
+  ds.NombreMascotaTemporal, ds.TipoMascotaTemporal
+  FROM DetalleVentasServicios ds
+  LEFT JOIN Servicios s ON ds.IdServicio = s.IdServicio
+  LEFT JOIN Mascotas m ON ds.IdMascota = m.IdMascota
+  LEFT JOIN Especies e ON m.IdEspecie = e.IdEspecie
+  WHERE ds.IdVenta = ?
+`,
+    [ventaId],
+  )
 
-        // Procesar los detalles de servicios para incluir información de mascota temporal
-        detallesServicios = servicios.map(servicio => {
-          // Si hay información de mascota temporal, usarla en lugar de la mascota registrada
-          if (servicio.NombreMascotaTemporal) {
-            return {
-              ...servicio,
-              NombreMascota: servicio.NombreMascotaTemporal,
-              TipoMascota: servicio.TipoMascotaTemporal,
-              esMascotaTemporal: true
-            };
-          }
-          return servicio;
-        });
-      } catch (serviceError) {
-        console.error(`Error al obtener detalles de servicios para venta ${ventaId}:`, serviceError)
-        // Continuar con un array vacío si hay error
-      }
+  // Procesar los detalles de servicios para incluir información de mascota temporal
+  detallesServicios = servicios.map(servicio => {
+    // Si hay información de mascota temporal, usarla en lugar de la mascota registrada
+    if (servicio.NombreMascotaTemporal) {
+      return {
+        ...servicio,
+        NombreMascota: servicio.NombreMascotaTemporal,
+        TipoMascota: servicio.TipoMascotaTemporal,
+        esMascotaTemporal: true
+      };
+    }
+    return servicio;
+  });
+} catch (serviceError) {
+  console.error(`Error al obtener detalles de servicios para venta ${ventaId}:`, serviceError)
+  // Continuar con un array vacío si hay error
+}
 
       // Preparar datos del cliente de manera segura
       const clienteData = {
@@ -170,35 +171,39 @@ export const ventasController = {
   },
 
   // NUEVO: Obtener la mascota genérica
-  getMascotaGenerica: async (req, res) => {
-    try {
-      const idMascotaGenerica = await ventasModel.getMascotaGenericaId();
+getMascotaGenerica: async (req, res) => {
+  try {
+    const idMascotaGenerica = await ventasModel.getMascotaGenericaId();
+    
+    if (idMascotaGenerica) {
+      // Obtener los datos completos de la mascota genérica
+      const [mascotas] = await query(`
+        SELECT m.*, e.NombreEspecie 
+        FROM Mascotas m
+        LEFT JOIN Especies e ON m.IdEspecie = e.IdEspecie
+        WHERE m.IdMascota = ?`, [idMascotaGenerica]);
       
-      if (idMascotaGenerica) {
-        // Obtener los datos completos de la mascota genérica
-        const [mascotas] = await query(`SELECT * FROM Mascotas WHERE IdMascota = ?`, [idMascotaGenerica]);
-        
-        if (mascotas.length > 0) {
-          res.status(200).json({
-            success: true,
-            mascotaGenerica: {
-              IdMascota: mascotas[0].IdMascota,
-              Nombre: mascotas[0].Nombre,
-              Tipo: mascotas[0].Tipo || mascotas[0].Especie,
-              esMascotaGenerica: true
-            }
-          });
-        } else {
-          res.status(404).json({ message: "Mascota Genérica no encontrada" });
-        }
+      if (mascotas.length > 0) {
+        res.status(200).json({
+          success: true,
+          mascotaGenerica: {
+            IdMascota: mascotas[0].IdMascota,
+            Nombre: mascotas[0].Nombre,
+            Especie: mascotas[0].NombreEspecie,
+            esMascotaGenerica: true
+          }
+        });
       } else {
-        res.status(404).json({ message: "Mascota Genérica no configurada en el sistema" });
+        res.status(404).json({ message: "Mascota Genérica no encontrada" });
       }
-    } catch (error) {
-      console.error("Error al obtener Mascota Genérica:", error);
-      res.status(500).json({ message: "Error en el servidor", error: error.message });
+    } else {
+      res.status(404).json({ message: "Mascota Genérica no configurada en el sistema" });
     }
-  },
+  } catch (error) {
+    console.error("Error al obtener Mascota Genérica:", error);
+    res.status(500).json({ message: "Error en el servidor", error: error.message });
+  }
+},
 
   // Crear una nueva venta
   create: async (req, res) => {
@@ -510,30 +515,35 @@ export const ventasController = {
             }
           } 
           // Si no hay mascota temporal pero hay un IdMascota, verificar que sea válido
-          else if (detalle.IdMascota !== undefined && detalle.IdMascota !== null && detalle.IdMascota !== -1) {
-            idMascota = Number.parseInt(detalle.IdMascota, 10)
+else if (detalle.IdMascota !== undefined && detalle.IdMascota !== null && detalle.IdMascota !== -1) {
+  idMascota = Number.parseInt(detalle.IdMascota, 10)
 
-            // Si es un número válido y positivo, verificamos que exista la mascota
-            if (!isNaN(idMascota) && idMascota > 0) {
-              // Verificar si la mascota existe
-              const [mascotas] = await connection.query(`SELECT * FROM Mascotas WHERE IdMascota = ?`, [idMascota])
-              if (mascotas.length === 0) {
-                await connection.rollback()
-                return res.status(404).json({ message: `Mascota con ID ${idMascota} no encontrada` })
-              }
-              
-              // Si es cliente registrado (no consumidor final), verificar que la mascota pertenezca al cliente
-              if (!esConsumidorFinal) {
-                const [mascotasCliente] = await connection.query(
-                  `SELECT * FROM Mascotas WHERE IdMascota = ? AND IdCliente = ?`, 
-                  [idMascota, venta.IdCliente]
-                );
-                
-                if (mascotasCliente.length === 0) {
-                  await connection.rollback();
-                  return res.status(400).json({ 
-                    message: `La mascota con ID ${idMascota} no pertenece al cliente con ID ${venta.IdCliente}` 
-                  });
+  // Si es un número válido y positivo, verificamos que exista la mascota
+  if (!isNaN(idMascota) && idMascota > 0) {
+    // Verificar si la mascota existe y obtener su especie
+    const [mascotas] = await connection.query(`
+      SELECT m.*, e.NombreEspecie 
+      FROM Mascotas m
+      LEFT JOIN Especies e ON m.IdEspecie = e.IdEspecie
+      WHERE m.IdMascota = ?`, [idMascota])
+    
+    if (mascotas.length === 0) {
+      await connection.rollback()
+      return res.status(404).json({ message: `Mascota con ID ${idMascota} no encontrada` })
+    }
+    
+    // Si es cliente registrado (no consumidor final), verificar que la mascota pertenezca al cliente
+    if (!esConsumidorFinal) {
+      const [mascotasCliente] = await connection.query(
+        `SELECT * FROM Mascotas WHERE IdMascota = ? AND IdCliente = ?`, 
+        [idMascota, venta.IdCliente]
+      );
+      
+      if (mascotasCliente.length === 0) {
+        await connection.rollback();
+        return res.status(400).json({ 
+          message: `La mascota con ID ${idMascota} no pertenece al cliente con ID ${venta.IdCliente}` 
+        });
                 }
               }
             } else {
@@ -1890,13 +1900,14 @@ export const detalleVentasServiciosController = {
 
       // Obtener detalles directamente con una consulta
       const [detalles] = await query(`
-        SELECT ds.*, s.Nombre AS NombreServicio, 
-        m.Nombre AS NombreMascota, m.Especie AS TipoMascota,
-        ds.NombreMascotaTemporal, ds.TipoMascotaTemporal
-        FROM DetalleVentasServicios ds
-        LEFT JOIN Servicios s ON ds.IdServicio = s.IdServicio
-        LEFT JOIN Mascotas m ON ds.IdMascota = m.IdMascota
-        WHERE ds.IdVenta = ?
+      SELECT ds.*, s.Nombre AS NombreServicio, 
+      m.Nombre AS NombreMascota, e.NombreEspecie AS TipoMascota,
+      ds.NombreMascotaTemporal, ds.TipoMascotaTemporal
+      FROM DetalleVentasServicios ds
+      LEFT JOIN Servicios s ON ds.IdServicio = s.IdServicio
+      LEFT JOIN Mascotas m ON ds.IdMascota = m.IdMascota
+      LEFT JOIN Especies e ON m.IdEspecie = e.IdEspecie
+      WHERE ds.IdVenta = ?
       `, [ventaId])
 
       res.status(200).json(detalles)
