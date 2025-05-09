@@ -28,43 +28,39 @@ export const tipoServicioModel = {
   },
 
   // Crear un nuevo tipo de servicio
-  create: async (tipoData) => {
-    const result = await query(
-      `INSERT INTO Tipo_Servicio (Nombre, Descripcion, Estado) VALUES (?, ?, ?)`,
-      [tipoData.Nombre, tipoData.Descripcion, tipoData.Estado || true]
-    );
-    return { id: result.insertId, ...tipoData };
-  },
+create: async (tipoData) => {
+  const result = await query(
+    `INSERT INTO Tipo_Servicio (Nombre, Estado) VALUES (?, ?)`,
+    [tipoData.Nombre, tipoData.Estado || true]
+  );
+  return { id: result.insertId, ...tipoData };
+},
 
   // Actualizar un tipo de servicio
-  update: async (id, tipoData) => {
-    let query_str = `UPDATE Tipo_Servicio SET `;
-    const params = [];
-    
-    // Construir la consulta dinámicamente
-    if (tipoData.Nombre) {
-      query_str += `Nombre = ?, `;
-      params.push(tipoData.Nombre);
-    }
-    if (tipoData.Descripcion !== undefined) {
-      query_str += `Descripcion = ?, `;
-      params.push(tipoData.Descripcion);
-    }
-    if (tipoData.Estado !== undefined) {
-      query_str += `Estado = ?, `;
-      params.push(tipoData.Estado);
-    }
+update: async (id, tipoData) => {
+  let query_str = `UPDATE Tipo_Servicio SET `;
+  const params = [];
+  
+  // Construir la consulta dinámicamente
+  if (tipoData.Nombre) {
+    query_str += `Nombre = ?, `;
+    params.push(tipoData.Nombre);
+  }
+  if (tipoData.Estado !== undefined) {
+    query_str += `Estado = ?, `;
+    params.push(tipoData.Estado);
+  }
 
-    // Eliminar la última coma y espacio
-    query_str = query_str.slice(0, -2);
-    
-    // Añadir la condición WHERE
-    query_str += ` WHERE IdTipoServicio = ?`;
-    params.push(id);
+  // Eliminar la última coma y espacio
+  query_str = query_str.slice(0, -2);
+  
+  // Añadir la condición WHERE
+  query_str += ` WHERE IdTipoServicio = ?`;
+  params.push(id);
 
-    await query(query_str, params);
-    return { id, ...tipoData };
-  },
+  await query(query_str, params);
+  return { id, ...tipoData };
+},
 
   // Cambiar el estado de un tipo de servicio
   changeStatus: async (id, estado) => {

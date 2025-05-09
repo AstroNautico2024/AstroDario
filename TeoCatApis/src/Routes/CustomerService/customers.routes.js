@@ -1,6 +1,6 @@
 // customers.routes.js - Versión actualizada
 import express from 'express';
-import { clientesController, mascotasController } from '../../Controllers/CustomerService/customers.controller.js';
+import { clientesController, mascotasController, especiesController } from '../../Controllers/CustomerService/customers.controller.js';
 import { authMiddleware } from '../../Middlewares/auth.middleware.js';
 import { validatePermission } from '../../Middlewares/permission.middleware.js';
 import { uploadMiddleware, handleMulterError } from '../../Middlewares/upload.middleware.js';
@@ -24,5 +24,12 @@ router.post('/mascotas', authMiddleware, validatePermission('Crear Mascotas'), u
 router.put('/mascotas/:id', authMiddleware, validatePermission('Modificar Mascotas'), uploadMiddleware.single('foto'), handleMulterError, mascotasController.update);
 router.delete('/mascotas/:id', authMiddleware, validatePermission('Eliminar Mascotas'), mascotasController.delete);
 router.get('/clientes/:id/mascotas', authMiddleware, validatePermission('Visualizar Mascotas'), mascotasController.getByCliente);
+
+// Rutas para especies
+router.get('/especies', authMiddleware, validatePermission('Visualizar Mascotas'), especiesController.getAll);
+router.get('/especies/:id', authMiddleware, validatePermission('Visualizar Mascotas'), especiesController.getById);
+router.post('/especies', authMiddleware, validatePermission('Crear Mascotas'), especiesController.create);
+router.put('/especies/:id', authMiddleware, validatePermission('Modificar Mascotas'), especiesController.update);
+router.delete('/especies/:id', authMiddleware, validatePermission('Eliminar Mascotas'), especiesController.delete);
 
 export default router;

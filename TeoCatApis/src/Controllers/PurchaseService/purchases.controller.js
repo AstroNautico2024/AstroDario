@@ -263,20 +263,24 @@ export const comprasController = {
           const subtotalConIva = subtotalDetalle + ivaUnitario * detalle.Cantidad
 
           // Crear detalle
-          const [resultDetalle] = await connection.query(
-            `INSERT INTO DetalleCompras 
-            (IdCompra, IdProducto, Cantidad, PrecioUnitario, Subtotal, IvaUnitario, SubtotalConIva) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [
-              idCompra,
-              detalle.IdProducto,
-              detalle.Cantidad,
-              precioUnitario,
-              subtotalDetalle,
-              ivaUnitario,
-              subtotalConIva,
-            ],
-          )
+const [resultDetalle] = await connection.query(
+  `INSERT INTO DetalleCompras 
+  (IdCompra, IdProducto, Cantidad, PrecioUnitario, Subtotal, IvaUnitario, SubtotalConIva, UnidadMedida, FactorConversion, CantidadConvertida, PrecioVentaSugerido) 
+  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  [
+    idCompra,
+    detalle.IdProducto,
+    detalle.Cantidad,
+    precioUnitario,
+    subtotalDetalle,
+    ivaUnitario,
+    subtotalConIva,
+    producto.UnidadMedida || 'Unidad',
+    producto.FactorConversion || 1,
+    detalle.Cantidad * (producto.FactorConversion || 1),
+    precioUnitario * (1 + (producto.MargenGanancia || 30) / 100)
+  ],
+)
 
           detallesCreados.push({
             id: resultDetalle.insertId,
@@ -607,74 +611,80 @@ export const detalleComprasController = {
   },
 
   // Crear un nuevo detalle de compra
-  create: async (req, res) => {
-    try {
-      const detalleData = req.body
+create: async (req, res) => {
+  try {
+    const detalleData = req.body
 
-      // Verificar si la compra existe
-      const compra = await comprasModel.getById(detalleData.IdCompra)
-      if (!compra) {
-        return res.status(404).json({ message: "Compra no encontrada" })
-      }
-
-      // Verificar si el producto existe
-      const producto = await productosModel.getById(detalleData.IdProducto)
-      if (!producto) {
-        return res.status(404).json({ message: "Producto no encontrado" })
-      }
-
-      // Calcular subtotal e IVA
-      const precioUnitario = detalleData.PrecioUnitario
-      const subtotal = precioUnitario * detalleData.Cantidad
-      let ivaUnitario = 0
-
-      if (producto.AplicaIVA) {
-        ivaUnitario = precioUnitario * (producto.PorcentajeIVA / 100)
-      }
-
-      const subtotalConIva = subtotal + ivaUnitario * detalleData.Cantidad
-
-      // Crear detalle
-      const detalleCreado = await detalleComprasModel.create({
-        IdCompra: detalleData.IdCompra,
-        IdProducto: detalleData.IdProducto,
-        Cantidad: detalleData.Cantidad,
-        PrecioUnitario: precioUnitario,
-        Subtotal: subtotal,
-        IvaUnitario: ivaUnitario,
-        SubtotalConIva: subtotalConIva,
-      })
-
-      // Actualizar stock del producto
-      await productosModel.updateStock(detalleData.IdProducto, detalleData.Cantidad)
-
-      // Actualizar totales de la compra
-      const detalles = await detalleComprasModel.getByCompraId(detalleData.IdCompra)
-
-      let subtotalCompra = 0
-      let totalIva = 0
-
-      // Sumar totales de detalles
-      for (const detalle of detalles) {
-        subtotalCompra += detalle.Subtotal
-        totalIva += detalle.IvaUnitario * detalle.Cantidad
-      }
-
-      const totalMonto = subtotalCompra + totalIva
-
-      // Actualizar compra
-      await comprasModel.update(detalleData.IdCompra, {
-        Subtotal: subtotalCompra,
-        TotalIva: totalIva,
-        TotalMonto: totalMonto,
-      })
-
-      res.status(201).json(detalleCreado)
-    } catch (error) {
-      console.error("Error al crear detalle de compra:", error)
-      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    // Verificar si la compra existe
+    const compra = await comprasModel.getById(detalleData.IdCompra)
+    if (!compra) {
+      return res.status(404).json({ message: "Compra no encontrada" })
     }
-  },
+
+    // Verificar si el producto existe
+    const producto = await productosModel.getById(detalleData.IdProducto)
+    if (!producto) {
+      return res.status(404).json({ message: "Producto no encontrado" })
+    }
+
+    // Calcular subtotal e IVA
+    const precioUnitario = detalleData.PrecioUnitario
+    const subtotal = precioUnitario * detalleData.Cantidad
+    let ivaUnitario = 0
+
+    if (producto.AplicaIVA) {
+      ivaUnitario = precioUnitario * (producto.PorcentajeIVA / 100)
+    }
+
+    const subtotalConIva = subtotal + ivaUnitario * detalleData.Cantidad
+    const factorConversion = producto.FactorConversion || 1
+    const cantidadConvertida = detalleData.Cantidad * factorConversion
+    const precioVentaSugerido = precioUnitario * (1 + (producto.MargenGanancia || 30) / 100)
+
+    // Crear detalle con los campos correctos
+    const detalleCreado = await detalleComprasModel.create(detalleData.IdCompra, {
+      IdProducto: detalleData.IdProducto,
+      Cantidad: detalleData.Cantidad,
+      PrecioUnitario: precioUnitario,
+      Subtotal: subtotal,
+      IvaUnitario: ivaUnitario,
+      SubtotalConIva: subtotalConIva,
+      UnidadMedida: producto.UnidadMedida || 'Unidad',
+      FactorConversion: factorConversion,
+      CantidadConvertida: cantidadConvertida,
+      PrecioVentaSugerido: precioVentaSugerido
+    })
+
+    // Actualizar stock del producto
+    await productosModel.updateStock(detalleData.IdProducto, detalleData.Cantidad)
+
+    // Actualizar totales de la compra
+    const detalles = await detalleComprasModel.getByCompraId(detalleData.IdCompra)
+
+    let subtotalCompra = 0
+    let totalIva = 0
+
+    // Sumar totales de detalles
+    for (const detalle of detalles) {
+      subtotalCompra += detalle.Subtotal || 0
+      totalIva += (detalle.IvaUnitario || 0) * detalle.Cantidad
+    }
+
+    const totalMontoConIva = subtotalCompra + totalIva
+
+    // Actualizar compra
+    await comprasModel.update(detalleData.IdCompra, {
+      TotalMonto: subtotalCompra,
+      TotalIva: totalIva,
+      TotalMontoConIva: totalMontoConIva
+    })
+
+    res.status(201).json(detalleCreado)
+  } catch (error) {
+    console.error("Error al crear detalle de compra:", error)
+    res.status(500).json({ message: "Error en el servidor", error: error.message })
+  }
+},
 
   // Actualizar un detalle de compra
   update: async (req, res) => {
@@ -756,18 +766,18 @@ export const detalleComprasController = {
       let totalIva = 0
 
       // Sumar totales de detalles
-      for (const detalle of detallesActualizados) {
-        subtotalCompra += detalle.Subtotal
-        totalIva += detalle.IvaUnitario * detalle.Cantidad
-      }
+for (const detalle of detallesActualizados) {
+  subtotalCompra += detalle.Subtotal || 0
+  totalIva += (detalle.IvaUnitario || 0) * detalle.Cantidad
+}
 
-      const totalMonto = subtotalCompra + totalIva
+const totalMontoConIva = subtotalCompra + totalIva
 
-      // Actualizar compra
-      await connection.query(
-        `UPDATE Compras SET TotalMonto = ?, TotalIva = ?, TotalMontoConIva = ? WHERE IdCompra = ?`,
-        [subtotalCompra, totalIva, totalMonto, detalleActual.IdCompra],
-      )
+// Actualizar compra
+await connection.query(
+  `UPDATE Compras SET TotalMonto = ?, TotalIva = ?, TotalMontoConIva = ? WHERE IdCompra = ?`,
+  [subtotalCompra, totalIva, totalMontoConIva, detalleActual.IdCompra],
+)
 
       await connection.commit()
 
@@ -817,19 +827,19 @@ export const detalleComprasController = {
       let totalIva = 0
 
       // Sumar totales de detalles
-      for (const detalle of detallesActualizados) {
-        subtotalCompra += detalle.Subtotal
-        totalIva += detalle.IvaUnitario * detalle.Cantidad
-      }
+for (const detalle of detallesActualizados) {
+  subtotalCompra += detalle.Subtotal || 0
+  totalIva += (detalle.IvaUnitario || 0) * detalle.Cantidad
+}
 
-      const totalMonto = subtotalCompra + totalIva
+const totalMontoConIva = subtotalCompra + totalIva
 
-      // Actualizar compra
-      await comprasModel.update(detalleActual.IdCompra, {
-        Subtotal: subtotalCompra,
-        TotalIva: totalIva,
-        TotalMonto: totalMonto,
-      })
+// Actualizar compra
+await comprasModel.update(detalleActual.IdCompra, {
+  TotalMonto: subtotalCompra,
+  TotalIva: totalIva,
+  TotalMontoConIva: totalMontoConIva
+})
 
       res.status(200).json({ message: "Detalle de compra eliminado correctamente" })
     } catch (error) {

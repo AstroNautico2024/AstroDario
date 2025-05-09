@@ -494,21 +494,25 @@ export const ventasModel = {
     }
   },
   
-  // NUEVO: Obtener el ID de la mascota genérica
-  getMascotaGenericaId: async () => {
-    try {
-      const mascotas = await query(`SELECT IdMascota FROM Mascotas WHERE Nombre = 'Mascota Genérica' AND IdCliente = 3 LIMIT 1`)
+// NUEVO: Obtener el ID de la mascota genérica
+getMascotaGenericaId: async () => {
+  try {
+    const mascotas = await query(`
+      SELECT m.IdMascota 
+      FROM Mascotas m
+      WHERE m.Nombre = 'Mascota Genérica' AND m.IdCliente = 3 
+      LIMIT 1`)
 
-      if (mascotas.length > 0) {
-        return mascotas[0].IdMascota
-      }
-
-      return null // No se encontró la Mascota Genérica
-    } catch (error) {
-      console.error("Error en ventasModel.getMascotaGenericaId:", error)
-      throw error
+    if (mascotas.length > 0) {
+      return mascotas[0].IdMascota
     }
+
+    return null // No se encontró la Mascota Genérica
+  } catch (error) {
+    console.error("Error en ventasModel.getMascotaGenericaId:", error)
+    throw error
   }
+},
 }
 
 // Modelo para detalles de ventas
@@ -619,47 +623,49 @@ export const detalleVentasModel = {
 
 // Modelo para detalles de servicios en ventas
 export const detalleVentasServiciosModel = {
-  // Obtener detalles de servicios de una venta
-  getByVenta: async (idVenta) => {
-    try {
-      return await query(
-        `SELECT dvs.*, s.Nombre AS NombreServicio, st.Nombre AS TipoServicio,
-         m.Nombre AS NombreMascota, m.Tipo AS TipoMascota,
-         dvs.NombreMascotaTemporal, dvs.TipoMascotaTemporal
-         FROM DetalleVentasServicios dvs
-         LEFT JOIN Servicios s ON dvs.IdServicio = s.IdServicio
-         LEFT JOIN TiposServicio st ON s.IdTipoServicio = st.IdTipoServicio
-         LEFT JOIN Mascotas m ON dvs.IdMascota = m.IdMascota
-         WHERE dvs.IdVenta = ?`,
-        [idVenta],
-      )
-    } catch (error) {
-      console.error(`Error en detalleVentasServiciosModel.getByVenta(${idVenta}):`, error)
-      throw error
-    }
-  },
+// Obtener detalles de servicios de una venta
+getByVenta: async (idVenta) => {
+  try {
+    return await query(
+      `SELECT dvs.*, s.Nombre AS NombreServicio, st.Nombre AS TipoServicio,
+       m.Nombre AS NombreMascota, e.NombreEspecie AS TipoMascota,
+       dvs.NombreMascotaTemporal, dvs.TipoMascotaTemporal
+       FROM DetalleVentasServicios dvs
+       LEFT JOIN Servicios s ON dvs.IdServicio = s.IdServicio
+       LEFT JOIN Tipo_Servicio st ON s.IdTipoServicio = st.IdTipoServicio
+       LEFT JOIN Mascotas m ON dvs.IdMascota = m.IdMascota
+       LEFT JOIN Especies e ON m.IdEspecie = e.IdEspecie
+       WHERE dvs.IdVenta = ?`,
+      [idVenta],
+    )
+  } catch (error) {
+    console.error(`Error en detalleVentasServiciosModel.getByVenta(${idVenta}):`, error)
+    throw error
+  }
+},
 
-  // Obtener un detalle de servicio por ID
-  getById: async (id) => {
-    try {
-      const detalles = await query(
-        `SELECT dvs.*, s.Nombre AS NombreServicio, st.Nombre AS TipoServicio,
-         m.Nombre AS NombreMascota, m.Tipo AS TipoMascota,
-         dvs.NombreMascotaTemporal, dvs.TipoMascotaTemporal
-         FROM DetalleVentasServicios dvs
-         LEFT JOIN Servicios s ON dvs.IdServicio = s.IdServicio
-         LEFT JOIN TiposServicio st ON s.IdTipoServicio = st.IdTipoServicio
-         LEFT JOIN Mascotas m ON dvs.IdMascota = m.IdMascota
-         WHERE dvs.IdDetalleVentasServicios = ?`,
-        [id],
-      )
+// Obtener un detalle de servicio por ID
+getById: async (id) => {
+  try {
+    const detalles = await query(
+      `SELECT dvs.*, s.Nombre AS NombreServicio, st.Nombre AS TipoServicio,
+       m.Nombre AS NombreMascota, e.NombreEspecie AS TipoMascota,
+       dvs.NombreMascotaTemporal, dvs.TipoMascotaTemporal
+       FROM DetalleVentasServicios dvs
+       LEFT JOIN Servicios s ON dvs.IdServicio = s.IdServicio
+       LEFT JOIN Tipo_Servicio st ON s.IdTipoServicio = st.IdTipoServicio
+       LEFT JOIN Mascotas m ON dvs.IdMascota = m.IdMascota
+       LEFT JOIN Especies e ON m.IdEspecie = e.IdEspecie
+       WHERE dvs.IdDetalleVentasServicios = ?`,
+      [id],
+    )
 
-      return detalles.length > 0 ? detalles[0] : null
-    } catch (error) {
-      console.error(`Error en detalleVentasServiciosModel.getById(${id}):`, error)
-      throw error
-    }
-  },
+    return detalles.length > 0 ? detalles[0] : null
+  } catch (error) {
+    console.error(`Error en detalleVentasServiciosModel.getById(${id}):`, error)
+    throw error
+  }
+},
 
   // Crear un nuevo detalle de servicio
   create: async (detalleData) => {

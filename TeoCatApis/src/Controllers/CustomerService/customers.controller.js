@@ -367,8 +367,14 @@ export const mascotasController = {
       const mascotaData = req.body
 
       // Validar datos básicos
-      if (!mascotaData.Nombre || !mascotaData.Especie || !mascotaData.IdCliente) {
-        return res.status(400).json({ message: "Nombre, Especie e IdCliente son campos requeridos" })
+      if (!mascotaData.Nombre || !mascotaData.IdEspecie || !mascotaData.IdCliente) {
+        return res.status(400).json({ message: "Nombre, IdEspecie e IdCliente son campos requeridos" })
+      }
+
+      // Validar que la especie exista
+      const especie = await especiesModel.getById(mascotaData.IdEspecie)
+      if (!especie) {
+        return res.status(404).json({ message: "La especie especificada no existe" })
       }
 
       // Validar enumeraciones
@@ -376,13 +382,6 @@ export const mascotasController = {
       if (mascotaData.Tamaño && !tamañosValidos.includes(mascotaData.Tamaño)) {
         return res.status(400).json({
           message: "Tamaño no válido. Debe ser uno de: " + tamañosValidos.join(", "),
-        })
-      }
-
-      const pelajesValidos = ["Corto", "Medio", "Largo"]
-      if (mascotaData.Pelaje && !pelajesValidos.includes(mascotaData.Pelaje)) {
-        return res.status(400).json({
-          message: "Pelaje no válido. Debe ser uno de: " + pelajesValidos.join(", "),
         })
       }
 
@@ -436,6 +435,14 @@ export const mascotasController = {
       const mascota = await mascotasModel.getById(id)
       if (!mascota) {
         return res.status(404).json({ message: "Mascota no encontrada" })
+      }
+
+      // Si se está actualizando la especie, verificar que exista
+      if (mascotaData.IdEspecie) {
+        const especie = await especiesModel.getById(mascotaData.IdEspecie)
+        if (!especie) {
+          return res.status(404).json({ message: "La especie especificada no existe" })
+        }
       }
 
       // Verificar si se está actualizando el estado
@@ -575,9 +582,128 @@ export const mascotasController = {
       res.status(500).json({ message: "Error en el servidor", error: error.message })
     }
   },
+  
+}
+
+// Añadir controlador para especies
+export const especiesController = {
+  // Obtener todas las especies
+  getAll: async (req, res) => {
+    try {
+      const especies = await especiesModel.getAll()
+      res.status(200).json(especies)
+    } catch (error) {
+      console.error("Error al obtener especies:", error)
+      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    }
+  },
+
+  // Obtener una especie por ID
+  getById: async (req, res) => {
+    try {
+      const { id } = req.params
+      const especie = await especiesModel.getById(id)
+
+      if (!especie) {
+        return res.status(404).json({ message: "Especie no encontrada" })
+      }
+
+      res.status(200).json(especie)
+    } catch (error) {
+      console.error("Error al obtener especie:", error)
+      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    }
+  },
+
+  // Crear una nueva especie
+  create: async (req, res) => {
+    try {
+      const especieData = req.body
+
+      // Validar datos básicos
+      if (!especieData.NombreEspecie) {
+        return res.status(400).json({ message: "NombreEspecie es un campo requerido" })
+      }
+
+      // Verificar si ya existe una especie con el mismo nombre
+      const especies = await query(`SELECT * FROM Especies WHERE NombreEspecie = ?`, [especieData.NombreEspecie])
+      if (especies.length > 0) {
+        return res.status(400).json({ message: "Ya existe una especie con ese nombre" })
+      }
+
+      // Crear especie
+      const nuevaEspecie = await especiesModel.create(especieData)
+
+      res.status(201).json(nuevaEspecie)
+    } catch (error) {
+      console.error("Error al crear especie:", error)
+      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    }
+  },
+
+  // Actualizar una especie
+  update: async (req, res) => {
+    try {
+      const { id } = req.params
+      const especieData = req.body
+
+      // Verificar si la especie existe
+      const especie = await especiesModel.getById(id)
+      if (!especie) {
+        return res.status(404).json({ message: "Especie no encontrada" })
+      }
+
+      // Verificar si ya existe otra especie con el mismo nombre
+      if (especieData.NombreEspecie && especieData.NombreEspecie !== especie.NombreEspecie) {
+        const especies = await query(`SELECT * FROM Especies WHERE NombreEspecie = ?`, [especieData.NombreEspecie])
+        if (especies.length > 0) {
+          return res.status(400).json({ message: "Ya existe otra especie con ese nombre" })
+        }
+      }
+
+      // Actualizar especie
+      const updatedEspecie = await especiesModel.update(id, especieData)
+
+      res.status(200).json(updatedEspecie)
+    } catch (error) {
+      console.error(`Error al actualizar especie con ID ${req.params.id}:`, error)
+      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    }
+  },
+
+  // Eliminar una especie
+  delete: async (req, res) => {
+    try {
+      const { id } = req.params
+
+      // Verificar si la especie existe
+      const especie = await especiesModel.getById(id)
+      if (!especie) {
+        return res.status(404).json({ message: "Especie no encontrada" })
+      }
+
+      // Verificar si hay mascotas asociadas
+      const [mascotas] = await query(`SELECT COUNT(*) as count FROM Mascotas WHERE IdEspecie = ?`, [id])
+      if (mascotas[0].count > 0) {
+        return res.status(400).json({
+          message: "No se puede eliminar la especie porque tiene mascotas asociadas",
+          count: mascotas[0].count
+        })
+      }
+
+      // Eliminar especie
+      await especiesModel.delete(id)
+
+      res.status(200).json({ message: "Especie eliminada correctamente" })
+    } catch (error) {
+      console.error("Error al eliminar especie:", error)
+      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    }
+  },
 }
 
 export default {
   clientes: clientesController,
   mascotas: mascotasController,
+  especies: especiesController
 }
