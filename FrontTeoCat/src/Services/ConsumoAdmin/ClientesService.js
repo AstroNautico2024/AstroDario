@@ -58,46 +58,88 @@ const clientesService = {
       }
 
       // Preparar los datos en el formato que espera la API
+      // Asegurarse de que todos los campos estén definidos con valores por defecto
       const clienteFormateado = {
-        Documento: clienteData.Documento,
+        Documento: clienteData.Documento || "",
         Correo: clienteData.Correo,
         Nombre: clienteData.Nombre,
         Apellido: clienteData.Apellido,
-        Direccion: clienteData.Direccion,
-        Telefono: clienteData.Telefono,
+        Direccion: clienteData.Direccion || "",
+        Telefono: clienteData.Telefono || "",
         Estado: clienteData.Estado === "Activo" ? 1 : 0,
       }
 
       console.log("Datos enviados al crear cliente:", clienteFormateado)
-      const response = await axiosInstance.post("/customers/clientes", clienteFormateado)
+      
+      // Agregar un timeout para depurar posibles problemas de red
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 segundos de timeout
 
-      // Convertir el estado numérico a texto en la respuesta
-      const clienteRespuesta = response.data
-      if (typeof clienteRespuesta.Estado === "number") {
-        clienteRespuesta.Estado = clienteRespuesta.Estado === 1 ? "Activo" : "Inactivo"
+      try {
+        const response = await axiosInstance.post("/customers/clientes", clienteFormateado, {
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+
+        console.log("Respuesta completa del servidor:", response)
+
+        // Verificar si la respuesta contiene datos
+        if (!response.data) {
+          throw new Error("La respuesta del servidor no contiene datos")
+        }
+
+        // Normalizar la respuesta para asegurar que tenga IdCliente
+        const clienteRespuesta = response.data
+        
+        // Si la respuesta tiene 'id' pero no 'IdCliente', usar 'id' como 'IdCliente'
+        if (clienteRespuesta.id && !clienteRespuesta.IdCliente) {
+          clienteRespuesta.IdCliente = clienteRespuesta.id
+          console.log("ID normalizado: id → IdCliente:", clienteRespuesta.IdCliente)
+        }
+
+        // Convertir el estado numérico a texto en la respuesta
+        if (typeof clienteRespuesta.Estado === "number") {
+          clienteRespuesta.Estado = clienteRespuesta.Estado === 1 ? "Activo" : "Inactivo"
+        }
+
+        // Asegurarse de que el cliente tenga un ID
+        if (!clienteRespuesta.IdCliente) {
+          console.warn("El cliente devuelto no tiene ID:", clienteRespuesta)
+        }
+
+        return clienteRespuesta
+      } catch (fetchError) {
+        clearTimeout(timeoutId)
+        if (fetchError.name === "AbortError") {
+          throw new Error("La solicitud ha excedido el tiempo de espera")
+        }
+        throw fetchError
       }
-
-      return clienteRespuesta
     } catch (error) {
-      console.error("Error al crear cliente:", error)
+      console.error("Error detallado al crear cliente:", error)
 
       // Agregar más detalles sobre el error para depuración
       if (error.response) {
         console.error("Respuesta del servidor:", error.response.data)
         console.error("Estado HTTP:", error.response.status)
+        console.error("Cabeceras:", error.response.headers)
+      } else if (error.request) {
+        console.error("No se recibió respuesta:", error.request)
+      } else {
+        console.error("Error de configuración:", error.message)
       }
 
       // Manejar errores específicos del backend
       if (error.response && error.response.data) {
         const { message } = error.response.data
 
-        if (message.includes("correo electrónico ya está registrado")) {
+        if (message && message.includes("correo electrónico ya está registrado")) {
           const customError = new Error("El correo electrónico ya está registrado")
           customError.isEmailDuplicate = true
           throw customError
         }
 
-        if (message.includes("documento ya está registrado")) {
+        if (message && message.includes("documento ya está registrado")) {
           const customError = new Error("El número de documento ya está registrado")
           customError.isDocumentDuplicate = true
           throw customError
@@ -127,32 +169,76 @@ const clientesService = {
       }
 
       // Preparar los datos en el formato que espera la API
+      // Asegurarse de que todos los campos estén definidos con valores por defecto
       const clienteFormateado = {
-        Documento: clienteData.Documento,
+        Documento: clienteData.Documento || "",
         Correo: clienteData.Correo,
         Nombre: clienteData.Nombre,
         Apellido: clienteData.Apellido,
-        Direccion: clienteData.Direccion,
-        Telefono: clienteData.Telefono,
+        Direccion: clienteData.Direccion || "",
+        Telefono: clienteData.Telefono || "",
         Estado: clienteData.Estado === "Activo" ? 1 : 0,
       }
 
       console.log(`Actualizando cliente ID ${idNumerico} con datos:`, clienteFormateado)
-      const response = await axiosInstance.put(`/customers/clientes/${idNumerico}`, clienteFormateado)
+      
+      // Agregar un timeout para depurar posibles problemas de red
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 segundos de timeout
 
-      // Convertir el estado numérico a texto en la respuesta
-      const clienteRespuesta = response.data
-      if (typeof clienteRespuesta.Estado === "number") {
-        clienteRespuesta.Estado = clienteRespuesta.Estado === 1 ? "Activo" : "Inactivo"
+      try {
+        const response = await axiosInstance.put(`/customers/clientes/${idNumerico}`, clienteFormateado, {
+          signal: controller.signal,
+        })
+        clearTimeout(timeoutId)
+
+        console.log("Respuesta completa del servidor (actualización):", response)
+
+        // Verificar si la respuesta contiene datos
+        if (!response.data) {
+          throw new Error("La respuesta del servidor no contiene datos")
+        }
+
+        // Normalizar la respuesta para asegurar que tenga IdCliente
+        const clienteRespuesta = response.data
+        
+        // Si la respuesta tiene 'id' pero no 'IdCliente', usar 'id' como 'IdCliente'
+        if (clienteRespuesta.id && !clienteRespuesta.IdCliente) {
+          clienteRespuesta.IdCliente = clienteRespuesta.id
+          console.log("ID normalizado en actualización: id → IdCliente:", clienteRespuesta.IdCliente)
+        }
+
+        // Convertir el estado numérico a texto en la respuesta
+        if (typeof clienteRespuesta.Estado === "number") {
+          clienteRespuesta.Estado = clienteRespuesta.Estado === 1 ? "Activo" : "Inactivo"
+        }
+
+        // Asegurarse de que el cliente tenga un ID
+        if (!clienteRespuesta.IdCliente) {
+          console.warn("El cliente actualizado no tiene ID:", clienteRespuesta)
+          // Asignar el ID que conocemos
+          clienteRespuesta.IdCliente = idNumerico
+        }
+
+        return clienteRespuesta
+      } catch (fetchError) {
+        clearTimeout(timeoutId)
+        if (fetchError.name === "AbortError") {
+          throw new Error("La solicitud ha excedido el tiempo de espera")
+        }
+        throw fetchError
       }
-
-      return clienteRespuesta
     } catch (error) {
       console.error(`Error al actualizar cliente con ID ${id}:`, error)
 
+      // Mostrar detalles del error para depuración
       if (error.response) {
-        console.error("Respuesta del servidor:", error.response.data)
-        console.error("Estado HTTP:", error.response.status)
+        console.error("Respuesta del servidor:", error.response.status, error.response.data)
+        console.error("Cabeceras:", error.response.headers)
+      } else if (error.request) {
+        console.error("No se recibió respuesta:", error.request)
+      } else {
+        console.error("Error de configuración:", error.message)
       }
 
       throw error
@@ -280,8 +366,16 @@ const clientesService = {
 
         console.log(`Cliente actualizado exitosamente:`, response.data)
 
-        // Convertir el estado numérico a texto en la respuesta
+        // Normalizar la respuesta para asegurar que tenga IdCliente
         const clienteRespuesta = response.data
+        
+        // Si la respuesta tiene 'id' pero no 'IdCliente', usar 'id' como 'IdCliente'
+        if (clienteRespuesta.id && !clienteRespuesta.IdCliente) {
+          clienteRespuesta.IdCliente = clienteRespuesta.id
+          console.log("ID normalizado en updateStatus: id → IdCliente:", clienteRespuesta.IdCliente)
+        }
+
+        // Convertir el estado numérico a texto en la respuesta
         if (typeof clienteRespuesta.Estado === "number") {
           clienteRespuesta.Estado = clienteRespuesta.Estado === 1 ? "Activo" : "Inactivo"
         }

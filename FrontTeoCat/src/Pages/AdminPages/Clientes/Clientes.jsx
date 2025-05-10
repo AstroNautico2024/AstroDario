@@ -697,6 +697,29 @@ const Clientes = () => {
         Estado: "Activo",
       }
 
+      // Verificar que todos los campos requeridos tengan valores
+      const camposRequeridos = ["Documento", "Correo", "Nombre", "Apellido"]
+      const camposFaltantes = camposRequeridos.filter((campo) => !clienteData[campo])
+
+      if (camposFaltantes.length > 0) {
+        toast.error(
+          <div>
+            <strong>Error</strong>
+            <p>Faltan campos requeridos: {camposFaltantes.join(", ")}</p>
+          </div>,
+          {
+            position: "top-right",
+            autoClose: 4000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            toastId: `error-missing-${Date.now()}`,
+          },
+        )
+        return
+      }
+
       // Limpiar todas las notificaciones existentes para evitar duplicados
       toast.dismiss()
 
@@ -712,16 +735,19 @@ const Clientes = () => {
         },
       )
 
-      let updatedCliente
+      console.log("Datos del cliente a enviar:", clienteData)
+
+      let resultado
 
       if (currentCliente) {
         // Actualizar cliente existente
         console.log("Actualizando cliente:", clienteData)
-        updatedCliente = await clientesService.update(currentCliente.IdCliente, clienteData)
+        resultado = await clientesService.update(currentCliente.IdCliente, clienteData)
+        console.log("Respuesta de actualización:", resultado)
 
         // Asegurarnos que el cliente actualizado tenga el ID correcto
         const clienteConID = {
-          ...updatedCliente,
+          ...resultado,
           IdCliente: currentCliente.IdCliente, // Asegurar que el ID se mantenga
         }
 
@@ -760,10 +786,34 @@ const Clientes = () => {
       } else {
         // Crear nuevo cliente
         console.log("Creando nuevo cliente:", clienteData)
-        const newCliente = await clientesService.create(clienteData)
+        resultado = await clientesService.create(clienteData)
+        console.log("Respuesta de creación:", resultado)
 
-        // Actualizar estado local
-        setClientes([...clientes, newCliente])
+        // Verificar que la respuesta tenga un ID válido
+        if (!resultado || !resultado.IdCliente) {
+          console.error("Error: La respuesta no contiene un ID de cliente válido", resultado)
+          toast.dismiss(loadingToastId)
+          toast.error(
+            <div>
+              <strong>Error</strong>
+              <p>La respuesta del servidor no contiene un ID de cliente válido.</p>
+            </div>,
+            {
+              position: "top-right",
+              autoClose: 4000,
+              hideProgressBar: false,
+              closeOnClick: true,
+              pauseOnHover: true,
+              draggable: true,
+              toastId: `error-id-${Date.now()}`,
+            },
+          )
+          return
+        }
+
+        // Actualizar estado local con una copia profunda para evitar referencias
+        const nuevoCliente = JSON.parse(JSON.stringify(resultado))
+        setClientes((prevClientes) => [...prevClientes, nuevoCliente])
 
         // Descartar notificación de carga
         toast.dismiss(loadingToastId)

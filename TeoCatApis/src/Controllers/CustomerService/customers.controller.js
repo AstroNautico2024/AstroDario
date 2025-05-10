@@ -152,6 +152,8 @@ export const clientesController = {
         Estado: true,
       }
 
+      console.log("Datos de usuario a crear:", usuarioData)
+
       // Procesar imagen si se proporciona
       if (req.file) {
         try {
@@ -164,10 +166,58 @@ export const clientesController = {
 
       // Crear usuario
       const nuevoUsuario = await usuariosModel.create(usuarioData)
+      console.log("Usuario creado:", nuevoUsuario)
 
       // El trigger se encargará de crear el cliente automáticamente
       // Pero necesitamos obtener el ID del cliente para devolverlo
-      const nuevoCliente = await clientesModel.getByUsuario(nuevoUsuario.id)
+      console.log("Buscando cliente para usuario ID:", nuevoUsuario.id)
+      let nuevoCliente = await clientesModel.getByUsuario(nuevoUsuario.id)
+      console.log("Cliente obtenido por ID de usuario:", nuevoCliente)
+
+      // Si no se pudo obtener el cliente pero sabemos que existe
+      if (!nuevoCliente) {
+        console.warn("No se pudo obtener el cliente automáticamente, intentando consulta directa")
+        
+        // Intentar obtener el cliente directamente por correo (que debe ser único)
+        const clientesPorCorreo = await clientesModel.getByEmail(usuarioData.Correo)
+        
+        if (clientesPorCorreo) {
+          nuevoCliente = clientesPorCorreo
+          console.log("Cliente recuperado por correo:", nuevoCliente)
+        } else {
+          console.error("No se pudo recuperar el cliente ni por usuario ni por correo")
+          
+          // Crear el cliente manualmente si el trigger falló
+          console.log("Creando cliente manualmente...")
+          const clienteManual = {
+            IdUsuario: nuevoUsuario.id,
+            Documento: usuarioData.Documento,
+            Nombre: usuarioData.Nombre,
+            Apellido: usuarioData.Apellido,
+            Correo: usuarioData.Correo,
+            Telefono: usuarioData.Telefono,
+            Direccion: usuarioData.Direccion,
+            Estado: usuarioData.Estado ? 1 : 0
+          }
+          
+          nuevoCliente = await clientesModel.create(clienteManual)
+          console.log("Cliente creado manualmente:", nuevoCliente)
+        }
+      }
+
+      // Asegurarse de que el cliente tenga un estado válido para el frontend
+      if (nuevoCliente) {
+        // Si tiene id pero no IdCliente, copiar id a IdCliente
+        if (nuevoCliente.id && !nuevoCliente.IdCliente) {
+          nuevoCliente.IdCliente = nuevoCliente.id
+          console.log("Backend: ID normalizado de id a IdCliente:", nuevoCliente.IdCliente)
+        }
+        
+        // Normalizar el estado
+        if (typeof nuevoCliente.Estado === "number") {
+          nuevoCliente.Estado = nuevoCliente.Estado === 1 ? "Activo" : "Inactivo"
+        }
+      }
 
       // Enviar correo con credenciales temporales
       await sendWelcomeEmail(clienteData.Correo, clienteData.Nombre, tempPassword)
@@ -240,6 +290,20 @@ export const clientesController = {
       // Actualizar cliente
       const updatedCliente = await clientesModel.update(id, clienteData)
 
+      // Normalizar la respuesta para asegurar que tenga IdCliente
+      if (updatedCliente) {
+        // Si tiene id pero no IdCliente, copiar id a IdCliente
+        if (updatedCliente.id && !updatedCliente.IdCliente) {
+          updatedCliente.IdCliente = updatedCliente.id
+          console.log("Backend (update): ID normalizado de id a IdCliente:", updatedCliente.IdCliente)
+        }
+        
+        // Normalizar el estado
+        if (typeof updatedCliente.Estado === "number") {
+          updatedCliente.Estado = updatedCliente.Estado === 1 ? "Activo" : "Inactivo"
+        }
+      }
+
       // Si se actualizaron datos que también están en el usuario, actualizar el usuario
       if (
         cliente.IdUsuario &&
@@ -291,6 +355,9 @@ export const clientesController = {
         })
       }
 
+      // Guardar el ID de usuario para eliminarlo después
+      const idUsuario = cliente.IdUsuario
+
       // Eliminar imagen si existe
       if (cliente.Foto) {
         try {
@@ -304,8 +371,25 @@ export const clientesController = {
 
       // Eliminar cliente
       await clientesModel.delete(id)
+      
+      // Eliminar el usuario asociado si existe
+      if (idUsuario) {
+        try {
+          console.log(`Eliminando usuario asociado con ID ${idUsuario}`)
+          await usuariosModel.delete(idUsuario)
+          console.log(`Usuario con ID ${idUsuario} eliminado correctamente`)
+        } catch (userDeleteError) {
+          console.error(`Error al eliminar usuario asociado con ID ${idUsuario}:`, userDeleteError)
+          // No interrumpir el flujo si falla la eliminación del usuario
+          // pero informar en la respuesta
+          return res.status(200).json({ 
+            message: "Cliente eliminado correctamente, pero hubo un problema al eliminar el usuario asociado",
+            error: userDeleteError.message
+          })
+        }
+      }
 
-      res.status(200).json({ message: "Cliente eliminado correctamente" })
+      res.status(200).json({ message: "Cliente y usuario asociado eliminados correctamente" })
     } catch (error) {
       console.error("Error al eliminar cliente:", error)
       res.status(500).json({ message: "Error en el servidor", error: error.message })
