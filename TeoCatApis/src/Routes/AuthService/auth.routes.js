@@ -36,6 +36,7 @@ router.get("/roles/search", authMiddleware, validatePermission("Visualizar Roles
 router.get("/roles/:id", authMiddleware, validatePermission("Visualizar Roles"), rolesController.getById)
 router.post("/roles", authMiddleware, validatePermission("Crear Roles"), rolesController.create)
 router.put("/roles/:id", authMiddleware, validatePermission("Modificar Roles"), rolesController.update)
+router.patch("/roles/:id/status", authMiddleware, validatePermission("Cambiar Estado Roles"), rolesController.changeStatus)
 router.delete("/roles/:id", authMiddleware, validatePermission("Eliminar Roles"), rolesController.delete)
 router.get("/roles/:id/permisos", authMiddleware, validatePermission("Visualizar Roles"), rolesController.getPermisos)
 

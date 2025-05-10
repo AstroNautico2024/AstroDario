@@ -261,6 +261,37 @@ export const rolesController = {
     }
   },
 
+  // Cambiar estado de un rol
+changeStatus: async (req, res) => {
+  try {
+    const { id } = req.params
+    const { Estado } = req.body
+
+    if (Estado === undefined) {
+      return res.status(400).json({ message: "El estado es requerido" })
+    }
+
+    // Verificar si el rol existe
+    const rol = await rolesModel.getById(id)
+    if (!rol) {
+      return res.status(404).json({ message: "Rol no encontrado" })
+    }
+
+    // No permitir desactivar el rol de Super Administrador
+    if (id == 1 && Estado === false) {
+      return res.status(403).json({ message: "No se puede desactivar el rol de Super Administrador" })
+    }
+
+    // Cambiar estado
+    const result = await rolesModel.changeStatus(id, Estado)
+
+    res.status(200).json(result)
+  } catch (error) {
+    console.error("Error al cambiar estado del rol:", error)
+    res.status(500).json({ message: "Error en el servidor", error: error.message })
+  }
+},
+
   // Eliminar un rol
   delete: async (req, res) => {
     try {

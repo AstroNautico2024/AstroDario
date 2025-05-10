@@ -378,49 +378,51 @@ export const productosModel = {
   },
 
   createVariant: async (idProductoBase, varianteData) => {
-    // Obtener datos del producto base
-    const [productoBase] = await query(
-      `SELECT * FROM Productos WHERE IdProducto = ?`,
-      [idProductoBase]
-    );
-    
-    if (!productoBase) {
-      throw new Error('Producto base no encontrado');
-    }
-    
-    // Crear la variante con datos heredados del producto base
-    const result = await query(
-      `INSERT INTO Productos 
-      (IdCategoriaDeProducto, NombreProducto, Descripcion, Caracteristicas, 
-      Especificaciones, Stock, UnidadMedida, FactorConversion, Precio, 
-      PrecioVenta, MargenGanancia, AplicaIVA, PorcentajeIVA, FechaVencimiento, 
-      CodigoBarras, Referencia, Estado, Origen, EsVariante, ProductoBaseId) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)`,
-      [
-        productoBase.IdCategoriaDeProducto,
-        varianteData.NombreProducto || `${productoBase.NombreProducto} - Variante`,
-        varianteData.Descripcion || productoBase.Descripcion,
-        varianteData.Caracteristicas || productoBase.Caracteristicas,
-        varianteData.Especificaciones || productoBase.Especificaciones,
-        varianteData.Stock || 0,
-        varianteData.UnidadMedida || productoBase.UnidadMedida,
-        varianteData.FactorConversion || productoBase.FactorConversion,
-        varianteData.Precio || productoBase.Precio,
-        varianteData.PrecioVenta || productoBase.PrecioVenta,
-        varianteData.MargenGanancia || productoBase.MargenGanancia,
-        varianteData.AplicaIVA || productoBase.AplicaIVA,
-        varianteData.PorcentajeIVA || productoBase.PorcentajeIVA,
-        varianteData.FechaVencimiento || productoBase.FechaVencimiento,
-        varianteData.CodigoBarras || null,
-        varianteData.Referencia || null,
-        varianteData.Estado || true,
-        varianteData.Origen || productoBase.Origen,
-        idProductoBase
-      ]
-    );
-    
-    return { id: result.insertId, ...varianteData, EsVariante: true, ProductoBaseId: idProductoBase };
-  },
+  // Obtener datos del producto base
+  const productos = await query(
+    `SELECT * FROM Productos WHERE IdProducto = ?`,
+    [idProductoBase]
+  );
+  
+  if (productos.length === 0) {
+    throw new Error('Producto base no encontrado');
+  }
+  
+  const productoBase = productos[0];
+  
+  // Crear la variante con datos heredados del producto base
+  const result = await query(
+    `INSERT INTO Productos 
+    (IdCategoriaDeProducto, NombreProducto, Descripcion, Caracteristicas, 
+    Especificaciones, Stock, UnidadMedida, FactorConversion, Precio, 
+    PrecioVenta, MargenGanancia, AplicaIVA, PorcentajeIVA, FechaVencimiento, 
+    CodigoBarras, Referencia, Estado, Origen, EsVariante, ProductoBaseId) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)`,
+    [
+      productoBase.IdCategoriaDeProducto,
+      varianteData.NombreProducto || `${productoBase.NombreProducto} - Variante`,
+      varianteData.Descripcion || productoBase.Descripcion,
+      varianteData.Caracteristicas || productoBase.Caracteristicas,
+      varianteData.Especificaciones || productoBase.Especificaciones,
+      varianteData.Stock || 0,
+      varianteData.UnidadMedida || productoBase.UnidadMedida,
+      varianteData.FactorConversion || productoBase.FactorConversion,
+      varianteData.Precio || productoBase.Precio,
+      varianteData.PrecioVenta || productoBase.PrecioVenta,
+      varianteData.MargenGanancia || productoBase.MargenGanancia,
+      varianteData.AplicaIVA !== undefined ? varianteData.AplicaIVA : productoBase.AplicaIVA,
+      varianteData.PorcentajeIVA !== undefined ? varianteData.PorcentajeIVA : productoBase.PorcentajeIVA,
+      varianteData.FechaVencimiento || productoBase.FechaVencimiento,
+      varianteData.CodigoBarras || null,
+      varianteData.Referencia || null,
+      varianteData.Estado !== undefined ? varianteData.Estado : true,
+      varianteData.Origen || productoBase.Origen,
+      idProductoBase
+    ]
+  );
+  
+  return { id: result.insertId, ...varianteData, EsVariante: true, ProductoBaseId: idProductoBase };
+},
 
   // Método para calcular precio de venta basado en margen
   calcularPrecioVenta: async (id) => {
@@ -448,8 +450,179 @@ export const productosModel = {
     );
     
     return { id, precioVenta };
+  },
+
+  updateVariant: async (variantId, baseProductId, updateData) => {
+  try {
+    // Verificar que la variante existe y pertenece al producto base
+    const variant = await query(
+      `SELECT * FROM Productos WHERE IdProducto = ? AND EsVariante = TRUE AND ProductoBaseId = ?`,
+      [variantId, baseProductId]
+    );
+    
+    if (variant.length === 0) {
+      throw new Error('La variante no existe o no pertenece al producto base especificado');
+    }
+    
+    // Preparar los campos a actualizar
+    const fields = [];
+    const values = [];
+    
+    if (updateData.NombreProducto) {
+      fields.push('NombreProducto = ?');
+      values.push(updateData.NombreProducto);
+    }
+    
+    if (updateData.Descripcion !== undefined) {
+      fields.push('Descripcion = ?');
+      values.push(updateData.Descripcion);
+    }
+    
+    if (updateData.Caracteristicas !== undefined) {
+      fields.push('Caracteristicas = ?');
+      values.push(updateData.Caracteristicas);
+    }
+    
+    if (updateData.Especificaciones !== undefined) {
+      fields.push('Especificaciones = ?');
+      values.push(updateData.Especificaciones);
+    }
+    
+    if (updateData.Stock !== undefined) {
+      fields.push('Stock = ?');
+      values.push(updateData.Stock);
+    }
+    
+    if (updateData.UnidadMedida) {
+      fields.push('UnidadMedida = ?');
+      values.push(updateData.UnidadMedida);
+    }
+    
+    if (updateData.FactorConversion) {
+      fields.push('FactorConversion = ?');
+      values.push(updateData.FactorConversion);
+    }
+    
+    if (updateData.Precio !== undefined) {
+      fields.push('Precio = ?');
+      values.push(updateData.Precio);
+    }
+    
+    if (updateData.MargenGanancia !== undefined) {
+      fields.push('MargenGanancia = ?');
+      values.push(updateData.MargenGanancia);
+    }
+    
+    if (updateData.AplicaIVA !== undefined) {
+      fields.push('AplicaIVA = ?');
+      values.push(updateData.AplicaIVA);
+    }
+    
+    if (updateData.PorcentajeIVA !== undefined) {
+      fields.push('PorcentajeIVA = ?');
+      values.push(updateData.PorcentajeIVA);
+    }
+    
+    if (updateData.FechaVencimiento) {
+      fields.push('FechaVencimiento = ?');
+      values.push(updateData.FechaVencimiento);
+    }
+    
+    if (updateData.CodigoBarras) {
+      fields.push('CodigoBarras = ?');
+      values.push(updateData.CodigoBarras);
+    }
+    
+    if (updateData.Referencia) {
+      fields.push('Referencia = ?');
+      values.push(updateData.Referencia);
+    }
+    
+    if (updateData.Estado !== undefined) {
+      fields.push('Estado = ?');
+      values.push(updateData.Estado);
+    }
+    
+    // Si no hay campos para actualizar, retornar
+    if (fields.length === 0) {
+      return variant[0];
+    }
+    
+    // Construir y ejecutar la consulta de actualización
+    const updateQuery = `
+      UPDATE Productos 
+      SET ${fields.join(', ')} 
+      WHERE IdProducto = ? AND EsVariante = TRUE AND ProductoBaseId = ?
+    `;
+    
+    values.push(variantId);
+    values.push(baseProductId);
+    
+    await query(updateQuery, values);
+    
+    // Recalcular el precio de venta si se actualizó el precio o el margen
+    if (updateData.Precio !== undefined || updateData.MargenGanancia !== undefined) {
+      await productosModel.calcularPrecioVenta(variantId);
+    }
+    
+    // Obtener y retornar la variante actualizada
+    const updatedVariant = await query(
+      `SELECT * FROM Productos WHERE IdProducto = ?`,
+      [variantId]
+    );
+    
+    return updatedVariant[0];
+  } catch (error) {
+    console.error('Error al actualizar variante:', error);
+    throw error;
   }
+},
+
+  deleteVariant: async (idProductoBase, idVariante) => {
+  const connection = await getConnection();
+  try {
+    await connection.beginTransaction();
+    
+    // Verificar que la variante existe y pertenece al producto base
+    const [variantes] = await connection.query(
+      `SELECT * FROM Productos WHERE IdProducto = ? AND ProductoBaseId = ? AND EsVariante = TRUE`,
+      [idVariante, idProductoBase]
+    );
+    
+    if (variantes.length === 0) {
+      throw new Error('Variante no encontrada o no pertenece al producto base');
+    }
+    
+    // Eliminar atributos asociados
+    await connection.query(
+      `DELETE FROM ProductoAtributos WHERE IdProducto = ?`,
+      [idVariante]
+    );
+    
+    // Eliminar fotos asociadas
+    await connection.query(
+      `DELETE FROM FotosProducto WHERE IdProducto = ?`,
+      [idVariante]
+    );
+    
+    // Eliminar la variante
+    await connection.query(
+      `DELETE FROM Productos WHERE IdProducto = ?`,
+      [idVariante]
+    );
+    
+    await connection.commit();
+    return { idProductoBase, idVariante };
+  } catch (error) {
+    await connection.rollback();
+    throw error;
+  } finally {
+    connection.release();
+  }
+}
 };
+
+
 
 // Modelo para fotos de productos
 export const fotosProductoModel = {

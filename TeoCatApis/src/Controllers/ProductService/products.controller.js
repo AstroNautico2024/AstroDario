@@ -538,107 +538,107 @@ export const productosController = {
   
   // Nuevos métodos para variantes
   getVariants: async (req, res) => {
-    try {
-      const { id } = req.params;
-      
-      // Verificar si el producto existe
-      const existingProducto = await productosModel.getById(id);
-      if (!existingProducto) {
-        return res.status(404).json({ message: 'Producto no encontrado' });
-      }
-      
-      // Obtener variantes
-      const variantes = await productosModel.getVariants(id);
-      
-      // Para cada variante, obtener sus atributos
-      const variantesConAtributos = await Promise.all(
-        variantes.map(async (variante) => {
-          const atributos = await productoAtributosModel.getByProducto(variante.IdProducto);
-          const fotos = await fotosProductoModel.getByProducto(variante.IdProducto);
-          return {
-            ...variante,
-            atributos,
-            fotos
-          };
-        })
-      );
-      
-      res.status(200).json(variantesConAtributos);
-    } catch (error) {
-      console.error('Error al obtener variantes:', error);
-      res.status(500).json({ message: 'Error en el servidor', error: error.message });
+  try {
+    const { id } = req.params;
+    
+    // Verificar si el producto existe
+    const existingProducto = await productosModel.getById(id);
+    if (!existingProducto) {
+      return res.status(404).json({ message: 'Producto base no encontrado' });
     }
-  },
+    
+    // Obtener variantes
+    const variantes = await productosModel.getVariants(id);
+    
+    // Para cada variante, obtener sus atributos
+    const variantesConAtributos = await Promise.all(
+      variantes.map(async (variante) => {
+        const atributos = await productoAtributosModel.getByProducto(variante.IdProducto);
+        const fotos = await fotosProductoModel.getByProducto(variante.IdProducto);
+        return {
+          ...variante,
+          atributos,
+          fotos
+        };
+      })
+    );
+    
+    res.status(200).json(variantesConAtributos);
+  } catch (error) {
+    console.error('Error al obtener variantes:', error);
+    res.status(500).json({ message: 'Error en el servidor', error: error.message });
+  }
+},
 
   createVariant: async (req, res) => {
-    try {
-      const { id } = req.params;
-      let varianteData = req.body;
-      
-      // Verificar si el producto base existe
-      const productoBase = await productosModel.getById(id);
-      if (!productoBase) {
-        return res.status(404).json({ message: 'Producto base no encontrado' });
-      }
-      
-      // Verificar si el código de barras ya existe
-      if (varianteData.CodigoBarras) {
-        const existingBarcode = await productosModel.getByBarcode(varianteData.CodigoBarras);
-        if (existingBarcode) {
-          return res.status(400).json({ message: 'Ya existe un producto con ese código de barras' });
-        }
-      }
-      
-      // Verificar si la referencia ya existe
-      if (varianteData.Referencia) {
-        const existingReference = await productosModel.getByReference(varianteData.Referencia);
-        if (existingReference) {
-          return res.status(400).json({ message: 'Ya existe un producto con esa referencia' });
-        }
-      }
-      
-      // Crear la variante
-      const newVariante = await productosModel.createVariant(id, varianteData);
-      
-      // Procesar la imagen si existe
-      if (req.file) {
-        const result = await uploadToCloudinary(req.file.path);
-        
-        // Crear la foto en la tabla FotosProducto
-        await fotosProductoModel.create({
-          IdProducto: newVariante.id,
-          Url: result.secure_url,
-          EsPrincipal: true,
-          Orden: 1,
-          Estado: true
-        });
-      }
-      
-      // Procesar atributos si se proporcionan
-      if (varianteData.atributos && Array.isArray(varianteData.atributos)) {
-        try {
-          await productoAtributosModel.assignMultiple(newVariante.id, varianteData.atributos);
-        } catch (error) {
-          console.error('Error al asignar atributos:', error);
-          // No fallamos la creación de la variante si hay error en los atributos
-        }
-      }
-      
-      // Obtener la variante completa con sus relaciones
-      const varianteCompleta = await productosModel.getById(newVariante.id);
-      const fotos = await fotosProductoModel.getByProducto(newVariante.id);
-      const atributos = await productoAtributosModel.getByProducto(newVariante.id);
-      
-      res.status(201).json({
-        ...varianteCompleta,
-        fotos,
-        atributos
-      });
-    } catch (error) {
-      console.error('Error al crear variante:', error);
-      res.status(500).json({ message: 'Error en el servidor', error: error.message });
+  try {
+    const { id } = req.params;
+    let varianteData = req.body;
+    
+    // Verificar si el producto base existe
+    const productoBase = await productosModel.getById(id);
+    if (!productoBase) {
+      return res.status(404).json({ message: 'Producto base no encontrado' });
     }
-  },
+    
+    // Verificar si el código de barras ya existe
+    if (varianteData.CodigoBarras) {
+      const existingBarcode = await productosModel.getByBarcode(varianteData.CodigoBarras);
+      if (existingBarcode) {
+        return res.status(400).json({ message: 'Ya existe un producto con ese código de barras' });
+      }
+    }
+    
+    // Verificar si la referencia ya existe
+    if (varianteData.Referencia) {
+      const existingReference = await productosModel.getByReference(varianteData.Referencia);
+      if (existingReference) {
+        return res.status(400).json({ message: 'Ya existe un producto con esa referencia' });
+      }
+    }
+    
+    // Crear la variante
+    const newVariante = await productosModel.createVariant(id, varianteData);
+    
+    // Procesar la imagen si existe
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.path);
+      
+      // Crear la foto en la tabla FotosProducto
+      await fotosProductoModel.create({
+        IdProducto: newVariante.id,
+        Url: result.secure_url,
+        EsPrincipal: true,
+        Orden: 1,
+        Estado: true
+      });
+    }
+    
+    // Procesar atributos si se proporcionan
+    if (varianteData.atributos && Array.isArray(varianteData.atributos)) {
+      try {
+        await productoAtributosModel.assignMultiple(newVariante.id, varianteData.atributos);
+      } catch (error) {
+        console.error('Error al asignar atributos:', error);
+        // No fallamos la creación de la variante si hay error en los atributos
+      }
+    }
+    
+    // Obtener la variante completa con sus relaciones
+    const varianteCompleta = await productosModel.getById(newVariante.id);
+    const fotos = await fotosProductoModel.getByProducto(newVariante.id);
+    const atributos = await productoAtributosModel.getByProducto(newVariante.id);
+    
+    res.status(201).json({
+      ...varianteCompleta,
+      fotos,
+      atributos
+    });
+  } catch (error) {
+    console.error('Error al crear variante:', error);
+    res.status(500).json({ message: 'Error en el servidor', error: error.message });
+  }
+},
 
   calcularPrecioVenta: async (req, res) => {
     try {
@@ -658,8 +658,151 @@ export const productosController = {
       console.error('Error al calcular precio de venta:', error);
       res.status(500).json({ message: 'Error en el servidor', error: error.message });
     }
+  },
+
+  updateVariant: async (req, res) => {
+  try {
+    const { id, variantId } = req.params;
+    const { 
+      NombreProducto, 
+      Descripcion, 
+      Stock, 
+      Precio, 
+      CodigoBarras, 
+      Referencia,
+      MargenGanancia,
+      AplicaIVA,
+      PorcentajeIVA,
+      atributos
+    } = req.body;
+    
+    // Verificar si el producto base existe
+    const baseProduct = await productosModel.getById(id);
+    if (!baseProduct) {
+      return res.status(404).json({ message: 'Producto base no encontrado' });
+    }
+    
+    // Preparar datos para actualización
+    const updateData = {
+      NombreProducto,
+      Descripcion,
+      Stock,
+      Precio,
+      CodigoBarras,
+      Referencia,
+      MargenGanancia,
+      AplicaIVA,
+      PorcentajeIVA
+    };
+    
+    // Actualizar la variante usando el método específico del modelo
+    try {
+      await productosModel.updateVariant(variantId, id, updateData);
+    } catch (error) {
+      if (error.message.includes('no existe o no pertenece')) {
+        return res.status(404).json({ message: error.message });
+      }
+      throw error;
+    }
+    
+    // Actualizar atributos si se proporcionaron
+    if (atributos && atributos.length > 0) {
+      // Primero eliminar atributos existentes
+      const existingAttributes = await productoAtributosModel.getByProducto(variantId);
+      for (const attr of existingAttributes) {
+        await productoAtributosModel.delete(attr.IdProductoAtributo);
+      }
+      
+      // Luego asignar los nuevos atributos
+      await productoAtributosModel.assignMultiple(variantId, atributos);
+    }
+    
+    // Procesar imagen si se proporcionó
+    if (req.file) {
+      const imageUrl = `/uploads/${req.file.filename}`;
+      
+      // Verificar si ya tiene una foto principal
+      const mainPhoto = await fotosProductoModel.getMainByProducto(variantId);
+      
+      if (mainPhoto) {
+        // Actualizar la foto existente
+        await fotosProductoModel.update(mainPhoto.IdFoto, {
+          Url: imageUrl,
+          EsPrincipal: true
+        });
+      } else {
+        // Crear una nueva foto
+        await fotosProductoModel.create({
+          IdProducto: variantId,
+          Url: imageUrl,
+          EsPrincipal: true,
+          Orden: 1
+        });
+      }
+    }
+    
+    // Obtener la variante actualizada con sus atributos y fotos
+    const updatedVariant = await productosModel.getById(variantId);
+    const updatedAttributes = await productoAtributosModel.getByProducto(variantId);
+    const updatedPhotos = await fotosProductoModel.getByProducto(variantId);
+    
+    res.status(200).json({
+      message: 'Variante actualizada correctamente',
+      data: {
+        ...updatedVariant,
+        atributos: updatedAttributes,
+        fotos: updatedPhotos
+      }
+    });
+  } catch (error) {
+    console.error('Error al actualizar variante:', error);
+    res.status(500).json({ message: 'Error en el servidor', error: error.message });
   }
+},
+
+  deleteVariant: async (req, res) => {
+  try {
+    const { id, variantId } = req.params;
+    
+    // Verificar si el producto base existe
+    const productoBase = await productosModel.getById(id);
+    if (!productoBase) {
+      return res.status(404).json({ message: 'Producto base no encontrado' });
+    }
+    
+    // Verificar si la variante existe
+    const variante = await productosModel.getById(variantId);
+    if (!variante) {
+      return res.status(404).json({ message: 'Variante no encontrada' });
+    }
+    
+    // Verificar que la variante pertenece al producto base
+    if (variante.ProductoBaseId != id || !variante.EsVariante) {
+      return res.status(400).json({ message: 'La variante no pertenece al producto base especificado' });
+    }
+    
+    // Eliminar fotos de Cloudinary
+    const fotos = await fotosProductoModel.getByProducto(variantId);
+    for (const foto of fotos) {
+      try {
+        const publicId = foto.Url.split('/').pop().split('.')[0];
+        await deleteFromCloudinary(publicId);
+      } catch (error) {
+        console.error('Error al eliminar imagen de Cloudinary:', error);
+      }
+    }
+    
+    // Eliminar la variante usando el modelo
+    await productosModel.deleteVariant(id, variantId);
+    
+    res.status(200).json({ message: 'Variante eliminada correctamente' });
+  } catch (error) {
+    console.error('Error al eliminar variante:', error);
+    res.status(500).json({ message: 'Error en el servidor', error: error.message });
+  }
+}
 };
+
 
 // Controlador para fotos de productos
 export const fotosProductoController = {

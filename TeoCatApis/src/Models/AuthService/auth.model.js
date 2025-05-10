@@ -76,6 +76,12 @@ export const rolesModel = {
     return { id, ...rolData }
   },
 
+  // Cambiar estado de un rol
+changeStatus: async (id, estado) => {
+  await query(`UPDATE Roles SET Estado = ? WHERE IdRol = ?`, [estado, id])
+  return { id, Estado: estado }
+},
+
   // Eliminar un rol
   delete: async (id) => {
     await query(`DELETE FROM Roles WHERE IdRol = ?`, [id])

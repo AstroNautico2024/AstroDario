@@ -1,5 +1,3 @@
-// src/Routes/ProductService/products.routes.js
-
 import express from 'express';
 import { categoriasController, productosController, fotosProductoController, tiposAtributosController, valoresAtributosController, productoAtributosController } from '../../Controllers/ProductService/products.controller.js';
 import { authMiddleware } from '../../Middlewares/auth.middleware.js';
@@ -18,33 +16,6 @@ router.put('/categorias/:id', authMiddleware, validatePermission('Modificar Cate
 router.patch('/categorias/:id/status', authMiddleware, validatePermission('Cambiar Estado Categorias'), categoriasController.changeStatus);
 router.delete('/categorias/:id', authMiddleware, validatePermission('Eliminar Categorias'), categoriasController.delete);
 
-// Rutas para productos (existentes y actualizadas)
-router.get('/productos', authMiddleware, validatePermission('Visualizar Productos'), productosController.getAll);
-router.get('/productos/search', authMiddleware, validatePermission('Visualizar Productos'), productosController.search);
-router.get('/productos/low-stock', authMiddleware, validatePermission('Visualizar Productos'), productosController.getLowStock);
-router.get('/productos/near-expiry', authMiddleware, validatePermission('Visualizar Productos'), productosController.getNearExpiry);
-router.get('/productos/:id', authMiddleware, validatePermission('Visualizar Productos'), productosController.getById);
-router.get('/productos/categoria/:id', authMiddleware, validatePermission('Visualizar Productos'), productosController.getByCategoria);
-router.post('/productos', authMiddleware, validatePermission('Crear Productos'), uploadMiddleware.single('imagen'), productosController.create);
-router.put('/productos/:id', authMiddleware, validatePermission('Modificar Productos'), uploadMiddleware.single('imagen'), productosController.update);
-router.patch('/productos/:id/status', authMiddleware, validatePermission('Cambiar Estado Productos'), productosController.changeStatus);
-router.patch('/productos/:id/stock', authMiddleware, validatePermission('Modificar Productos'), productosController.updateStock);
-router.delete('/productos/:id', authMiddleware, validatePermission('Eliminar Productos'), productosController.delete);
-
-// Nuevas rutas para variantes de productos
-router.get('/productos/:id/variantes', authMiddleware, validatePermission('Visualizar Productos'), productosController.getVariants);
-router.post('/productos/:id/variantes', authMiddleware, validatePermission('Crear Productos'), uploadMiddleware.single('imagen'), productosController.createVariant);
-router.patch('/productos/:id/precio-venta', authMiddleware, validatePermission('Modificar Productos'), productosController.calcularPrecioVenta);
-
-// Nuevas rutas para fotos de productos
-router.get('/productos/:idProducto/fotos', authMiddleware, validatePermission('Visualizar Productos'), fotosProductoController.getByProducto);
-router.post('/productos/:idProducto/fotos', authMiddleware, validatePermission('Modificar Productos'), uploadMiddleware.single('imagen'), fotosProductoController.create);
-router.get('/fotos/:id', authMiddleware, validatePermission('Visualizar Productos'), fotosProductoController.getById);
-router.put('/fotos/:id', authMiddleware, validatePermission('Modificar Productos'), uploadMiddleware.single('imagen'), fotosProductoController.update);
-router.delete('/fotos/:id', authMiddleware, validatePermission('Modificar Productos'), fotosProductoController.delete);
-router.patch('/productos/:idProducto/fotos/:idFoto/principal', authMiddleware, validatePermission('Modificar Productos'), fotosProductoController.setPrincipal);
-router.patch('/productos/:idProducto/fotos/reordenar', authMiddleware, validatePermission('Modificar Productos'), fotosProductoController.reordenar);
-
 // Nuevas rutas para tipos de atributos
 router.get('/atributos/tipos', authMiddleware, validatePermission('Visualizar Productos'), tiposAtributosController.getAll);
 router.get('/atributos/tipos/:id', authMiddleware, validatePermission('Visualizar Productos'), tiposAtributosController.getById);
@@ -62,11 +33,41 @@ router.put('/atributos/valores/:id', authMiddleware, validatePermission('Modific
 router.delete('/atributos/valores/:id', authMiddleware, validatePermission('Eliminar Productos'), valoresAtributosController.delete);
 router.patch('/atributos/valores/:id/status', authMiddleware, validatePermission('Cambiar Estado Productos'), valoresAtributosController.changeStatus);
 
+// Rutas para productos (existentes y actualizadas)
+router.get('/productos', authMiddleware, validatePermission('Visualizar Productos'), productosController.getAll);
+router.get('/productos/search', authMiddleware, validatePermission('Visualizar Productos'), productosController.search);
+router.get('/productos/low-stock', authMiddleware, validatePermission('Visualizar Productos'), productosController.getLowStock);
+router.get('/productos/near-expiry', authMiddleware, validatePermission('Visualizar Productos'), productosController.getNearExpiry);
+router.get('/productos/:id', authMiddleware, validatePermission('Visualizar Productos'), productosController.getById);
+router.get('/productos/categoria/:id', authMiddleware, validatePermission('Visualizar Productos'), productosController.getByCategoria);
+router.post('/productos', authMiddleware, validatePermission('Crear Productos'), uploadMiddleware.single('imagen'), productosController.create);
+router.put('/productos/:id', authMiddleware, validatePermission('Modificar Productos'), uploadMiddleware.single('imagen'), productosController.update);
+router.patch('/productos/:id/status', authMiddleware, validatePermission('Cambiar Estado Productos'), productosController.changeStatus);
+router.patch('/productos/:id/stock', authMiddleware, validatePermission('Modificar Productos'), productosController.updateStock);
+router.delete('/productos/:id', authMiddleware, validatePermission('Eliminar Productos'), productosController.delete);
+
+// Nuevas rutas para fotos de productos
+router.get('/productos/:idProducto/fotos', authMiddleware, validatePermission('Visualizar Productos'), fotosProductoController.getByProducto);
+router.post('/productos/:idProducto/fotos', authMiddleware, validatePermission('Modificar Productos'), uploadMiddleware.single('imagen'), fotosProductoController.create);
+router.get('/fotos/:id', authMiddleware, validatePermission('Visualizar Productos'), fotosProductoController.getById);
+router.put('/fotos/:id', authMiddleware, validatePermission('Modificar Productos'), uploadMiddleware.single('imagen'), fotosProductoController.update);
+router.delete('/fotos/:id', authMiddleware, validatePermission('Modificar Productos'), fotosProductoController.delete);
+router.patch('/productos/:idProducto/fotos/:idFoto/principal', authMiddleware, validatePermission('Modificar Productos'), fotosProductoController.setPrincipal);
+router.patch('/productos/:idProducto/fotos/reordenar', authMiddleware, validatePermission('Modificar Productos'), fotosProductoController.reordenar);
+
 // Nuevas rutas para atributos de productos
 router.get('/productos/:idProducto/atributos', authMiddleware, validatePermission('Visualizar Productos'), productoAtributosController.getByProducto);
 router.post('/productos/:idProducto/atributos', authMiddleware, validatePermission('Modificar Productos'), productoAtributosController.create);
 router.put('/atributos/:id', authMiddleware, validatePermission('Modificar Productos'), productoAtributosController.update);
 router.delete('/atributos/:id', authMiddleware, validatePermission('Modificar Productos'), productoAtributosController.delete);
 router.post('/productos/:idProducto/atributos/multiple', authMiddleware, validatePermission('Modificar Productos'), productoAtributosController.assignMultiple);
+
+// Nuevas rutas para variantes de productos
+router.get('/productos/:id/variantes', authMiddleware, validatePermission('Visualizar Productos'), productosController.getVariants);
+router.post('/productos/:id/variantes', authMiddleware, validatePermission('Crear Productos'), uploadMiddleware.single('imagen'), productosController.createVariant);
+router.patch('/productos/:id/precio-venta', authMiddleware, validatePermission('Modificar Productos'), productosController.calcularPrecioVenta);
+router.put('/productos/:id/variantes/:variantId', authMiddleware, validatePermission('Modificar Productos'), uploadMiddleware.single('imagen'), productosController.updateVariant);
+router.delete('/productos/:id/variantes/:variantId', authMiddleware, validatePermission('Eliminar Productos'), productosController.deleteVariant);
+
 
 export default router;
