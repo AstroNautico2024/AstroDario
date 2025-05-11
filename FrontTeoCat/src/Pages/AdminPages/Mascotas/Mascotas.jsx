@@ -41,7 +41,6 @@ const Mascotas = () => {
     especie: "",
     raza: "",
     tamaño: "",
-    pelaje: "",
     fechaNacimiento: "",
   })
 
@@ -223,7 +222,6 @@ const Mascotas = () => {
       especie: mascota.Especie,
       raza: mascota.Raza,
       tamaño: mascota.Tamaño,
-      pelaje: mascota.Pelaje,
       fechaNacimiento: mascota.FechaNacimiento ? mascota.FechaNacimiento.split("T")[0] : "",
     })
 
@@ -254,7 +252,6 @@ const Mascotas = () => {
       especie: mascota.Especie,
       raza: mascota.Raza,
       tamaño: mascota.Tamaño,
-      pelaje: mascota.Pelaje,
       fechaNacimiento: mascota.FechaNacimiento ? mascota.FechaNacimiento.split("T")[0] : "",
     })
 
@@ -608,7 +605,6 @@ const Mascotas = () => {
       especie: "",
       raza: "",
       tamaño: "",
-      pelaje: "",
       fechaNacimiento: "",
     })
 
@@ -788,12 +784,12 @@ const Mascotas = () => {
     try {
       // Preparar datos para enviar al servidor
       const mascotaData = {
-        IdCliente: formData.cliente,
+        // CORRECCIÓN: Convertir IdCliente a número
+        IdCliente: parseInt(formData.cliente),
         Nombre: formData.nombre,
         Especie: formData.especie,
         Raza: formData.raza,
         Tamaño: formData.tamaño,
-        Pelaje: formData.pelaje,
         FechaNacimiento: formData.fechaNacimiento,
         // IMPORTANTE: Usar FotoURL para la UI, pero el servicio lo convertirá a Foto para la BD
         FotoURL: fotoPreview,
@@ -961,6 +957,11 @@ const Mascotas = () => {
               <strong>Error al {currentMascota ? "actualizar" : "crear"} mascota</strong>
               <p>Ocurrió un problema al procesar la solicitud.</p>
               {error.message && <p className="text-sm text-red-600">Detalles: {error.message}</p>}
+              {error.response && error.response.data && (
+                <p className="text-sm text-red-600">
+                  Respuesta del servidor: {JSON.stringify(error.response.data)}
+                </p>
+              )}
             </div>,
             {
               position: "top-right",
@@ -1069,12 +1070,6 @@ const Mascotas = () => {
     { value: "Grande", label: "Grande" },
   ]
 
-  const pelajesOptions = [
-    { value: "Corto", label: "Corto" },
-    { value: "Medio", label: "Medio" },
-    { value: "Largo", label: "Largo" },
-  ]
-
   /**
    * Efecto para inicializar el modal de Bootstrap
    */
@@ -1138,7 +1133,6 @@ const Mascotas = () => {
         fotoPreview={fotoPreview}
         especiesOptions={especiesOptions}
         tamañosOptions={tamañosOptions}
-        pelajesOptions={pelajesOptions}
         clientesOptions={clientesOptions}
         onInputChange={handleInputChange}
         onSelectCliente={handleSelectCliente}

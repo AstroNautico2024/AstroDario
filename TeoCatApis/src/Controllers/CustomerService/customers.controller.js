@@ -1,4 +1,4 @@
-import { clientesModel, mascotasModel } from "../../Models/CustomerService/customers.model.js"
+import { clientesModel, mascotasModel,especiesModel } from "../../Models/CustomerService/customers.model.js"
 import { usuariosModel, tokensRecuperacionModel } from "../../Models/AuthService/auth.model.js"
 import { uploadToCloudinary, deleteFromCloudinary, uploadImage } from "../../Utils/Cloudinary.js"
 import { query } from "../../Config/Database.js"

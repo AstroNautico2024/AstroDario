@@ -1,4 +1,4 @@
-import { Save, PawPrint, Upload } from "lucide-react"
+import { Save, PawPrint, Upload } from 'lucide-react'
 
 /**
  * Componente de formulario para crear/editar/ver mascotas
@@ -10,7 +10,6 @@ const MascotaForm = ({
   fotoPreview,
   especiesOptions = [],
   tamañosOptions = [],
-  pelajesOptions = [],
   clientesOptions = [],
   onInputChange,
   onSelectCliente,
@@ -148,30 +147,6 @@ const MascotaForm = ({
                   </select>
                 </div>
                 <div className="col-md-6">
-                  <label htmlFor="pelaje" className="form-label">
-                    Pelaje <span className="text-danger">*</span>
-                  </label>
-                  <select
-                    className="form-select"
-                    id="pelaje"
-                    name="pelaje"
-                    value={formData.pelaje}
-                    onChange={onInputChange}
-                    disabled={isViewMode}
-                    required
-                  >
-                    <option value="">Seleccione un tipo de pelaje</option>
-                    {pelajesOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div className="row mb-3">
-                <div className="col-md-12">
                   <label htmlFor="fechaNacimiento" className="form-label">
                     Fecha de Nacimiento <span className="text-danger">*</span>
                   </label>
