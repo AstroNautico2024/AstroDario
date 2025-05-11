@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import DataTable from "../../../Components/AdminComponents/DataTable"
 import TableActions from "../../../Components/AdminComponents/TableActions"
 import "../../../Styles/AdminStyles/Usuarios.css"
@@ -8,7 +8,8 @@ import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/ToastStyles.css"
 import UserForm from "../../../Components/AdminComponents/UsuariosComponents/UserForm"
-import StatusConfirmModal from "../../../Components/AdminComponents/UsuariosComponents/StatusConfirmModal"
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay" // Nuevo componente
+import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog" // Nuevo componente
 import usuariosService from "../../../Services/ConsumoAdmin/usuariosService"
 import rolesService from "../../../Services/ConsumoAdmin/rolesService"
 
@@ -57,9 +58,55 @@ const Usuarios = () => {
     confirmarContrasena: "",
   })
 
-  // Estado para el modal de confirmación de cambio de estado
+  // Estado para los diálogos de confirmación
   const [showStatusConfirm, setShowStatusConfirm] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showEditConfirm, setShowEditConfirm] = useState(false)
   const [userToToggle, setUserToToggle] = useState(null)
+  const [userToDelete, setUserToDelete] = useState(null)
+  const [userToEdit, setUserToEdit] = useState(null)
+
+  // Estado para el indicador de carga
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
+
+  // Añadir estos nuevos estados para manejar las notificaciones pendientes
+  const pendingToastRef = useRef(null)
+  const toastShownRef = useRef(false)
+
+  // Función para mostrar toast después de que el loading se oculte
+  const showPendingToast = () => {
+    if (pendingToastRef.current && !toastShownRef.current) {
+      const { type, message } = pendingToastRef.current
+
+      // Marcar como mostrado
+      toastShownRef.current = true
+
+      // Limpiar todas las notificaciones existentes primero
+      toast.dismiss()
+
+      // Mostrar la notificación después de un pequeño retraso
+      setTimeout(() => {
+        toast[type](message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+          onClose: () => {
+            // Resetear cuando se cierra la notificación
+            pendingToastRef.current = null
+            // Esperar un momento antes de permitir nuevas notificaciones
+            setTimeout(() => {
+              toastShownRef.current = false
+            }, 300)
+          },
+        })
+      }, 300)
+    }
+  }
 
   /**
    * Efecto para cargar datos iniciales
@@ -113,16 +160,32 @@ const Usuarios = () => {
       } catch (err) {
         console.error("Error al cargar datos:", err)
         setError("Error al cargar los datos. Por favor, intente nuevamente.")
-        toast.error("Error al cargar los datos", {
-          position: "top-right",
-          autoClose: 5000,
-        })
+
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "error",
+          message: "Error al cargar los datos",
+        }
       } finally {
         setLoading(false)
+        // Mostrar cualquier notificación pendiente después de que se complete la carga
+        showPendingToast()
       }
     }
 
+    // Limpiar todas las notificaciones al montar
+    toast.dismiss()
+    pendingToastRef.current = null
+    toastShownRef.current = false
+
     fetchData()
+
+    return () => {
+      // Limpiar todas las notificaciones al desmontar
+      toast.dismiss()
+      pendingToastRef.current = null
+      toastShownRef.current = false
+    }
   }, [])
 
   // Modificar la definición de columnas para asegurar que el documento se muestre correctamente
@@ -160,11 +223,12 @@ const Usuarios = () => {
       header: "Acciones",
       render: (row) => (
         <TableActions
-          actions={["view", "edit", "toggleStatus"]}
+          actions={["view", "edit", "toggleStatus", "delete"]}
           row={row}
           onView={handleView}
-          onEdit={handleEdit}
+          onEdit={handleConfirmEdit}
           onToggleStatus={handleConfirmToggleStatus}
+          onDelete={handleConfirmDelete}
           disableToggle={row.IdRol === 1} // No permitir desactivar al Super Admin
         />
       ),
@@ -175,76 +239,118 @@ const Usuarios = () => {
    * Manejador para ver detalles de un usuario
    * @param {Object} user - Objeto de usuario a visualizar
    */
-  const handleView = (user) => {
-    setCurrentUser(user)
-    setModalTitle("Ver Detalles del Usuario")
+  const handleView = async (user) => {
+    try {
+      setIsProcessing(true)
+      setProcessingMessage("Cargando detalles del usuario...")
 
-    // Cargar datos del usuario en el formulario
-    setFormData({
-      documento: user.Documento,
-      correo: user.Correo,
-      nombre: user.Nombre,
-      apellido: user.Apellido || "",
-      telefono: user.Telefono || "",
-      direccion: user.Direccion || "",
-      foto: user.FotoURL || "",
-      rol: user.Rol?.IdRol || "",
-      contrasena: "********", // Placeholder para contraseña
-      confirmarContrasena: "********", // Placeholder para confirmar contraseña
-    })
+      setCurrentUser(user)
+      setModalTitle("Ver Detalles del Usuario")
 
-    // Resetear errores
-    setFormErrors({
-      documento: "",
-      correo: "",
-      nombre: "",
-      apellido: "",
-      telefono: "",
-      direccion: "",
-      rol: "",
-      contrasena: "",
-      confirmarContrasena: "",
-    })
+      // Cargar datos del usuario en el formulario
+      setFormData({
+        documento: user.Documento,
+        correo: user.Correo,
+        nombre: user.Nombre,
+        apellido: user.Apellido || "",
+        telefono: user.Telefono || "",
+        direccion: user.Direccion || "",
+        foto: user.FotoURL || "",
+        rol: user.Rol?.IdRol || "",
+        contrasena: "********", // Placeholder para contraseña
+        confirmarContrasena: "********", // Placeholder para confirmar contraseña
+      })
 
-    setShowModal(true)
+      // Resetear errores
+      setFormErrors({
+        documento: "",
+        correo: "",
+        nombre: "",
+        apellido: "",
+        telefono: "",
+        direccion: "",
+        rol: "",
+        contrasena: "",
+        confirmarContrasena: "",
+      })
+
+      setIsProcessing(false)
+      setShowModal(true)
+    } catch (err) {
+      setIsProcessing(false)
+      console.error("Error al cargar detalles del usuario:", err)
+
+      // En caso de error, guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los detalles del usuario",
+      }
+      showPendingToast()
+    }
   }
 
   /**
-   * Manejador para editar un usuario
+   * Manejador para confirmar la edición de un usuario
    * @param {Object} user - Objeto de usuario a editar
    */
-  const handleEdit = (user) => {
-    setCurrentUser(user)
-    setModalTitle("Editar Usuario")
+  const handleConfirmEdit = (user) => {
+    setUserToEdit(user)
+    setShowEditConfirm(true)
+  }
 
-    // Cargar datos del usuario en el formulario
-    setFormData({
-      documento: user.Documento,
-      correo: user.Correo,
-      nombre: user.Nombre,
-      apellido: user.Apellido || "",
-      telefono: user.Telefono || "",
-      direccion: user.Direccion || "",
-      foto: user.FotoURL || "",
-      rol: user.Rol?.IdRol || "",
-      contrasena: "", // Vacío para edición
-      confirmarContrasena: "", // Vacío para edición
-    })
+  /**
+   * Función para confirmar la edición
+   */
+  const confirmEdit = async () => {
+    try {
+      setShowEditConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage("Cargando datos del usuario...")
 
-    // Resetear errores
-    setFormErrors({
-      documento: "",
-      correo: "",
-      nombre: "",
-      apellido: "",
-      telefono: "",
-      direccion: "",
-      rol: "",
-      contrasena: "",
-      confirmarContrasena: "",
-    })
+      const user = userToEdit
+      setCurrentUser(user)
+      setModalTitle("Editar Usuario")
 
-    setShowModal(true)
+      // Cargar datos del usuario en el formulario
+      setFormData({
+        documento: user.Documento,
+        correo: user.Correo,
+        nombre: user.Nombre,
+        apellido: user.Apellido || "",
+        telefono: user.Telefono || "",
+        direccion: user.Direccion || "",
+        foto: user.FotoURL || "",
+        rol: user.Rol?.IdRol || "",
+        contrasena: "", // Vacío para edición
+        confirmarContrasena: "", // Vacío para edición
+      })
+
+      // Resetear errores
+      setFormErrors({
+        documento: "",
+        correo: "",
+        nombre: "",
+        apellido: "",
+        telefono: "",
+        direccion: "",
+        rol: "",
+        contrasena: "",
+        confirmarContrasena: "",
+      })
+
+      setIsProcessing(false)
+      setShowModal(true)
+    } catch (err) {
+      setIsProcessing(false)
+      console.error("Error al cargar datos para editar usuario:", err)
+
+      // En caso de error, guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los datos para editar el usuario",
+      }
+      showPendingToast()
+    }
   }
 
   /**
@@ -257,12 +363,29 @@ const Usuarios = () => {
   }
 
   /**
+   * Manejador para confirmar la eliminación de un usuario
+   * @param {Object} user - Objeto de usuario a eliminar
+   */
+  const handleConfirmDelete = (user) => {
+    setUserToDelete(user)
+    setShowDeleteConfirm(true)
+  }
+
+  /**
    * Manejador para cambiar el estado de un usuario (Activo/Inactivo)
    */
   const handleToggleStatus = async () => {
     if (!userToToggle) return
 
     try {
+      setShowStatusConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage(`Cambiando estado del usuario...`)
+
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+
       // Cambiar el estado del usuario
       const nuevoEstado = !userToToggle.Estado
       await usuariosService.changeStatus(userToToggle.IdUsuario, nuevoEstado)
@@ -280,23 +403,71 @@ const Usuarios = () => {
 
       setUsuarios(updatedUsers)
 
-      // Añadir notificación
+      // Guardar el toast para después
       const newStatus = nuevoEstado ? "activo" : "inactivo"
-      toast.success(`El usuario "${userToToggle.Nombre}" ahora está ${newStatus}`, {
-        position: "top-right",
-        autoClose: 5000,
-      })
+      pendingToastRef.current = {
+        type: "success",
+        message: `El usuario "${userToToggle.Nombre}" ahora está ${newStatus}`,
+      }
+
+      setIsProcessing(false)
     } catch (error) {
+      setIsProcessing(false)
       console.error("Error al cambiar estado del usuario:", error)
-      toast.error("Error al cambiar el estado del usuario", {
-        position: "top-right",
-        autoClose: 5000,
-      })
+
+      // En caso de error, también guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cambiar el estado del usuario",
+      }
     }
 
     // Cerrar el modal de confirmación
-    setShowStatusConfirm(false)
     setUserToToggle(null)
+  }
+
+  /**
+   * Manejador para eliminar un usuario
+   */
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return
+
+    try {
+      setShowDeleteConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage("Eliminando usuario...")
+
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+
+      // Eliminar el usuario
+      await usuariosService.delete(userToDelete.IdUsuario)
+
+      // Actualizar la lista de usuarios
+      const updatedUsers = usuarios.filter((u) => u.IdUsuario !== userToDelete.IdUsuario)
+      setUsuarios(updatedUsers)
+
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "success",
+        message: `El usuario "${userToDelete.Nombre}" ha sido eliminado correctamente`,
+      }
+
+      setIsProcessing(false)
+    } catch (error) {
+      setIsProcessing(false)
+      console.error("Error al eliminar el usuario:", error)
+
+      // En caso de error, también guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al eliminar el usuario",
+      }
+    }
+
+    // Cerrar el modal de confirmación
+    setUserToDelete(null)
   }
 
   /**
@@ -305,6 +476,14 @@ const Usuarios = () => {
   const handleCancelToggleStatus = () => {
     setShowStatusConfirm(false)
     setUserToToggle(null)
+  }
+
+  /**
+   * Manejador para cancelar la eliminación
+   */
+  const handleCancelDelete = () => {
+    setShowDeleteConfirm(false)
+    setUserToDelete(null)
   }
 
   /**
@@ -523,14 +702,26 @@ const Usuarios = () => {
   const handleSaveUser = async () => {
     // Validar el formulario
     if (!validateForm()) {
+      // Limpiar notificaciones existentes
+      toast.dismiss()
+
       toast.error("Por favor, corrija los errores en el formulario", {
         position: "top-right",
         autoClose: 5000,
+        pauseOnHover: false,
+        pauseOnFocusLoss: false,
       })
       return
     }
 
     try {
+      setIsProcessing(true)
+      setProcessingMessage(currentUser ? "Actualizando usuario..." : "Creando nuevo usuario...")
+
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+
       // Preparar datos del usuario
       const userData = {
         Documento: formData.documento,
@@ -556,10 +747,11 @@ const Usuarios = () => {
         const updatedUsers = await usuariosService.getAll()
         setUsuarios(updatedUsers)
 
-        toast.success(`El usuario "${formData.nombre} ${formData.apellido}" ha sido actualizado correctamente`, {
-          position: "top-right",
-          autoClose: 5000,
-        })
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `El usuario "${formData.nombre} ${formData.apellido}" ha sido actualizado correctamente`,
+        }
       } else {
         // Crear nuevo usuario
         await usuariosService.create(userData)
@@ -568,20 +760,25 @@ const Usuarios = () => {
         const updatedUsers = await usuariosService.getAll()
         setUsuarios(updatedUsers)
 
-        toast.success(`El usuario "${formData.nombre} ${formData.apellido}" ha sido creado correctamente`, {
-          position: "top-right",
-          autoClose: 5000,
-        })
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `El usuario "${formData.nombre} ${formData.apellido}" ha sido creado correctamente`,
+        }
       }
 
       // Cerrar el modal
       setShowModal(false)
+      setIsProcessing(false)
     } catch (error) {
+      setIsProcessing(false)
       console.error("Error al guardar usuario:", error)
-      toast.error(`Error al guardar el usuario: ${error.message || "Error desconocido"}`, {
-        position: "top-right",
-        autoClose: 5000,
-      })
+
+      // En caso de error, también guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: `Error al guardar el usuario: ${error.message || "Error desconocido"}`,
+      }
     }
   }
 
@@ -664,12 +861,50 @@ const Usuarios = () => {
         onClose={handleCloseModal}
       />
 
-      {/* Modal de confirmación para cambio de estado */}
-      <StatusConfirmModal
+      {/* Diálogos de confirmación */}
+      <ConfirmDialog
+        show={showEditConfirm}
+        title="Confirmar edición"
+        message={`¿Está seguro de editar el usuario "${userToEdit?.Nombre} ${userToEdit?.Apellido || ""}"?`}
+        type="info"
+        onConfirm={confirmEdit}
+        onCancel={() => setShowEditConfirm(false)}
+      />
+
+      <ConfirmDialog
         show={showStatusConfirm}
-        user={userToToggle}
+        title="Confirmar cambio de estado"
+        message={`¿Está seguro de ${userToToggle?.Estado ? "desactivar" : "activar"} el usuario "${userToToggle?.Nombre} ${userToToggle?.Apellido || ""}"?`}
+        type="warning"
         onConfirm={handleToggleStatus}
         onCancel={handleCancelToggleStatus}
+      />
+
+      <ConfirmDialog
+        show={showDeleteConfirm}
+        title="Confirmar eliminación"
+        message={
+          <>
+            ¿Está seguro que desea eliminar al usuario{" "}
+            <strong>
+              {userToDelete?.Nombre} {userToDelete?.Apellido || ""}
+            </strong>
+            ?
+            <br />
+            <span className="text-danger">Esta acción no se puede deshacer.</span>
+          </>
+        }
+        type="danger"
+        onConfirm={handleDeleteUser}
+        onCancel={handleCancelDelete}
+      />
+
+      {/* Overlay de carga con el nuevo callback */}
+      <LoadingOverlay
+        isLoading={isProcessing}
+        message={processingMessage}
+        variant="primary"
+        onHide={showPendingToast} // Añadir este callback
       />
 
       <ToastContainer
@@ -679,11 +914,11 @@ const Usuarios = () => {
         newestOnTop
         closeOnClick
         rtl={false}
-        pauseOnFocusLoss
+        pauseOnFocusLoss={false}
+        pauseOnHover={false}
         draggable
-        pauseOnHover
         theme="light"
-        limit={3}
+        limit={1}
       />
     </div>
   )

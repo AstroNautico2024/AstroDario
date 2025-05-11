@@ -8,10 +8,13 @@ import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/ToastStyles.css"
 import MascotaForm from "../../../Components/AdminComponents/MascotasComponents/MascotaForm"
-import DeleteConfirmModal from "../../../Components/AdminComponents/MascotasComponents/DeleteConfirmModal"
+import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog"
 import { uploadImageToCloudinary } from "../../../Services/uploadImageToCloudinary"
 import mascotasService from "../../../Services/ConsumoAdmin/MascotasService.js"
 import clientesService from "../../../Services/ConsumoAdmin/ClientesService.js"
+
+// Importar los estilos SCSS
+import "../../../Components/AdminComponents/MascotasComponents/MascotaForm.scss"
 
 /**
  * Componente para la gestión de mascotas
@@ -20,6 +23,7 @@ import clientesService from "../../../Services/ConsumoAdmin/ClientesService.js"
 const Mascotas = () => {
   // Estado para las mascotas
   const [mascotas, setMascotas] = useState([])
+  const [loading, setLoading] = useState(true)
 
   // Estado para los clientes
   const [clientes, setClientes] = useState([])
@@ -44,108 +48,145 @@ const Mascotas = () => {
     fechaNacimiento: "",
   })
 
-  // Estado para el modal de confirmación de eliminación
+  // Estado para los diálogos de confirmación
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showEditConfirm, setShowEditConfirm] = useState(false)
+  const [showStatusConfirm, setShowStatusConfirm] = useState(false)
   const [mascotaToDelete, setMascotaToDelete] = useState(null)
-
-  // Estado para indicar carga de datos
-  const [isLoading, setIsLoading] = useState(false)
+  const [mascotaToEdit, setMascotaToEdit] = useState(null)
+  const [mascotaToToggle, setMascotaToToggle] = useState(null)
 
   // Referencias para las notificaciones
+  const pendingToastRef = useRef(null)
+  const toastShownRef = useRef(false)
   const toastIds = useRef({})
+
+  // Función para mostrar toast
+  const showPendingToast = () => {
+    if (pendingToastRef.current && !toastShownRef.current) {
+      const { type, message } = pendingToastRef.current
+
+      // Marcar como mostrado
+      toastShownRef.current = true
+
+      // Limpiar todas las notificaciones existentes primero
+      toast.dismiss()
+
+      // Mostrar la notificación después de un pequeño retraso
+      setTimeout(() => {
+        toast[type](message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+          onClose: () => {
+            // Resetear cuando se cierra la notificación
+            pendingToastRef.current = null
+            // Esperar un momento antes de permitir nuevas notificaciones
+            setTimeout(() => {
+              toastShownRef.current = false
+            }, 300)
+          },
+        })
+      }, 300)
+    }
+  }
+
+  // Limpiar notificaciones
+  const clearAllToasts = () => {
+    toast.dismiss()
+    pendingToastRef.current = null
+    toastShownRef.current = false
+  }
 
   // Modificar el useEffect para cargar datos iniciales y asegurar que todas las mascotas tengan un estado
   useEffect(() => {
-    const fetchData = async () => {
-      setIsLoading(true)
-      try {
-        // Cargar mascotas
-        const mascotasData = await mascotasService.getAll()
-        console.log("Datos de mascotas cargados:", mascotasData)
-
-        // Obtener estados guardados en localStorage
-        const mascotasEstados = JSON.parse(localStorage.getItem("mascotasEstados") || "{}")
-
-        // Aplicar estados guardados localmente y normalizar los datos
-        const mascotasNormalizadas = mascotasData.map((mascota) => {
-          const estadoGuardado = mascotasEstados[mascota.IdMascota]
-
-          // Normalizar la estructura de datos para asegurar consistencia
-          const mascotaNormalizada = {
-            ...mascota,
-            // Normalizar el ID
-            IdMascota: mascota.IdMascota || mascota.id,
-            // Normalizar el nombre
-            Nombre: mascota.Nombre || mascota.nombre,
-            // Normalizar la especie
-            Especie: mascota.Especie || mascota.especie || mascota.Tipo || mascota.tipo,
-            // Normalizar el estado
-            Estado: estadoGuardado || mascota.Estado || "Activo",
-            // IMPORTANTE: Normalizar la URL de la foto - usar Foto como en productos
-            FotoURL: mascota.Foto || null,
-          }
-
-          // Guardar la mascota normalizada en localStorage para persistencia
-          if (mascotaNormalizada.IdMascota) {
-            const mascotasGuardadas = JSON.parse(localStorage.getItem("mascotasData") || "{}")
-            mascotasGuardadas[mascotaNormalizada.IdMascota] = mascotaNormalizada
-            localStorage.setItem("mascotasData", JSON.stringify(mascotasGuardadas))
-          }
-
-          return mascotaNormalizada
-        })
-
-        console.log("Mascotas normalizadas:", mascotasNormalizadas)
-        setMascotas(mascotasNormalizadas)
-
-        // Cargar clientes
-        const clientesData = await clientesService.getAll()
-        setClientes(clientesData)
-      } catch (error) {
-        console.error("Error al cargar datos iniciales:", error)
-        toast.error("Error al cargar los datos. Por favor, intente nuevamente.")
-
-        // Intentar cargar datos desde localStorage como respaldo
-        try {
-          const mascotasGuardadas = JSON.parse(localStorage.getItem("mascotasData") || "{}")
-          if (Object.keys(mascotasGuardadas).length > 0) {
-            const mascotasArray = Object.values(mascotasGuardadas)
-            console.log("Cargando mascotas desde localStorage:", mascotasArray)
-            setMascotas(mascotasArray)
-            toast.info("Se cargaron datos guardados localmente mientras se resuelven los problemas de conexión.")
-          }
-        } catch (localError) {
-          console.error("Error al cargar datos desde localStorage:", localError)
-        }
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchData()
-  }, [])
-
-  // Función para limpiar todas las notificaciones
-  const clearAllToasts = () => {
-    // Usar el ID de cada toast si está disponible
-    Object.values(toastIds.current).forEach((id) => {
-      if (id) toast.dismiss(id)
-    })
-
-    // Limpiar todas las demás notificaciones
-    toast.dismiss()
-  }
-
-  // Limpiar notificaciones al montar y desmontar el componente
-  useEffect(() => {
-    // Limpiar todas las notificaciones al montar
     clearAllToasts()
+    fetchData()
 
-    // Limpiar todas las notificaciones al desmontar
     return () => {
       clearAllToasts()
     }
   }, [])
+
+  const fetchData = async () => {
+    try {
+      // Cargar mascotas
+      const mascotasData = await mascotasService.getAll()
+      console.log("Datos de mascotas cargados:", mascotasData)
+
+      // Obtener estados guardados en localStorage
+      const mascotasEstados = JSON.parse(localStorage.getItem("mascotasEstados") || "{}")
+
+      // Aplicar estados guardados localmente y normalizar los datos
+      const mascotasNormalizadas = mascotasData.map((mascota) => {
+        const estadoGuardado = mascotasEstados[mascota.IdMascota]
+
+        // Normalizar la estructura de datos para asegurar consistencia
+        const mascotaNormalizada = {
+          ...mascota,
+          // Normalizar el ID
+          IdMascota: mascota.IdMascota || mascota.id,
+          // Normalizar el nombre
+          Nombre: mascota.Nombre || mascota.nombre,
+          // Normalizar la especie
+          Especie: mascota.Especie || mascota.especie || mascota.Tipo || mascota.tipo,
+          // Normalizar el estado
+          Estado: estadoGuardado || mascota.Estado || "Activo",
+          // IMPORTANTE: Normalizar la URL de la foto - usar Foto como en productos
+          FotoURL: mascota.Foto || null,
+        }
+
+        // Guardar la mascota normalizada en localStorage para persistencia
+        if (mascotaNormalizada.IdMascota) {
+          const mascotasGuardadas = JSON.parse(localStorage.getItem("mascotasData") || "{}")
+          mascotasGuardadas[mascotaNormalizada.IdMascota] = mascotaNormalizada
+          localStorage.setItem("mascotasData", JSON.stringify(mascotasGuardadas))
+        }
+
+        return mascotaNormalizada
+      })
+
+      console.log("Mascotas normalizadas:", mascotasNormalizadas)
+      setMascotas(mascotasNormalizadas)
+
+      // Cargar clientes
+      const clientesData = await clientesService.getAll()
+      setClientes(clientesData)
+    } catch (error) {
+      console.error("Error al cargar datos iniciales:", error)
+
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los datos. Por favor, intente nuevamente.",
+      }
+
+      // Intentar cargar datos desde localStorage como respaldo
+      try {
+        const mascotasGuardadas = JSON.parse(localStorage.getItem("mascotasData") || "{}")
+        if (Object.keys(mascotasGuardadas).length > 0) {
+          const mascotasArray = Object.values(mascotasGuardadas)
+          console.log("Cargando mascotas desde localStorage:", mascotasArray)
+          setMascotas(mascotasArray)
+
+          pendingToastRef.current = {
+            type: "info",
+            message: "Se cargaron datos guardados localmente mientras se resuelven los problemas de conexión.",
+          }
+        }
+      } catch (localError) {
+        console.error("Error al cargar datos desde localStorage:", localError)
+      }
+    } finally {
+      setLoading(false)
+      // Mostrar cualquier notificación pendiente
+      showPendingToast()
+    }
+  }
 
   /**
    * Función para formatear fechas
@@ -192,12 +233,12 @@ const Mascotas = () => {
       header: "Acciones",
       render: (row) => (
         <TableActions
-          actions={["view", "edit", "toggleStatus", "delete"]}
+          actions={["view", "edit", "toggleStatus", row.IdCliente ? null : "delete"]}
           row={row}
           onView={handleView}
-          onEdit={handleEdit}
-          onToggleStatus={handleToggleStatus}
-          onDelete={handleDelete}
+          onEdit={handleConfirmEdit}
+          onToggleStatus={handleConfirmToggleStatus}
+          onDelete={handleConfirmDelete}
           customLabels={{
             toggleStatus: row.Estado === "Activo" ? "Desactivar" : "Activar",
           }}
@@ -211,73 +252,118 @@ const Mascotas = () => {
    * @param {Object} mascota - Objeto de mascota a visualizar
    */
   const handleView = (mascota) => {
-    console.log("Ver detalles de mascota:", mascota)
-    setCurrentMascota(mascota)
-    setModalTitle("Ver Detalles de la Mascota")
+    try {
+      setCurrentMascota(mascota)
+      setModalTitle("Ver Detalles de la Mascota")
 
-    // Cargar datos de la mascota en el formulario
-    setFormData({
-      cliente: mascota.IdCliente,
-      nombre: mascota.Nombre,
-      especie: mascota.Especie,
-      raza: mascota.Raza,
-      tamaño: mascota.Tamaño,
-      fechaNacimiento: mascota.FechaNacimiento ? mascota.FechaNacimiento.split("T")[0] : "",
-    })
+      // Cargar datos de la mascota en el formulario
+      setFormData({
+        cliente: mascota.IdCliente,
+        nombre: mascota.Nombre,
+        especie: mascota.Especie,
+        raza: mascota.Raza,
+        tamaño: mascota.Tamaño,
+        fechaNacimiento: mascota.FechaNacimiento ? mascota.FechaNacimiento.split("T")[0] : "",
+      })
 
-    // Cargar foto si existe
-    console.log("Foto URL en handleView:", mascota.FotoURL)
-    if (mascota.FotoURL) {
-      setFotoPreview(mascota.FotoURL)
-    } else {
-      setFotoPreview(null)
+      // Cargar foto si existe
+      console.log("Foto URL en handleView:", mascota.FotoURL)
+      if (mascota.FotoURL) {
+        setFotoPreview(mascota.FotoURL)
+      } else {
+        setFotoPreview(null)
+      }
+
+      setShowModal(true)
+    } catch (err) {
+      console.error("Error al cargar detalles de la mascota:", err)
+
+      // En caso de error, guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los detalles de la mascota",
+      }
+      showPendingToast()
     }
-
-    setShowModal(true)
   }
 
   /**
-   * Manejador para editar una mascota
-   * @param {Object} mascota - Objeto de mascota a editar
+   * Manejador para confirmar la edición de una mascota
    */
-  const handleEdit = (mascota) => {
-    console.log("Editar mascota:", mascota)
-    setCurrentMascota(mascota)
-    setModalTitle("Editar Mascota")
-
-    // Cargar datos de la mascota en el formulario
-    setFormData({
-      cliente: mascota.IdCliente,
-      nombre: mascota.Nombre,
-      especie: mascota.Especie,
-      raza: mascota.Raza,
-      tamaño: mascota.Tamaño,
-      fechaNacimiento: mascota.FechaNacimiento ? mascota.FechaNacimiento.split("T")[0] : "",
-    })
-
-    // Cargar foto si existe
-    console.log("Foto URL en handleEdit:", mascota.FotoURL)
-    if (mascota.FotoURL) {
-      setFotoPreview(mascota.FotoURL)
-    } else {
-      setFotoPreview(null)
-    }
-
-    setShowModal(true)
+  const handleConfirmEdit = (mascota) => {
+    setMascotaToEdit(mascota)
+    setShowEditConfirm(true)
   }
 
-  // Modificar la función handleToggleStatus para usar el servicio actualizado:
-  const handleToggleStatus = async (mascota) => {
+  /**
+   * Función para confirmar la edición
+   */
+  const confirmEdit = async () => {
     try {
+      setShowEditConfirm(false)
+
+      const mascota = mascotaToEdit
+      setCurrentMascota(mascota)
+      setModalTitle("Editar Mascota")
+
+      // Cargar datos de la mascota en el formulario
+      setFormData({
+        cliente: mascota.IdCliente,
+        nombre: mascota.Nombre,
+        especie: mascota.Especie,
+        raza: mascota.Raza,
+        tamaño: mascota.Tamaño,
+        fechaNacimiento: mascota.FechaNacimiento ? mascota.FechaNacimiento.split("T")[0] : "",
+      })
+
+      // Cargar foto si existe
+      if (mascota.FotoURL) {
+        setFotoPreview(mascota.FotoURL)
+      } else {
+        setFotoPreview(null)
+      }
+
+      setShowModal(true)
+    } catch (err) {
+      console.error("Error al cargar datos para editar mascota:", err)
+
+      // En caso de error, guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los datos para editar la mascota",
+      }
+      showPendingToast()
+    }
+  }
+
+  /**
+   * Manejador para confirmar el cambio de estado de una mascota
+   */
+  const handleConfirmToggleStatus = (mascota) => {
+    setMascotaToToggle(mascota)
+    setShowStatusConfirm(true)
+  }
+
+  /**
+   * Manejador para cambiar el estado de una mascota
+   */
+  const handleToggleStatus = async () => {
+    if (!mascotaToToggle) return
+
+    try {
+      setShowStatusConfirm(false)
+
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+
       // Verificar que la mascota tenga un ID válido
-      if (!mascota.IdMascota) {
-        console.warn("Advertencia: Mascota sin ID válido", mascota)
-        // En lugar de mostrar un error, continuamos con un ID temporal
-        mascota.IdMascota = `temp_${Date.now()}`
+      if (!mascotaToToggle.IdMascota) {
+        throw new Error("Error: Mascota sin ID válido")
       }
 
       // Asegurar que el estado actual sea un string
-      let estadoActual = mascota.Estado
+      let estadoActual = mascotaToToggle.Estado
 
       // Convertir valores numéricos a texto
       if (typeof estadoActual === "number") {
@@ -291,28 +377,10 @@ const Mascotas = () => {
 
       const nuevoEstado = estadoActual === "Activo" ? "Inactivo" : "Activo"
 
-      console.log(`Cambiando estado de la mascota ID ${mascota.IdMascota} de ${estadoActual} a ${nuevoEstado}`)
-
-      // Limpiar TODAS las notificaciones existentes
-      toast.dismiss()
-
-      // Mostrar notificación de carga con un ID único basado en timestamp
-      const timestamp = Date.now()
-      const loadingToastId = toast.loading(
-        <div>
-          <strong>Actualizando estado</strong>
-          <p>Cambiando estado de la mascota "{mascota.Nombre}"...</p>
-        </div>,
-        {
-          position: "top-right",
-          toastId: `loading-${timestamp}`,
-        },
-      )
-
       // Actualizar primero en el estado local para mejorar la experiencia de usuario
       setMascotas((prevMascotas) =>
         prevMascotas.map((m) => {
-          if (m.IdMascota === mascota.IdMascota) {
+          if (m.IdMascota === mascotaToToggle.IdMascota) {
             return {
               ...m,
               Estado: nuevoEstado,
@@ -322,271 +390,132 @@ const Mascotas = () => {
         }),
       )
 
-      try {
-        // Actualizar en el servidor usando el servicio
-        const resultado = await mascotasService.updateStatus(mascota.IdMascota, nuevoEstado)
+      // Actualizar en el servidor usando el servicio
+      await mascotasService.updateStatus(mascotaToToggle.IdMascota, nuevoEstado)
 
-        // Si el resultado tiene un ID diferente (temporal), actualizamos el estado local
-        if (resultado.IdMascota && resultado.IdMascota !== mascota.IdMascota) {
-          setMascotas((prevMascotas) =>
-            prevMascotas.map((m) => {
-              if (m.IdMascota === mascota.IdMascota) {
-                return {
-                  ...m,
-                  IdMascota: resultado.IdMascota,
-                  Estado: resultado.Estado || nuevoEstado,
-                }
-              }
-              return m
-            }),
-          )
-        }
+      // Guardar el estado en localStorage para persistencia
+      const mascotasEstados = JSON.parse(localStorage.getItem("mascotasEstados") || "{}")
+      mascotasEstados[mascotaToToggle.IdMascota] = nuevoEstado
+      localStorage.setItem("mascotasEstados", JSON.stringify(mascotasEstados))
 
-        // Guardar el estado en localStorage para persistencia
-        const mascotasEstados = JSON.parse(localStorage.getItem("mascotasEstados") || "{}")
-        mascotasEstados[mascota.IdMascota] = nuevoEstado
-        localStorage.setItem("mascotasEstados", JSON.stringify(mascotasEstados))
-
-        // Añadir notificación
-        const newStatus = estadoActual === "Activo" ? "inactiva" : "activa"
-
-        // Descartar notificación de carga de forma segura
-        setTimeout(() => {
-          toast.dismiss(loadingToastId)
-
-          // Crear nueva notificación con un ID único
-          toast.success(
-            <div>
-              <strong>Estado actualizado</strong>
-              <p>
-                La mascota "{mascota.Nombre}" ahora está {newStatus}.
-              </p>
-            </div>,
-            {
-              icon: "🔄",
-              position: "top-right",
-              autoClose: 3000,
-              hideProgressBar: false,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-              toastId: `status-${timestamp}`, // Usar un ID único basado en timestamp
-            },
-          )
-        }, 300)
-      } catch (error) {
-        console.error("Error al cambiar estado en el servidor:", error)
-
-        // Guardar el estado en localStorage de todos modos para persistencia local
-        const mascotasEstados = JSON.parse(localStorage.getItem("mascotasEstados") || "{}")
-        mascotasEstados[mascota.IdMascota] = nuevoEstado
-        localStorage.setItem("mascotasEstados", JSON.stringify(mascotasEstados))
-
-        // Descartar notificación de carga en caso de error
-        setTimeout(() => {
-          toast.dismiss(loadingToastId)
-
-          // Mostrar notificación de advertencia en lugar de error
-          toast.warning(
-            <div>
-              <strong>Estado actualizado localmente</strong>
-              <p>El estado se ha actualizado en la interfaz, pero hubo un problema al sincronizar con el servidor.</p>
-            </div>,
-            {
-              position: "top-right",
-              autoClose: 4000,
-              hideProgressBar: false,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-              toastId: `warning-${Date.now()}`,
-            },
-          )
-        }, 300)
+      // Guardar el toast para después
+      const newStatus = estadoActual === "Activo" ? "inactiva" : "activa"
+      pendingToastRef.current = {
+        type: "success",
+        message: `La mascota "${mascotaToToggle.Nombre}" ahora está ${newStatus}.`,
       }
+      showPendingToast()
     } catch (error) {
-      console.error("Error al cambiar estado de mascota:", error)
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>No se pudo cambiar el estado de la mascota. Por favor, intente nuevamente.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 4000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          toastId: `error-${Date.now()}`,
-        },
-      )
+      console.error("Error al cambiar estado:", error)
+
+      // En caso de error, también guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cambiar el estado de la mascota",
+      }
+      showPendingToast()
+    }
+
+    // Cerrar el modal de confirmación
+    setMascotaToToggle(null)
+  }
+
+  /**
+   * Manejador para cancelar el cambio de estado
+   */
+  const handleCancelToggleStatus = () => {
+    setShowStatusConfirm(false)
+    setMascotaToToggle(null)
+  }
+
+  /**
+   * Manejador para confirmar la eliminación de una mascota
+   */
+  const handleConfirmDelete = async (mascota) => {
+    try {
+      // Verificar si la mascota tiene un cliente asociado
+      if (mascota.IdCliente) {
+        pendingToastRef.current = {
+          type: "error",
+          message: "No se puede eliminar la mascota porque tiene un cliente asociado.",
+        }
+        showPendingToast()
+        return
+      }
+
+      // Si no tiene dependencias, mostrar el modal de confirmación
+      setMascotaToDelete(mascota)
+      setShowDeleteConfirm(true)
+    } catch (error) {
+      console.error("Error al verificar dependencias de la mascota:", error)
+
+      // Si hay un error al verificar, mostrar el modal de todas formas
+      // El servidor validará nuevamente al intentar eliminar
+      setMascotaToDelete(mascota)
+      setShowDeleteConfirm(true)
     }
   }
 
-  // Modificar la función handleDelete para verificar si la mascota tiene un cliente asociado:
-  const handleDelete = (mascota) => {
-    // Verificar si la mascota tiene un cliente asociado before de mostrar el modal de confirmación
-    if (mascota.IdCliente) {
-      toast.error(
-        <div>
-          <strong>No se puede eliminar</strong>
-          <p>No se puede eliminar la mascota porque tiene un cliente asociado.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 4000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          toastId: `error-dependency-${Date.now()}`,
-        },
-      )
-      return
-    }
-
-    setMascotaToDelete(mascota)
-    setShowDeleteConfirm(true)
-  }
-
-  // Modificar la función confirmDelete para manejar mejor el error de cliente asociado:
-
+  /**
+   * Función para confirmar la eliminación de una mascota
+   */
   const confirmDelete = async () => {
     if (mascotaToDelete) {
       try {
+        setShowDeleteConfirm(false)
+
+        // Limpiar notificaciones existentes
+        pendingToastRef.current = null
+        toastShownRef.current = false
+
         // Verificar que la mascota tenga un ID válido
         if (!mascotaToDelete.IdMascota) {
-          console.error("Error: Mascota sin ID válido", mascotaToDelete)
-          toast.error("Error: No se puede eliminar una mascota sin ID válido")
-          setShowDeleteConfirm(false)
-          setMascotaToDelete(null)
-          return
+          throw new Error("Error: Mascota sin ID válido")
         }
 
-        // Verificar si la mascota tiene un cliente asociado
+        //// Verificar si la mascota tiene un cliente asociado
         if (mascotaToDelete.IdCliente) {
-          console.error("Error: La mascota tiene un cliente asociado y no puede ser eliminada", mascotaToDelete)
-          toast.error(
-            <div>
-              <strong>No se puede eliminar</strong>
-              <p>No se puede eliminar la mascota porque tiene un cliente asociado.</p>
-            </div>,
-            {
-              position: "top-right",
-              autoClose: 4000,
-              hideProgressBar: false,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-              toastId: `error-dependency-${Date.now()}`,
-            },
-          )
-          setShowDeleteConfirm(false)
-          setMascotaToDelete(null)
-          return
+          throw new Error("No se puede eliminar la mascota porque tiene un cliente asociado.")
         }
 
-        // Limpiar todas las notificaciones existentes
-        toast.dismiss()
+        // Eliminar en el servidor
+        await mascotasService.delete(mascotaToDelete.IdMascota)
 
-        // Mostrar notificación de carga
-        const timestamp = Date.now()
-        const loadingToastId = toast.loading(
-          <div>
-            <strong>Eliminando mascota</strong>
-            <p>Procesando la eliminación de la mascota "{mascotaToDelete.Nombre}"...</p>
-          </div>,
-          {
-            position: "top-right",
-            toastId: `loading-${timestamp}`,
-          },
-        )
+        // Actualizar estado local
+        const updatedMascotas = mascotas.filter((m) => m.IdMascota !== mascotaToDelete.IdMascota)
+        setMascotas(updatedMascotas)
 
-        try {
-          // Eliminar en el servidor
-          await mascotasService.delete(mascotaToDelete.IdMascota)
-
-          // Actualizar estado local
-          const updatedMascotas = mascotas.filter((m) => m.IdMascota !== mascotaToDelete.IdMascota)
-          setMascotas(updatedMascotas)
-
-          // Descartar notificación de carga de forma segura
-          setTimeout(() => {
-            toast.dismiss(loadingToastId)
-
-            // Añadir notificación de éxito
-            toast.info(
-              <div>
-                <strong>Mascota eliminada</strong>
-                <p>La mascota "{mascotaToDelete.Nombre}" ha sido eliminada correctamente.</p>
-              </div>,
-              {
-                icon: "🗑️",
-                position: "top-right",
-                autoClose: 3000,
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-                toastId: `delete-${timestamp}`,
-              },
-            )
-          }, 300)
-        } catch (error) {
-          // Descartar notificación de carga en caso de error
-          setTimeout(() => {
-            toast.dismiss(loadingToastId)
-            throw error
-          }, 300)
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "info",
+          message: `La mascota "${mascotaToDelete.Nombre}" ha sido eliminada correctamente.`,
         }
+        showPendingToast()
       } catch (error) {
         console.error("Error al eliminar mascota:", error)
 
         // Verificar si el error es por dependencias con cliente
-        if (
-          error.isClientDependency ||
-          (error.response && error.response.status === 400) ||
-          (error.message &&
-            (error.message.toLowerCase().includes("cliente") ||
-              error.message.toLowerCase().includes("citas") ||
-              error.message.toLowerCase().includes("servicios")))
-        ) {
-          toast.error(
-            <div>
-              <strong>No se puede eliminar</strong>
-              <p>{error.message || "No se puede eliminar la mascota porque tiene un cliente asociado."}</p>
-            </div>,
-            {
-              position: "top-right",
-              autoClose: 4000,
-              hideProgressBar: false,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-              toastId: `error-dependency-${Date.now()}`,
-            },
-          )
+        if (error.isClientDependency || (error.message && error.message.toLowerCase().includes("cliente"))) {
+          pendingToastRef.current = {
+            type: "error",
+            message: "No se puede eliminar la mascota porque tiene un cliente asociado.",
+          }
         } else {
-          toast.error(
-            <div>
-              <strong>Error</strong>
-              <p>Error al eliminar la mascota. Por favor, intente nuevamente.</p>
-              <p className="text-sm text-red-600">Detalles: {error.message || "Error desconocido"}</p>
-            </div>,
-            {
-              position: "top-right",
-              autoClose: 4000,
-              hideProgressBar: false,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-              toastId: `error-${Date.now()}`,
-            },
-          )
+          pendingToastRef.current = {
+            type: "error",
+            message: "Error al eliminar la mascota. Por favor, intente nuevamente.",
+          }
         }
+        showPendingToast()
       }
+      setMascotaToDelete(null)
     }
+  }
+
+  /**
+   * Función para cancelar el proceso de eliminación
+   */
+  const cancelDelete = () => {
     setShowDeleteConfirm(false)
     setMascotaToDelete(null)
   }
@@ -655,29 +584,23 @@ const Mascotas = () => {
 
     // Validar que sea una imagen
     if (!file.type.startsWith("image/")) {
-      toast.error("Por favor, seleccione un archivo de imagen válido")
+      pendingToastRef.current = {
+        type: "error",
+        message: "Por favor, seleccione un archivo de imagen válido",
+      }
+      showPendingToast()
       return
     }
 
     // Validar tamaño (máximo 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("La imagen es demasiado grande. El tamaño máximo es 5MB.")
+      pendingToastRef.current = {
+        type: "error",
+        message: "La imagen es demasiado grande. El tamaño máximo es 5MB.",
+      }
+      showPendingToast()
       return
     }
-
-    // Limpiar notificaciones previas
-    toast.dismiss()
-
-    // Mostrar notificación de carga
-    const loadingToastId = toast.loading(
-      <div>
-        <strong>Subiendo imagen</strong>
-        <p>Por favor, espere mientras se sube la imagen...</p>
-      </div>,
-      {
-        position: "top-right",
-      },
-    )
 
     // Guardar el archivo para referencia
     setFotoMascota(file)
@@ -705,83 +628,60 @@ const Mascotas = () => {
         // Ya no necesitamos guardar el archivo, solo la URL
         setFotoMascota(null)
 
-        // Actualizar la notificación
-        toast.update(loadingToastId, {
-          render: (
-            <div>
-              <strong>Imagen subida</strong>
-              <p>La imagen se ha subido correctamente.</p>
-            </div>
-          ),
+        pendingToastRef.current = {
           type: "success",
-          autoClose: 3000,
-          isLoading: false,
-        })
+          message: "La imagen se ha subido correctamente.",
+        }
+        showPendingToast()
       } else {
-        toast.update(loadingToastId, {
-          render: (
-            <div>
-              <strong>Error</strong>
-              <p>Error al subir la imagen. Intente nuevamente.</p>
-            </div>
-          ),
+        pendingToastRef.current = {
           type: "error",
-          autoClose: 5000,
-          isLoading: false,
-        })
+          message: "Error al subir la imagen. Intente nuevamente.",
+        }
+        showPendingToast()
       }
     } catch (error) {
       console.error("Error al subir la imagen:", error)
-      toast.update(loadingToastId, {
-        render: (
-          <div>
-            <strong>Error</strong>
-            <p>Error al subir la imagen. Intente nuevamente.</p>
-            <p className="text-sm text-red-600">Detalles: {error.message || "Error desconocido"}</p>
-          </div>
-        ),
+      pendingToastRef.current = {
         type: "error",
-        autoClose: 5000,
-        isLoading: false,
-      })
+        message: "Error al subir la imagen. Intente nuevamente.",
+      }
+      showPendingToast()
     } finally {
       // Indicar que la imagen ya no está cargando
       setIsImageLoading(false)
     }
   }
 
-  // Modificar la función handleSaveMascota para cerrar correctamente el modal
+  /**
+   * Manejador para guardar la mascota
+   */
   const handleSaveMascota = async () => {
     // Verificar si hay una imagen cargando
     if (isImageLoading) {
-      toast.warning("Espere a que se complete la carga de la imagen")
+      pendingToastRef.current = {
+        type: "warning",
+        message: "Espere a que se complete la carga de la imagen",
+      }
+      showPendingToast()
       return
     }
 
     // Validaciones básicas
     if (!formData.nombre.trim() || !formData.especie || !formData.fechaNacimiento || !formData.cliente) {
-      // Notificación de error
-      toast.dismiss() // Limpiar notificaciones previas
-
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>Por favor, complete todos los campos obligatorios.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 4000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          toastId: `error-form-${Date.now()}`,
-        },
-      )
+      pendingToastRef.current = {
+        type: "error",
+        message: "Por favor, complete todos los campos obligatorios.",
+      }
+      showPendingToast()
       return
     }
 
     try {
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+
       // Preparar datos para enviar al servidor
       const mascotaData = {
         // CORRECCIÓN: Convertir IdCliente a número
@@ -797,257 +697,61 @@ const Mascotas = () => {
         Estado: "Activo",
       }
 
-      console.log("Guardando mascota con foto URL:", fotoPreview)
+      if (currentMascota) {
+        // Actualizar mascota existente
+        const updatedMascota = await mascotasService.update(currentMascota.IdMascota, mascotaData)
 
-      // Limpiar todas las notificaciones existentes para evitar duplicados
-      toast.dismiss()
-
-      // Mostrar notificación de carga con tiempo de espera más largo
-      const timestamp = Date.now()
-      const loadingToastId = toast.loading(
-        <div>
-          <strong>{currentMascota ? "Actualizando" : "Creando"} mascota</strong>
-          <p>Por favor, espere...</p>
-        </div>,
-        {
-          position: "top-right",
-          toastId: `loading-${timestamp}`,
-          // No establecer autoClose para que no se cierre automáticamente
-        },
-      )
-
-      try {
-        if (currentMascota) {
-          // Actualizar mascota existente
-          console.log("Actualizando mascota:", mascotaData)
-
-          // Añadir un pequeño retraso antes de la actualización para asegurar que la UI muestre el estado de carga
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-
-          const updatedMascota = await mascotasService.update(currentMascota.IdMascota, mascotaData)
-
-          // Verificar que la mascota actualizada tenga un ID válido
-          if (!updatedMascota.IdMascota) {
-            updatedMascota.IdMascota = currentMascota.IdMascota
-            console.warn("ID no devuelto en la respuesta, usando ID original:", currentMascota.IdMascota)
-          }
-
-          // Asegurarse de que la FotoURL se mantenga
-          updatedMascota.FotoURL = mascotaData.FotoURL || updatedMascota.FotoURL || updatedMascota.Foto
-
-          // Actualizar estado local
-          setMascotas((prevMascotas) =>
-            prevMascotas.map((m) => {
-              if (m.IdMascota === currentMascota.IdMascota) {
-                return {
-                  ...updatedMascota,
-                  FotoURL: mascotaData.FotoURL || updatedMascota.FotoURL || updatedMascota.Foto,
-                  Estado: updatedMascota.Estado || mascotaData.Estado,
-                }
+        // Actualizar estado local
+        setMascotas((prevMascotas) =>
+          prevMascotas.map((m) => {
+            if (m.IdMascota === currentMascota.IdMascota) {
+              return {
+                ...updatedMascota,
+                FotoURL: mascotaData.FotoURL || updatedMascota.FotoURL || updatedMascota.Foto,
+                Estado: updatedMascota.Estado || mascotaData.Estado,
               }
-              return m
-            }),
-          )
+            }
+            return m
+          }),
+        )
 
-          // Guardar el estado en localStorage para persistencia
-          const mascotasEstados = JSON.parse(localStorage.getItem("mascotasEstados") || "{}")
-          mascotasEstados[currentMascota.IdMascota] = updatedMascota.Estado || mascotaData.Estado
-          localStorage.setItem("mascotasEstados", JSON.stringify(mascotasEstados))
-
-          // Descartar notificación de carga después de un tiempo más largo
-          setTimeout(() => {
-            toast.dismiss(loadingToastId)
-
-            // Notificación de éxito para edición con tiempo más largo
-            toast.success(
-              <div>
-                <strong>Mascota actualizada</strong>
-                <p>La mascota "{formData.nombre}" ha sido actualizada correctamente.</p>
-              </div>,
-              {
-                icon: "✏️",
-                position: "top-right",
-                autoClose: 7000, // Aumentar el tiempo a 7 segundos
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-                toastId: `edit-${timestamp}`,
-              },
-            )
-
-            // Esperar un poco antes de cerrar el modal para que el usuario vea la notificación
-            setTimeout(() => {
-              cerrarModal()
-            }, 2000) // Aumentar el tiempo de espera a 2 segundos
-          }, 1500) // Aumentar el tiempo de espera a 1.5 segundos
-        } else {
-          // Crear nueva mascota - código similar al existente pero con tiempos ajustados
-          console.log("Creando nueva mascota:", mascotaData)
-
-          // Añadir un pequeño retraso antes de la creación
-          await new Promise((resolve) => setTimeout(resolve, 1000))
-
-          const newMascota = await mascotasService.create(mascotaData)
-
-          // Verificar que la nueva mascota tenga un ID válido
-          if (!newMascota.IdMascota) {
-            // Asignar un ID temporal si no se recibió uno del servidor
-            newMascota.IdMascota = `temp_${Date.now()}`
-            console.warn("ID no devuelto en la respuesta, usando ID temporal:", newMascota.IdMascota)
-          }
-
-          // Asegurarse de que la FotoURL se mantenga
-          newMascota.FotoURL = mascotaData.FotoURL || newMascota.FotoURL || newMascota.Foto
-
-          // IMPORTANTE: Asegurar que el estado sea "Activo" para nuevas mascotas
-          newMascota.Estado = "Activo"
-
-          // Actualizar estado local
-          setMascotas([
-            ...mascotas,
-            {
-              ...newMascota,
-              FotoURL: mascotaData.FotoURL || newMascota.FotoURL || newMascota.Foto,
-              Estado: "Activo", // Siempre "Activo" para nuevas mascotas
-            },
-          ])
-
-          // Guardar el estado en localStorage para persistencia
-          const mascotasEstados = JSON.parse(localStorage.getItem("mascotasEstados") || "{}")
-          mascotasEstados[newMascota.IdMascota] = "Activo"
-          localStorage.setItem("mascotasEstados", JSON.stringify(mascotasEstados))
-
-          // Descartar notificación de carga después de un tiempo más largo
-          setTimeout(() => {
-            toast.dismiss(loadingToastId)
-
-            // Notificación de éxito para creación con tiempo más largo
-            toast.success(
-              <div>
-                <strong>Mascota creada</strong>
-                <p>La mascota "{formData.nombre}" ha sido creada correctamente.</p>
-              </div>,
-              {
-                icon: "✅",
-                position: "top-right",
-                autoClose: 7000, // Aumentar el tiempo a 7 segundos
-                hideProgressBar: false,
-                closeOnClick: true,
-                pauseOnHover: true,
-                draggable: true,
-                toastId: `create-${timestamp}`,
-              },
-            )
-
-            // Esperar un poco antes de cerrar el modal
-            setTimeout(() => {
-              cerrarModal()
-            }, 2000) // Aumentar el tiempo de espera a 2 segundos
-          }, 1500) // Aumentar el tiempo de espera a 1.5 segundos
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `La mascota "${formData.nombre}" ha sido actualizada correctamente.`,
         }
-      } catch (error) {
-        // Descartar notificación de carga en caso de error después de un tiempo
-        setTimeout(() => {
-          toast.dismiss(loadingToastId)
+      } else {
+        // Crear nueva mascota
+        const newMascota = await mascotasService.create(mascotaData)
 
-          // Mostrar notificación de error con más detalles y tiempo más largo
-          toast.error(
-            <div>
-              <strong>Error al {currentMascota ? "actualizar" : "crear"} mascota</strong>
-              <p>Ocurrió un problema al procesar la solicitud.</p>
-              {error.message && <p className="text-sm text-red-600">Detalles: {error.message}</p>}
-              {error.response && error.response.data && (
-                <p className="text-sm text-red-600">
-                  Respuesta del servidor: {JSON.stringify(error.response.data)}
-                </p>
-              )}
-            </div>,
-            {
-              position: "top-right",
-              autoClose: 10000, // Aumentar el tiempo a 10 segundos para errores
-              hideProgressBar: false,
-              closeOnClick: true,
-              pauseOnHover: true,
-              draggable: true,
-              toastId: `error-${Date.now()}`,
-            },
-          )
-        }, 500)
+        // Actualizar estado local
+        setMascotas([
+          ...mascotas,
+          {
+            ...newMascota,
+            FotoURL: mascotaData.FotoURL || newMascota.FotoURL || newMascota.Foto,
+            Estado: "Activo", // Siempre "Activo" para nuevas mascotas
+          },
+        ])
+
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `La mascota "${formData.nombre}" ha sido creada correctamente.`,
+        }
       }
+
+      // Cerrar el modal
+      setShowModal(false)
+      showPendingToast()
     } catch (error) {
       console.error("Error al guardar mascota:", error)
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>Error al guardar la mascota. Por favor, intente nuevamente.</p>
-          {error.message && <p className="text-sm text-red-600">Detalles: {error.message}</p>}
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 10000, // Aumentar el tiempo a 10 segundos para errores
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          toastId: `error-${Date.now()}`,
-        },
-      )
-    }
-  }
 
-  // Agregar una función para cerrar el modal correctamente
-  const cerrarModal = () => {
-    try {
-      // Cerrar el modal usando Bootstrap
-      const modalElement = document.getElementById("mascotaModal")
-      if (modalElement) {
-        import("bootstrap")
-          .then((bootstrap) => {
-            try {
-              const modalInstance = bootstrap.Modal.getInstance(modalElement)
-              if (modalInstance) {
-                modalInstance.hide()
-              } else {
-                console.warn("No se encontró instancia del modal, intentando crear una nueva")
-                const newModalInstance = new bootstrap.Modal(modalElement)
-                newModalInstance.hide()
-              }
-
-              // Limpiar el backdrop manualmente si es necesario
-              const backdrop = document.querySelector(".modal-backdrop")
-              if (backdrop) {
-                backdrop.remove()
-              }
-              document.body.classList.remove("modal-open")
-              document.body.style.overflow = ""
-              document.body.style.paddingRight = ""
-            } catch (error) {
-              console.error("Error al cerrar el modal con Bootstrap:", error)
-              // Intento alternativo de cerrar el modal
-              modalElement.classList.remove("show")
-              modalElement.style.display = "none"
-
-              const backdrop = document.querySelector(".modal-backdrop")
-              if (backdrop) {
-                backdrop.remove()
-              }
-              document.body.classList.remove("modal-open")
-              document.body.style.overflow = ""
-              document.body.style.paddingRight = ""
-            }
-          })
-          .catch((error) => {
-            console.error("Error al importar Bootstrap:", error)
-          })
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al guardar la mascota. Por favor, intente nuevamente.",
       }
-
-      // Actualizar el estado para indicar que el modal está cerrado
-      setShowModal(false)
-    } catch (error) {
-      console.error("Error general al cerrar el modal:", error)
-      // Forzar actualización del estado
-      setShowModal(false)
+      showPendingToast()
     }
   }
 
@@ -1103,14 +807,16 @@ const Mascotas = () => {
 
     return () => {
       modalElement?.removeEventListener("hidden.bs.modal", handleHidden)
-      // No llamar a dispose() aquí, solo ocultar si es necesario
+      // Asegurarse de que se elimine cualquier backdrop residual al desmontar
+      const backdrop = document.querySelector(".modal-backdrop")
+      if (backdrop) {
+        backdrop.remove()
+      }
+      document.body.classList.remove("modal-open")
+      document.body.style.overflow = ""
+      document.body.style.paddingRight = ""
     }
   }, [showModal])
-
-  const cancelDelete = () => {
-    setShowDeleteConfirm(false)
-    setMascotaToDelete(null)
-  }
 
   return (
     <div className="mascotas-container">
@@ -1122,7 +828,7 @@ const Mascotas = () => {
         onAdd={handleAddMascota}
         addButtonLabel="Agregar Mascota"
         searchPlaceholder="Buscar mascotas..."
-        loading={isLoading}
+        loading={loading}
       />
 
       {/* Modal para Agregar/Editar/Ver Mascota */}
@@ -1139,18 +845,43 @@ const Mascotas = () => {
         onFotoChange={handleFotoChange}
         onSave={handleSaveMascota}
         onClose={handleCloseModal}
-        disableSave={isImageLoading} // Pasar el estado de carga al formulario
+        disableSave={isImageLoading}
       />
 
-      {/* Modal de confirmación para eliminar */}
-      <DeleteConfirmModal
+      {/* Diálogos de confirmación */}
+      <ConfirmDialog
+        show={showEditConfirm}
+        title="Confirmar edición"
+        message={`¿Está seguro de editar la mascota "${mascotaToEdit?.Nombre}"?`}
+        type="info"
+        onConfirm={confirmEdit}
+        onCancel={() => setShowEditConfirm(false)}
+      />
+
+      <ConfirmDialog
+        show={showStatusConfirm}
+        title="Confirmar cambio de estado"
+        message={`¿Está seguro de ${mascotaToToggle?.Estado === "Activo" ? "desactivar" : "activar"} la mascota "${mascotaToToggle?.Nombre}"?`}
+        type="warning"
+        onConfirm={handleToggleStatus}
+        onCancel={handleCancelToggleStatus}
+      />
+
+      <ConfirmDialog
         show={showDeleteConfirm}
-        mascota={mascotaToDelete}
+        title="Confirmar eliminación"
+        message={
+          <>
+            ¿Está seguro que desea eliminar la mascota <strong>{mascotaToDelete?.Nombre}</strong>?
+            <br />
+            <span className="text-danger">Esta acción no se puede deshacer.</span>
+          </>
+        }
+        type="danger"
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
       />
 
-      {/* Modificar la configuración del ToastContainer */}
       <ToastContainer
         position="top-right"
         autoClose={3000}
@@ -1162,10 +893,7 @@ const Mascotas = () => {
         draggable
         pauseOnHover={false}
         theme="light"
-        limit={2}
-        closeButton
-        containerId="mascotas-toast-container"
-        enableMultiContainer={true}
+        limit={1}
       />
     </div>
   )

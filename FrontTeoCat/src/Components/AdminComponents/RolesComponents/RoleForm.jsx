@@ -1,12 +1,12 @@
 "use client"
 
 import { useState } from "react"
-import { Save, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react"
+import { Save, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 
 /**
  * Componente de formulario para la gestión de roles
  */
-const RoleForm = ({ formData, setFormData, modalTitle, handleCloseModal, handleSaveRole, permisos }) => {
+const RoleForm = ({ formData, setFormData, modalTitle, handleCloseModal, handleSaveRole, permisos, disableNombre }) => {
   // Estado para controlar qué secciones están expandidas
   const [expandedSections, setExpandedSections] = useState({
     configuracion: true, // Expandido por defecto para mejor UX
@@ -266,18 +266,18 @@ const RoleForm = ({ formData, setFormData, modalTitle, handleCloseModal, handleS
 
   return (
     <form>
-      <div className="mb-4">
-        <label htmlFor="roleName" className="form-label">
-          Nombre del Rol
-        </label>
+      {/* Campo de nombre con etiqueta flotante */}
+      <div className="form-floating mb-4">
         <input
           type="text"
           className="form-control"
           id="roleName"
+          placeholder="Nombre del rol"
           value={formData.nombre}
           onChange={handleNameChange}
-          disabled={modalTitle === "Ver Detalles del Rol" || formData.esAdmin}
+          disabled={modalTitle === "Ver Detalles del Rol" || formData.esAdmin || disableNombre}
         />
+        <label htmlFor="roleName">Nombre del Rol</label>
       </div>
 
       <div className="table-responsive">

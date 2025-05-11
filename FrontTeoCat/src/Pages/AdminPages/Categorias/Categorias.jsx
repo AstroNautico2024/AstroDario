@@ -9,7 +9,12 @@ import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/ToastStyles.css"
 import CategoryForm from "../../../Components/AdminComponents/CategoriasComponents/CategoryForm"
 import DeleteConfirmModal from "../../../Components/AdminComponents/CategoriasComponents/DeleteConfirmModal"
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay"
+import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog"
 import CategoriasService from "../../../Services/ConsumoAdmin/CategoriasService.js"
+
+// Importar los estilos SCSS
+import "../../../Components/AdminComponents/CategoriasComponents/CategoryForm.scss"
 
 /**
  * Componente para la gestión de categorías de productos
@@ -28,21 +33,64 @@ const CategoriasProducto = () => {
   // Estado para el formulario
   const [formData, setFormData] = useState({
     nombre: "",
-    descripcion: "",
   })
 
   // Estado para errores de validación
   const [formErrors, setFormErrors] = useState({
     nombre: "",
-    descripcion: "",
   })
 
   // Estado para el modal de confirmación de eliminación
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [categoriaToDelete, setCategoriaToDelete] = useState(null)
 
+  // Estado para los diálogos de confirmación
+  const [showStatusConfirm, setShowStatusConfirm] = useState(false)
+  const [showEditConfirm, setShowEditConfirm] = useState(false)
+  const [categoriaToToggle, setCategoriaToToggle] = useState(null)
+  const [categoriaToEdit, setCategoriaToEdit] = useState(null)
+
+  // Estado para el indicador de carga
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
+
   // Referencias para las notificaciones
-  const toastIds = useRef({})
+  const pendingToastRef = useRef(null)
+  const toastShownRef = useRef(false)
+
+  // Función para mostrar toast después de que el loading se oculte
+  const showPendingToast = () => {
+    if (pendingToastRef.current && !toastShownRef.current) {
+      const { type, message } = pendingToastRef.current
+
+      // Marcar como mostrado
+      toastShownRef.current = true
+
+      // Limpiar todas las notificaciones existentes primero
+      toast.dismiss()
+
+      // Mostrar la notificación después de un pequeño retraso
+      setTimeout(() => {
+        toast[type](message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+          onClose: () => {
+            // Resetear cuando se cierra la notificación
+            pendingToastRef.current = null
+            // Esperar un momento antes de permitir nuevas notificaciones
+            setTimeout(() => {
+              toastShownRef.current = false
+            }, 300)
+          },
+        })
+      }, 300)
+    }
+  }
 
   // Cargar categorías al montar el componente
   useEffect(() => {
@@ -50,12 +98,15 @@ const CategoriasProducto = () => {
 
     // Limpiar todas las notificaciones al montar el componente
     toast.dismiss()
+    pendingToastRef.current = null
+    toastShownRef.current = false
 
     return () => {
       // Limpiar todas las notificaciones al desmontar el componente
       toast.dismiss()
       // Limpiar referencias
-      toastIds.current = {}
+      pendingToastRef.current = null
+      toastShownRef.current = false
     }
   }, [])
 
@@ -79,40 +130,16 @@ const CategoriasProducto = () => {
     } catch (error) {
       console.error("Error al cargar categorías:", error)
 
-      // Mostrar notificación de error
-      showToast(
-        "error",
-        "Error",
-        `No se pudieron cargar las categorías. ${error.response?.data?.message || error.message}`,
-      )
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: `No se pudieron cargar las categorías. ${error.response?.data?.message || error.message}`,
+      }
     } finally {
       setLoading(false)
+      // Mostrar cualquier notificación pendiente después de que se complete la carga
+      showPendingToast()
     }
-  }
-
-  // Función para mostrar notificaciones de manera consistente
-  const showToast = (type, title, message, icon = null, autoClose = 4000) => {
-    // Primero, cerrar TODAS las notificaciones existentes
-    toast.dismiss()
-
-    // Esperar un momento antes de mostrar la nueva notificación
-    setTimeout(() => {
-      toast[type](
-        <div>
-          <strong>{title}</strong>
-          <p>{message}</p>
-        </div>,
-        {
-          icon: icon,
-          position: "top-right",
-          autoClose: autoClose,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: false,
-          draggable: true,
-        },
-      )
-    }, 300)
   }
 
   // Definición de columnas para la tabla
@@ -133,8 +160,8 @@ const CategoriasProducto = () => {
           actions={["view", "edit", "toggleStatus", "delete"]}
           row={row}
           onView={handleView}
-          onEdit={handleEdit}
-          onToggleStatus={handleToggleStatus}
+          onEdit={handleConfirmEdit}
+          onToggleStatus={handleConfirmToggleStatus}
           onDelete={handleDelete}
         />
       ),
@@ -145,61 +172,114 @@ const CategoriasProducto = () => {
    * Manejador para ver detalles de una categoría
    */
   const handleView = (categoria) => {
-    setCurrentCategoria(categoria)
-    setModalTitle("Ver Detalles de la Categoría")
+    try {
+      setIsProcessing(true)
+      setProcessingMessage("Cargando detalles de la categoría...")
 
-    // Cargar datos de la categoría en el formulario
-    setFormData({
-      nombre: categoria.nombre,
-      descripcion: categoria.descripcion || "",
-    })
+      setCurrentCategoria(categoria)
+      setModalTitle("Ver Detalles de la Categoría")
 
-    // Resetear errores
-    setFormErrors({
-      nombre: "",
-      descripcion: "",
-    })
+      // Cargar datos de la categoría en el formulario
+      setFormData({
+        nombre: categoria.nombre,
+      })
 
-    setShowModal(true)
+      // Resetear errores
+      setFormErrors({
+        nombre: "",
+      })
+
+      setIsProcessing(false)
+      setShowModal(true)
+    } catch (err) {
+      setIsProcessing(false)
+      console.error("Error al cargar detalles de la categoría:", err)
+
+      // En caso de error, guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los detalles de la categoría",
+      }
+      showPendingToast()
+    }
   }
 
   /**
-   * Manejador para editar una categoría
+   * Manejador para confirmar la edición de una categoría
    */
-  const handleEdit = (categoria) => {
-    setCurrentCategoria(categoria)
-    setModalTitle("Editar Categoría")
+  const handleConfirmEdit = (categoria) => {
+    setCategoriaToEdit(categoria)
+    setShowEditConfirm(true)
+  }
 
-    // Cargar datos de la categoría en el formulario
-    setFormData({
-      nombre: categoria.nombre,
-      descripcion: categoria.descripcion || "",
-    })
+  /**
+   * Función para confirmar la edición
+   */
+  const confirmEdit = async () => {
+    try {
+      setShowEditConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage("Cargando datos de la categoría...")
 
-    // Resetear errores
-    setFormErrors({
-      nombre: "",
-      descripcion: "",
-    })
+      const categoria = categoriaToEdit
+      setCurrentCategoria(categoria)
+      setModalTitle("Editar Categoría")
 
-    setShowModal(true)
+      // Cargar datos de la categoría en el formulario
+      setFormData({
+        nombre: categoria.nombre,
+      })
+
+      // Resetear errores
+      setFormErrors({
+        nombre: "",
+      })
+
+      setIsProcessing(false)
+      setShowModal(true)
+    } catch (err) {
+      setIsProcessing(false)
+      console.error("Error al cargar datos para editar categoría:", err)
+
+      // En caso de error, guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los datos para editar la categoría",
+      }
+      showPendingToast()
+    }
+  }
+
+  /**
+   * Manejador para confirmar el cambio de estado de una categoría
+   */
+  const handleConfirmToggleStatus = (categoria) => {
+    setCategoriaToToggle(categoria)
+    setShowStatusConfirm(true)
   }
 
   /**
    * Manejador para cambiar el estado de una categoría
    */
-  const handleToggleStatus = async (categoria) => {
+  const handleToggleStatus = async () => {
+    if (!categoriaToToggle) return
+
     try {
-      // Limpiar notificaciones existentes
-      toast.dismiss()
+      setShowStatusConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage(`Cambiando estado de la categoría...`)
+
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
 
       // Llamar a la API para cambiar el estado
-      const newStatus = categoria.estado === "Activo" ? false : true
-      await CategoriasService.changeStatus(categoria.id, newStatus)
+      const newStatus = categoriaToToggle.estado === "Activo" ? false : true
+      await CategoriasService.changeStatus(categoriaToToggle.id, newStatus)
 
       // Actualizar el estado local
       const updatedCategorias = categorias.map((c) => {
-        if (c.id === categoria.id) {
+        if (c.id === categoriaToToggle.id) {
           return {
             ...c,
             estado: c.estado === "Activo" ? "Inactivo" : "Activo",
@@ -210,26 +290,35 @@ const CategoriasProducto = () => {
 
       setCategorias(updatedCategorias)
 
-      // Añadir notificación
-      const statusText = categoria.estado === "Activo" ? "inactiva" : "activa"
-      showToast(
-        "success",
-        "Estado actualizado",
-        `La categoría "${categoria.nombre}" ahora está ${statusText}.`,
-        "🔄",
-        3000,
-      )
+      // Guardar el toast para después
+      const statusText = categoriaToToggle.estado === "Activo" ? "inactiva" : "activa"
+      pendingToastRef.current = {
+        type: "success",
+        message: `La categoría "${categoriaToToggle.nombre}" ahora está ${statusText}.`,
+      }
 
-      // Recargar las categorías para asegurar sincronización con el servidor
-      await fetchCategorias()
+      setIsProcessing(false)
     } catch (error) {
+      setIsProcessing(false)
       console.error("Error al cambiar estado:", error)
-      showToast(
-        "error",
-        "Error",
-        error.response?.data?.message || "No se pudo cambiar el estado de la categoría. Intente nuevamente.",
-      )
+
+      // En caso de error, también guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cambiar el estado de la categoría",
+      }
     }
+
+    // Cerrar el modal de confirmación
+    setCategoriaToToggle(null)
+  }
+
+  /**
+   * Manejador para cancelar el cambio de estado
+   */
+  const handleCancelToggleStatus = () => {
+    setShowStatusConfirm(false)
+    setCategoriaToToggle(null)
   }
 
   /**
@@ -248,26 +337,9 @@ const CategoriasProducto = () => {
   /**
    * Manejador para iniciar el proceso de eliminación
    */
-  const handleDelete = async (categoria) => {
-    try {
-      // Verificar si hay productos asociados a esta categoría
-      const hasProducts = await hasAssociatedProducts(categoria.id)
-
-      if (hasProducts) {
-        showToast(
-          "error",
-          "Error",
-          `No se puede eliminar la categoría "${categoria.nombre}" porque tiene productos asociados.`,
-        )
-        return
-      }
-
-      setCategoriaToDelete(categoria)
-      setShowDeleteConfirm(true)
-    } catch (error) {
-      console.error("Error al preparar eliminación:", error)
-      showToast("error", "Error", "Ocurrió un error al procesar la solicitud. Intente nuevamente.")
-    }
+  const handleDelete = (categoria) => {
+    setCategoriaToDelete(categoria)
+    setShowDeleteConfirm(true)
   }
 
   /**
@@ -276,8 +348,30 @@ const CategoriasProducto = () => {
   const confirmDelete = async () => {
     if (categoriaToDelete) {
       try {
+        setIsProcessing(true)
+        setProcessingMessage("Verificando productos asociados...")
+
+        // Verificar si hay productos asociados a esta categoría
+        const hasProducts = await hasAssociatedProducts(categoriaToDelete.id)
+
+        if (hasProducts) {
+          setIsProcessing(false)
+          pendingToastRef.current = {
+            type: "error",
+            message: `No se puede eliminar la categoría "${categoriaToDelete.nombre}" porque tiene productos asociados.`,
+          }
+          showPendingToast()
+          setShowDeleteConfirm(false)
+          setCategoriaToDelete(null)
+          return
+        }
+
+        // Cambiar el mensaje ahora que estamos eliminando
+        setProcessingMessage("Eliminando categoría...")
+
         // Limpiar notificaciones existentes
-        toast.dismiss()
+        pendingToastRef.current = null
+        toastShownRef.current = false
 
         // Llamar a la API para eliminar la categoría
         await CategoriasService.delete(categoriaToDelete.id)
@@ -286,28 +380,25 @@ const CategoriasProducto = () => {
         const updatedCategorias = categorias.filter((c) => c.id !== categoriaToDelete.id)
         setCategorias(updatedCategorias)
 
-        // Añadir notificación
-        showToast(
-          "info",
-          "Categoría eliminada",
-          `La categoría "${categoriaToDelete.nombre}" ha sido eliminada correctamente.`,
-          "🗑️",
-          3000,
-        )
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "info",
+          message: `La categoría "${categoriaToDelete.nombre}" ha sido eliminada correctamente.`,
+        }
 
-        // Recargar las categorías para asegurar sincronización con el servidor
-        await fetchCategorias()
+        setIsProcessing(false)
       } catch (error) {
+        setIsProcessing(false)
         console.error("Error al eliminar categoría:", error)
-        showToast(
-          "error",
-          "Error",
-          error.response?.data?.message || "No se pudo eliminar la categoría. Intente nuevamente.",
-        )
+
+        pendingToastRef.current = {
+          type: "error",
+          message: error.response?.data?.message || "No se pudo eliminar la categoría. Intente nuevamente.",
+        }
       }
+      setShowDeleteConfirm(false)
+      setCategoriaToDelete(null)
     }
-    setShowDeleteConfirm(false)
-    setCategoriaToDelete(null)
   }
 
   /**
@@ -328,13 +419,11 @@ const CategoriasProducto = () => {
     // Resetear el formulario
     setFormData({
       nombre: "",
-      descripcion: "",
     })
 
     // Resetear errores
     setFormErrors({
       nombre: "",
-      descripcion: "",
     })
 
     setShowModal(true)
@@ -372,7 +461,6 @@ const CategoriasProducto = () => {
     let isValid = true
     const errors = {
       nombre: "",
-      descripcion: "",
     }
 
     // Validar nombre (requerido y longitud)
@@ -395,12 +483,6 @@ const CategoriasProducto = () => {
       }
     }
 
-    // Validar descripción (opcional pero con longitud máxima)
-    if (formData.descripcion && formData.descripcion.length > 255) {
-      errors.descripcion = "La descripción no puede exceder los 255 caracteres"
-      isValid = false
-    }
-
     setFormErrors(errors)
     return isValid
   }
@@ -411,62 +493,62 @@ const CategoriasProducto = () => {
   const handleSaveCategoria = async () => {
     // Validar el formulario
     if (!validateForm()) {
-      // Limpiar notificaciones existentes
-      toast.dismiss()
-
-      showToast("error", "Error", "Por favor, corrija los errores en el formulario.")
+      pendingToastRef.current = {
+        type: "error",
+        message: "Por favor, corrija los errores en el formulario.",
+      }
+      showPendingToast()
       return
     }
 
     try {
-      // Limpiar notificaciones existentes
-      toast.dismiss()
+      setIsProcessing(true)
+      setProcessingMessage(currentCategoria ? "Actualizando categoría..." : "Creando nueva categoría...")
+
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
 
       if (currentCategoria) {
         // Actualizar categoría existente
         await CategoriasService.update(currentCategoria.id, {
           NombreCategoria: formData.nombre.trim(),
-          Descripcion: formData.descripcion.trim(),
         })
 
-        // Notificación de éxito para edición
-        showToast(
-          "success",
-          "Categoría actualizada",
-          `La categoría "${formData.nombre.trim()}" ha sido actualizada correctamente.`,
-          "✏️",
-          3000,
-        )
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `La categoría "${formData.nombre.trim()}" ha sido actualizada correctamente.`,
+        }
       } else {
         // Crear nueva categoría
         await CategoriasService.create({
           NombreCategoria: formData.nombre.trim(),
-          Descripcion: formData.descripcion.trim(),
           Estado: true,
         })
 
-        // Notificación de éxito para creación
-        showToast(
-          "success",
-          "Categoría creada",
-          `La categoría "${formData.nombre.trim()}" ha sido creada correctamente.`,
-          "✅",
-          3000,
-        )
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `La categoría "${formData.nombre.trim()}" ha sido creada correctamente.`,
+        }
       }
 
       // Cerrar el modal
       handleCloseModal()
+      setIsProcessing(false)
 
       // Recargar las categorías para asegurar sincronización con el servidor
       await fetchCategorias()
     } catch (error) {
+      setIsProcessing(false)
       console.error("Error al guardar categoría:", error)
-      showToast(
-        "error",
-        "Error",
-        error.response?.data?.message || "No se pudo guardar la categoría. Intente nuevamente.",
-      )
+
+      pendingToastRef.current = {
+        type: "error",
+        message: error.response?.data?.message || "No se pudo guardar la categoría. Intente nuevamente.",
+      }
+      showPendingToast()
     }
   }
 
@@ -525,6 +607,7 @@ const CategoriasProducto = () => {
         addButtonLabel="Agregar Categoría"
         searchPlaceholder="Buscar categorías..."
         loading={loading}
+        showExportButton={false}
       />
 
       {/* Modal para Agregar/Editar/Ver Categoría */}
@@ -544,6 +627,33 @@ const CategoriasProducto = () => {
         categoria={categoriaToDelete}
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
+      />
+
+      {/* Diálogos de confirmación */}
+      <ConfirmDialog
+        show={showEditConfirm}
+        title="Confirmar edición"
+        message={`¿Está seguro de editar la categoría "${categoriaToEdit?.nombre}"?`}
+        type="info"
+        onConfirm={confirmEdit}
+        onCancel={() => setShowEditConfirm(false)}
+      />
+
+      <ConfirmDialog
+        show={showStatusConfirm}
+        title="Confirmar cambio de estado"
+        message={`¿Está seguro de ${categoriaToToggle?.estado === "Activo" ? "desactivar" : "activar"} la categoría "${categoriaToToggle?.nombre}"?`}
+        type="warning"
+        onConfirm={handleToggleStatus}
+        onCancel={handleCancelToggleStatus}
+      />
+
+      {/* Overlay de carga con el nuevo callback */}
+      <LoadingOverlay
+        isLoading={isProcessing}
+        message={processingMessage}
+        variant="primary"
+        onHide={showPendingToast}
       />
 
       <ToastContainer

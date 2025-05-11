@@ -8,8 +8,12 @@ import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/ToastStyles.css"
 import TipoServicioForm from "../../../Components/AdminComponents/TiposDeServicioComponents/TipoServicioForm"
-import DeleteConfirmModal from "../../../Components/AdminComponents/TiposDeServicioComponents/DeleteConfirmModal"
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay"
+import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog"
 import tiposServicioService from "../../../services/ConsumoAdmin/tiposServicioService.js"
+
+// Importar los estilos SCSS
+import "../../../Components/AdminComponents/TiposDeServicioComponents/TipoServicioForm.scss"
 
 /**
  * Componente para la gestión de tipos de servicios
@@ -28,27 +32,81 @@ const TiposServicios = () => {
   // Estado para el formulario
   const [formData, setFormData] = useState({
     nombre: "",
-    descripcion: "",
   })
 
   // Estado para los errores de validación
   const [formErrors, setFormErrors] = useState({
     nombre: "",
-    descripcion: "",
   })
 
-  // Estado para el modal de confirmación de eliminación
+  // Estado para los diálogos de confirmación
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showEditConfirm, setShowEditConfirm] = useState(false)
+  const [showStatusConfirm, setShowStatusConfirm] = useState(false)
   const [tipoServicioToDelete, setTipoServicioToDelete] = useState(null)
+  const [tipoServicioToEdit, setTipoServicioToEdit] = useState(null)
+  const [tipoServicioToToggle, setTipoServicioToToggle] = useState(null)
+
+  // Estado para el indicador de carga
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
 
   // Referencias para las notificaciones
+  const pendingToastRef = useRef(null)
+  const toastShownRef = useRef(false)
   const toastIds = useRef({})
+
+  // Función para mostrar toast después de que el loading se oculte
+  const showPendingToast = () => {
+    if (pendingToastRef.current && !toastShownRef.current) {
+      const { type, message } = pendingToastRef.current
+
+      // Marcar como mostrado
+      toastShownRef.current = true
+
+      // Limpiar todas las notificaciones existentes primero
+      toast.dismiss()
+
+      // Mostrar la notificación después de un pequeño retraso
+      setTimeout(() => {
+        toast[type](message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+          onClose: () => {
+            // Resetear cuando se cierra la notificación
+            pendingToastRef.current = null
+            // Esperar un momento antes de permitir nuevas notificaciones
+            setTimeout(() => {
+              toastShownRef.current = false
+            }, 300)
+          },
+        })
+      }, 300)
+    }
+  }
+
+  // Limpiar notificaciones
+  const clearAllToasts = () => {
+    toast.dismiss()
+    pendingToastRef.current = null
+    toastShownRef.current = false
+  }
 
   /**
    * Efecto para cargar datos iniciales
    */
   useEffect(() => {
+    clearAllToasts()
     fetchTiposServicios()
+
+    return () => {
+      clearAllToasts()
+    }
   }, [])
 
   /**
@@ -62,9 +120,16 @@ const TiposServicios = () => {
       setTiposServicios(data)
     } catch (error) {
       console.error("Error al cargar tipos de servicio:", error)
-      toast.error("No se pudieron cargar los tipos de servicio")
+
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "No se pudieron cargar los tipos de servicio",
+      }
     } finally {
       setLoading(false)
+      // Mostrar cualquier notificación pendiente después de que se complete la carga
+      showPendingToast()
     }
   }
 
@@ -86,9 +151,9 @@ const TiposServicios = () => {
           actions={["view", "edit", "toggleStatus", "delete"]}
           row={row}
           onView={handleView}
-          onEdit={handleEdit}
-          onToggleStatus={handleToggleStatus}
-          onDelete={handleDelete}
+          onEdit={handleConfirmEdit}
+          onToggleStatus={handleConfirmToggleStatus}
+          onDelete={handleConfirmDelete}
           customLabels={{
             toggleStatus: row.Estado ? "Desactivar" : "Activar", // Cambiado de "estado" a "Estado"
           }}
@@ -102,101 +167,152 @@ const TiposServicios = () => {
    * @param {Object} tipoServicio - Objeto de tipo de servicio a visualizar
    */
   const handleView = (tipoServicio) => {
-    setCurrentTipoServicio(tipoServicio)
-    setModalTitle("Ver Detalles del Tipo de Servicio")
-
-    // Cargar datos del tipo de servicio en el formulario
-    setFormData({
-      nombre: tipoServicio.Nombre || "", // Cambiado de "nombre" a "Nombre"
-      descripcion: tipoServicio.Descripcion || "", // Cambiado de "descripcion" a "Descripcion"
-    })
-
-    // Resetear errores
-    setFormErrors({
-      nombre: "",
-      descripcion: "",
-    })
-
-    setShowModal(true)
-  }
-
-  /**
-   * Manejador para editar un tipo de servicio
-   * @param {Object} tipoServicio - Objeto de tipo de servicio a editar
-   */
-  const handleEdit = (tipoServicio) => {
-    setCurrentTipoServicio(tipoServicio)
-    setModalTitle("Editar Tipo de Servicio")
-
-    // Cargar datos del tipo de servicio en el formulario
-    setFormData({
-      nombre: tipoServicio.Nombre || "", // Cambiado de "nombre" a "Nombre"
-      descripcion: tipoServicio.Descripcion || "", // Cambiado de "descripcion" a "Descripcion"
-    })
-
-    // Resetear errores
-    setFormErrors({
-      nombre: "",
-      descripcion: "",
-    })
-
-    setShowModal(true)
-  }
-
-  /**
-   * Manejador para cambiar el estado de un tipo de servicio (Activo/Inactivo)
-   * @param {Object} tipoServicio - Objeto de tipo de servicio a cambiar estado
-   */
-  const handleToggleStatus = async (tipoServicio) => {
     try {
-      // Verificar que tipoServicio.IdTipoServicio existe
-      if (!tipoServicio.IdTipoServicio) {
-        console.error("Error: IdTipoServicio es undefined", tipoServicio)
-        toast.error("No se pudo cambiar el estado: ID no válido")
-        return
+      setIsProcessing(true)
+      setProcessingMessage("Cargando detalles del tipo de servicio...")
+
+      setCurrentTipoServicio(tipoServicio)
+      setModalTitle("Ver Detalles del Tipo de Servicio")
+
+      // Cargar datos del tipo de servicio en el formulario
+      setFormData({
+        nombre: tipoServicio.Nombre || "", // Cambiado de "nombre" a "Nombre"
+      })
+
+      // Resetear errores
+      setFormErrors({
+        nombre: "",
+      })
+
+      setIsProcessing(false)
+      setShowModal(true)
+    } catch (err) {
+      setIsProcessing(false)
+      console.error("Error al cargar detalles del tipo de servicio:", err)
+
+      // En caso de error, guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los detalles del tipo de servicio",
       }
-
-      await tiposServicioService.cambiarEstado(tipoServicio.IdTipoServicio, !tipoServicio.Estado) // Cambiado de "id" a "IdTipoServicio" y "estado" a "Estado"
-
-      // Actualizar la lista de tipos de servicio
-      await fetchTiposServicios()
-
-      // Añadir notificación
-      const newStatus = tipoServicio.Estado ? "inactivo" : "activo" // Cambiado de "estado" a "Estado"
-
-      // Descartar notificación anterior si existe
-      if (toastIds.current.status) {
-        toast.dismiss(toastIds.current.status)
-      }
-
-      toastIds.current.status = toast.success(
-        <div>
-          <strong>Estado actualizado</strong>
-          <p>
-            El tipo de servicio "{tipoServicio.Nombre}" ahora está {newStatus}. {/* Cambiado de "nombre" a "Nombre" */}
-          </p>
-        </div>,
-        {
-          icon: "🔄",
-          position: "top-right",
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
-    } catch (error) {
-      console.error("Error al cambiar el estado:", error)
-      toast.error("No se pudo cambiar el estado del tipo de servicio")
+      showPendingToast()
     }
   }
 
   /**
-   * Manejador para iniciar el proceso de eliminación de un tipo de servicio
-   * @param {Object} tipoServicio - Objeto de tipo de servicio a eliminar
+   * Manejador para confirmar la edición de un tipo de servicio
    */
-  const handleDelete = (tipoServicio) => {
+  const handleConfirmEdit = (tipoServicio) => {
+    setTipoServicioToEdit(tipoServicio)
+    setShowEditConfirm(true)
+  }
+
+  /**
+   * Función para confirmar la edición
+   */
+  const confirmEdit = async () => {
+    try {
+      setShowEditConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage("Cargando datos del tipo de servicio...")
+
+      const tipoServicio = tipoServicioToEdit
+      setCurrentTipoServicio(tipoServicio)
+      setModalTitle("Editar Tipo de Servicio")
+
+      // Cargar datos del tipo de servicio en el formulario
+      setFormData({
+        nombre: tipoServicio.Nombre || "", // Cambiado de "nombre" a "Nombre"
+      })
+
+      // Resetear errores
+      setFormErrors({
+        nombre: "",
+      })
+
+      setIsProcessing(false)
+      setShowModal(true)
+    } catch (err) {
+      setIsProcessing(false)
+      console.error("Error al cargar datos para editar tipo de servicio:", err)
+
+      // En caso de error, guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los datos para editar el tipo de servicio",
+      }
+      showPendingToast()
+    }
+  }
+
+  /**
+   * Manejador para confirmar el cambio de estado de un tipo de servicio
+   */
+  const handleConfirmToggleStatus = (tipoServicio) => {
+    setTipoServicioToToggle(tipoServicio)
+    setShowStatusConfirm(true)
+  }
+
+  /**
+   * Manejador para cambiar el estado de un tipo de servicio (Activo/Inactivo)
+   */
+  const handleToggleStatus = async () => {
+    if (!tipoServicioToToggle) return
+
+    try {
+      setShowStatusConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage(`Cambiando estado del tipo de servicio...`)
+
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+
+      // Verificar que tipoServicioToToggle.IdTipoServicio existe
+      if (!tipoServicioToToggle.IdTipoServicio) {
+        throw new Error("Error: IdTipoServicio es undefined")
+      }
+
+      await tiposServicioService.cambiarEstado(tipoServicioToToggle.IdTipoServicio, !tipoServicioToToggle.Estado)
+
+      // Actualizar la lista de tipos de servicio
+      await fetchTiposServicios()
+
+      // Guardar el toast para después
+      const newStatus = tipoServicioToToggle.Estado ? "inactivo" : "activo"
+      pendingToastRef.current = {
+        type: "success",
+        message: `El tipo de servicio "${tipoServicioToToggle.Nombre}" ahora está ${newStatus}.`,
+      }
+
+      setIsProcessing(false)
+    } catch (error) {
+      setIsProcessing(false)
+      console.error("Error al cambiar estado:", error)
+
+      // En caso de error, también guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cambiar el estado del tipo de servicio",
+      }
+    }
+
+    // Cerrar el modal de confirmación
+    setTipoServicioToToggle(null)
+  }
+
+  /**
+   * Manejador para cancelar el cambio de estado
+   */
+  const handleCancelToggleStatus = () => {
+    setShowStatusConfirm(false)
+    setTipoServicioToToggle(null)
+  }
+
+  /**
+   * Manejador para confirmar la eliminación de un tipo de servicio
+   */
+  const handleConfirmDelete = (tipoServicio) => {
     setTipoServicioToDelete(tipoServicio)
     setShowDeleteConfirm(true)
   }
@@ -207,48 +323,43 @@ const TiposServicios = () => {
   const confirmDelete = async () => {
     if (tipoServicioToDelete) {
       try {
+        setShowDeleteConfirm(false)
+        setIsProcessing(true)
+        setProcessingMessage("Eliminando tipo de servicio...")
+
+        // Limpiar notificaciones existentes
+        pendingToastRef.current = null
+        toastShownRef.current = false
+
         // Verificar que tipoServicioToDelete.IdTipoServicio existe
         if (!tipoServicioToDelete.IdTipoServicio) {
-          console.error("Error: IdTipoServicio es undefined", tipoServicioToDelete)
-          toast.error("No se pudo eliminar: ID no válido")
-          setShowDeleteConfirm(false)
-          setTipoServicioToDelete(null)
-          return
+          throw new Error("Error: IdTipoServicio es undefined")
         }
 
-        await tiposServicioService.eliminar(tipoServicioToDelete.IdTipoServicio) // Cambiado de "id" a "IdTipoServicio"
+        await tiposServicioService.eliminar(tipoServicioToDelete.IdTipoServicio)
 
         // Actualizar la lista de tipos de servicio
         await fetchTiposServicios()
 
-        // Añadir notificación
-        if (toastIds.current.delete) {
-          toast.dismiss(toastIds.current.delete)
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "info",
+          message: `El tipo de servicio "${tipoServicioToDelete.Nombre}" ha sido eliminado correctamente.`,
         }
 
-        toastIds.current.delete = toast.info(
-          <div>
-            <strong>Tipo de servicio eliminado</strong>
-            <p>El tipo de servicio "{tipoServicioToDelete.Nombre}" ha sido eliminado correctamente.</p>{" "}
-            {/* Cambiado de "nombre" a "Nombre" */}
-          </div>,
-          {
-            icon: "🗑️",
-            position: "top-right",
-            autoClose: 3000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          },
-        )
+        setIsProcessing(false)
       } catch (error) {
+        setIsProcessing(false)
         console.error("Error al eliminar:", error)
-        toast.error("No se pudo eliminar el tipo de servicio")
+
+        pendingToastRef.current = {
+          type: "error",
+          message: "No se pudo eliminar el tipo de servicio",
+        }
+        showPendingToast()
       }
+      setTipoServicioToDelete(null)
     }
-    setShowDeleteConfirm(false)
-    setTipoServicioToDelete(null)
   }
 
   /**
@@ -269,13 +380,11 @@ const TiposServicios = () => {
     // Resetear el formulario
     setFormData({
       nombre: "",
-      descripcion: "",
     })
 
     // Resetear errores
     setFormErrors({
       nombre: "",
-      descripcion: "",
     })
 
     setShowModal(true)
@@ -316,7 +425,6 @@ const TiposServicios = () => {
     let isValid = true
     const errors = {
       nombre: "",
-      descripcion: "",
     }
 
     // Validar nombre (requerido y único)
@@ -340,12 +448,6 @@ const TiposServicios = () => {
       }
     }
 
-    // Validar descripción (opcional pero con longitud máxima)
-    if (formData.descripcion && formData.descripcion.length > 500) {
-      errors.descripcion = "La descripción no puede exceder los 500 caracteres"
-      isValid = false
-    }
-
     setFormErrors(errors)
     return isValid
   }
@@ -357,33 +459,27 @@ const TiposServicios = () => {
   const handleSaveTipoServicio = async () => {
     // Validar el formulario
     if (!validateForm()) {
-      // Mostrar notificación de error general
-      if (toastIds.current.error) {
-        toast.dismiss(toastIds.current.error)
+      pendingToastRef.current = {
+        type: "error",
+        message: "Por favor, corrija los errores en el formulario.",
       }
-
-      toastIds.current.error = toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>Por favor, corrija los errores en el formulario.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 4000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
+      showPendingToast()
       return
     }
 
     try {
+      setIsProcessing(true)
+      setProcessingMessage(
+        currentTipoServicio ? "Actualizando tipo de servicio..." : "Creando nuevo tipo de servicio...",
+      )
+
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+
       // Asegurarse de que los datos estén en el formato correcto que espera la API
       const tipoServicioData = {
         Nombre: formData.nombre.trim(),
-        Descripcion: formData.descripcion.trim(),
       }
 
       console.log("Enviando datos:", tipoServicioData) // Para depuración
@@ -391,56 +487,45 @@ const TiposServicios = () => {
       if (currentTipoServicio) {
         // Verificar que currentTipoServicio.IdTipoServicio existe
         if (!currentTipoServicio.IdTipoServicio) {
-          console.error("Error: IdTipoServicio es undefined", currentTipoServicio)
-          toast.error("No se pudo actualizar: ID no válido")
-          return
+          throw new Error("Error: IdTipoServicio es undefined")
         }
 
         // Actualizar tipo de servicio existente
-        await tiposServicioService.actualizar(currentTipoServicio.IdTipoServicio, tipoServicioData) // Cambiado de "id" a "IdTipoServicio"
+        await tiposServicioService.actualizar(currentTipoServicio.IdTipoServicio, tipoServicioData)
+
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `El tipo de servicio "${formData.nombre.trim()}" ha sido actualizado correctamente.`,
+        }
       } else {
         // Crear nuevo tipo de servicio
         await tiposServicioService.crear(tipoServicioData)
+
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `El tipo de servicio "${formData.nombre.trim()}" ha sido creado correctamente.`,
+        }
       }
 
       // Actualizar la lista de tipos de servicio
       await fetchTiposServicios()
 
-      // Notificación de éxito
-      const toastKey = currentTipoServicio ? "edit" : "create"
-      const toastMessage = currentTipoServicio
-        ? `El tipo de servicio "${formData.nombre.trim()}" ha sido actualizado correctamente.`
-        : `El tipo de servicio "${formData.nombre.trim()}" ha sido creado correctamente.`
-      const toastIcon = currentTipoServicio ? "✏️" : "✅"
-      const toastTitle = currentTipoServicio ? "Tipo de servicio actualizado" : "Tipo de servicio creado"
-
-      if (toastIds.current[toastKey]) {
-        toast.dismiss(toastIds.current[toastKey])
-      }
-
-      toastIds.current[toastKey] = toast.success(
-        <div>
-          <strong>{toastTitle}</strong>
-          <p>{toastMessage}</p>
-        </div>,
-        {
-          icon: toastIcon,
-          position: "top-right",
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
-
       // Cerrar el modal
       setShowModal(false)
+      setIsProcessing(false)
     } catch (error) {
+      setIsProcessing(false)
       console.error("Error al guardar:", error)
-      toast.error(
-        currentTipoServicio ? "No se pudo actualizar el tipo de servicio" : "No se pudo crear el tipo de servicio",
-      )
+
+      pendingToastRef.current = {
+        type: "error",
+        message: currentTipoServicio
+          ? "No se pudo actualizar el tipo de servicio"
+          : "No se pudo crear el tipo de servicio",
+      }
+      showPendingToast()
     }
   }
 
@@ -499,6 +584,7 @@ const TiposServicios = () => {
         addButtonLabel="Agregar Tipo de Servicio"
         searchPlaceholder="Buscar tipos de servicios..."
         loading={loading}
+        showExportButton={false}
       />
 
       {/* Modal para Agregar/Editar/Ver Tipo de Servicio */}
@@ -512,12 +598,46 @@ const TiposServicios = () => {
         onClose={handleCloseModal}
       />
 
-      {/* Modal de confirmación para eliminar */}
-      <DeleteConfirmModal
+      {/* Diálogos de confirmación */}
+      <ConfirmDialog
+        show={showEditConfirm}
+        title="Confirmar edición"
+        message={`¿Está seguro de editar el tipo de servicio "${tipoServicioToEdit?.Nombre}"?`}
+        type="info"
+        onConfirm={confirmEdit}
+        onCancel={() => setShowEditConfirm(false)}
+      />
+
+      <ConfirmDialog
+        show={showStatusConfirm}
+        title="Confirmar cambio de estado"
+        message={`¿Está seguro de ${tipoServicioToToggle?.Estado ? "desactivar" : "activar"} el tipo de servicio "${tipoServicioToToggle?.Nombre}"?`}
+        type="warning"
+        onConfirm={handleToggleStatus}
+        onCancel={handleCancelToggleStatus}
+      />
+
+      <ConfirmDialog
         show={showDeleteConfirm}
-        tipoServicio={tipoServicioToDelete}
+        title="Confirmar eliminación"
+        message={
+          <>
+            ¿Está seguro que desea eliminar el tipo de servicio <strong>{tipoServicioToDelete?.Nombre}</strong>?
+            <br />
+            <span className="text-danger">Esta acción no se puede deshacer.</span>
+          </>
+        }
+        type="danger"
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
+      />
+
+      {/* Overlay de carga con el nuevo callback */}
+      <LoadingOverlay
+        isLoading={isProcessing}
+        message={processingMessage}
+        variant="primary"
+        onHide={showPendingToast}
       />
 
       <ToastContainer
@@ -527,11 +647,11 @@ const TiposServicios = () => {
         newestOnTop
         closeOnClick
         rtl={false}
-        pauseOnFocusLoss
+        pauseOnFocusLoss={false}
         draggable
-        pauseOnHover
+        pauseOnHover={false}
         theme="light"
-        limit={3}
+        limit={1}
       />
     </div>
   )

@@ -1,9 +1,11 @@
 "use client"
 
 import { Save } from "lucide-react"
+import "./CategoryForm.scss"
 
 /**
  * Componente de formulario para crear/editar/ver categorías
+ * Actualizado con etiquetas flotantes
  * @param {Object} props - Propiedades del componente
  * @param {boolean} props.showModal - Indica si se debe mostrar el modal
  * @param {string} props.modalTitle - Título del modal
@@ -38,49 +40,34 @@ const CategoryForm = ({ showModal, modalTitle, formData, formErrors, onInputChan
               onClick={onClose}
             ></button>
           </div>
-          <div className="modal-body">
+          <div className="modal-body compact-form">
             <form className="categoria-form">
               <div className="mb-3">
-                <label htmlFor="nombre" className="form-label">
-                  Nombre de la Categoría <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="text"
-                  className={`form-control ${formErrors.nombre ? "is-invalid" : ""}`}
-                  id="nombre"
-                  name="nombre"
-                  value={formData.nombre}
-                  onChange={onInputChange}
-                  disabled={isViewMode}
-                  maxLength={50}
-                  required
-                />
-                {formErrors.nombre && <div className="invalid-feedback">{formErrors.nombre}</div>}
-                <small className="form-text text-muted">Máximo 50 caracteres.</small>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="descripcion" className="form-label">
-                  Descripción
-                </label>
-                <textarea
-                  className={`form-control ${formErrors.descripcion ? "is-invalid" : ""}`}
-                  id="descripcion"
-                  name="descripcion"
-                  rows="3"
-                  value={formData.descripcion}
-                  onChange={onInputChange}
-                  disabled={isViewMode}
-                  maxLength={255}
-                ></textarea>
-                {formErrors.descripcion && <div className="invalid-feedback">{formErrors.descripcion}</div>}
-                <small className="form-text text-muted">Máximo 255 caracteres.</small>
+                <div className="form-floating">
+                  <input
+                    type="text"
+                    className={`form-control ${formErrors.nombre ? "is-invalid" : ""}`}
+                    id="nombre"
+                    name="nombre"
+                    placeholder="Nombre de la Categoría"
+                    value={formData.nombre}
+                    onChange={onInputChange}
+                    disabled={isViewMode}
+                    maxLength={50}
+                    required
+                  />
+                  <label htmlFor="nombre">
+                    Nombre de la Categoría <span className="text-danger">*</span>
+                  </label>
+                  {formErrors.nombre && <div className="invalid-feedback">{formErrors.nombre}</div>}
+                  <small className="form-text text-muted">Máximo 50 caracteres.</small>
+                </div>
               </div>
             </form>
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" data-bs-dismiss="modal" onClick={onClose}>
-              Cancelar
+              {isViewMode ? "Cerrar" : "Cancelar"}
             </button>
 
             {!isViewMode && (

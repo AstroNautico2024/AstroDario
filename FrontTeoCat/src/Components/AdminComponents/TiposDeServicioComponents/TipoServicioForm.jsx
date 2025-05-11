@@ -1,9 +1,11 @@
 "use client"
 
 import { Save } from "lucide-react"
+import "./TipoServicioForm.scss"
 
 /**
  * Componente de formulario para crear/editar/ver tipos de servicios
+ * Actualizado con etiquetas flotantes
  */
 const TipoServicioForm = ({ showModal, modalTitle, formData, formErrors, onInputChange, onSave, onClose }) => {
   const isViewMode = modalTitle === "Ver Detalles del Tipo de Servicio"
@@ -30,51 +32,32 @@ const TipoServicioForm = ({ showModal, modalTitle, formData, formErrors, onInput
               onClick={onClose}
             ></button>
           </div>
-          <div className="modal-body">
+          <div className="modal-body compact-form">
             <form className="tipo-servicio-form">
-              <div className="mb-3">
-                <label htmlFor="nombre" className="form-label">
-                  Nombre del Tipo de Servicio <span className="text-danger">*</span>
-                </label>
+              <div className="form-floating mb-3">
                 <input
                   type="text"
                   className={`form-control ${formErrors.nombre ? "is-invalid" : ""}`}
                   id="nombre"
                   name="nombre"
+                  placeholder=" "
                   value={formData.nombre}
                   onChange={onInputChange}
                   disabled={isViewMode}
                   required
                   maxLength={100}
-                  placeholder="Ingrese el nombre del tipo de servicio"
                 />
+                <label htmlFor="nombre">
+                  Nombre del Tipo de Servicio <span className="text-danger">*</span>
+                </label>
                 {formErrors.nombre && <div className="invalid-feedback">{formErrors.nombre}</div>}
                 <small className="form-text text-muted">Máximo 100 caracteres.</small>
-              </div>
-
-              <div className="mb-3">
-                <label htmlFor="descripcion" className="form-label">
-                  Descripción
-                </label>
-                <textarea
-                  className={`form-control ${formErrors.descripcion ? "is-invalid" : ""}`}
-                  id="descripcion"
-                  name="descripcion"
-                  rows="3"
-                  value={formData.descripcion}
-                  onChange={onInputChange}
-                  disabled={isViewMode}
-                  maxLength={500}
-                  placeholder="Ingrese una descripción (opcional)"
-                ></textarea>
-                {formErrors.descripcion && <div className="invalid-feedback">{formErrors.descripcion}</div>}
-                <small className="form-text text-muted">Máximo 500 caracteres.</small>
               </div>
             </form>
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" data-bs-dismiss="modal" onClick={onClose}>
-              Cancelar
+              {isViewMode ? "Cerrar" : "Cancelar"}
             </button>
 
             {!isViewMode && (

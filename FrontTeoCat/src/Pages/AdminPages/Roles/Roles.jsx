@@ -1,14 +1,17 @@
+// Roles.jsx (actualizado con las tres mejoras)
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import DataTable from "../../../Components/AdminComponents/DataTable"
 import TableActions from "../../../Components/AdminComponents/TableActions"
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle } from 'lucide-react'
 import "../../../Styles/AdminStyles/Roles.css"
 import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/ToastStyles.css"
 import RoleForm from "../../../Components/AdminComponents/RolesComponents/RoleForm"
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay" // Nuevo componente
+import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog" // Nuevo componente
 import rolesService from "../../../Services/ConsumoAdmin/rolesService"
 import permisosService from "../../../Services/ConsumoAdmin/permisosService"
 import rolPermisoService from "../../../Services/ConsumoAdmin/rolPermisoService"
@@ -37,9 +40,55 @@ const Roles = () => {
     esAdmin: false,
   })
 
-  // Estado para el modal de confirmación de eliminación
+  // Estado para los diálogos de confirmación
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showEditConfirm, setShowEditConfirm] = useState(false)
+  const [showStatusConfirm, setShowStatusConfirm] = useState(false)
   const [roleToDelete, setRoleToDelete] = useState(null)
+  const [roleToEdit, setRoleToEdit] = useState(null)
+  const [roleToToggle, setRoleToToggle] = useState(null)
+  
+  // Estado para el indicador de carga
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
+
+  // Añadir estos nuevos estados para manejar las notificaciones pendientes
+  const pendingToastRef = useRef(null);
+  const toastShownRef = useRef(false);
+
+  // Función para mostrar toast después de que el loading se oculte
+  const showPendingToast = () => {
+    if (pendingToastRef.current && !toastShownRef.current) {
+      const { type, message } = pendingToastRef.current;
+      
+      // Marcar como mostrado
+      toastShownRef.current = true;
+      
+      // Limpiar todas las notificaciones existentes primero
+      toast.dismiss();
+      
+      // Mostrar la notificación después de un pequeño retraso
+      setTimeout(() => {
+        toast[type](message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+          onClose: () => {
+            // Resetear cuando se cierra la notificación
+            pendingToastRef.current = null;
+            // Esperar un momento antes de permitir nuevas notificaciones
+            setTimeout(() => {
+              toastShownRef.current = false;
+            }, 300);
+          }
+        });
+      }, 300);
+    }
+  };
 
   // Cargar roles y permisos al montar el componente
   useEffect(() => {
@@ -117,6 +166,9 @@ const Roles = () => {
    */
   const handleView = async (role) => {
     try {
+      setIsProcessing(true)
+      setProcessingMessage("Cargando detalles del rol...")
+      
       setCurrentRole(role)
       setModalTitle("Ver Detalles del Rol")
 
@@ -133,8 +185,10 @@ const Roles = () => {
         esAdmin: role.IdRol === 1,
       })
 
+      setIsProcessing(false)
       setShowModal(true)
     } catch (err) {
+      setIsProcessing(false)
       console.error("Error al cargar detalles del rol:", err)
       toast.error("Error al cargar los detalles del rol", {
         position: "top-right",
@@ -148,7 +202,7 @@ const Roles = () => {
   }
 
   /**
-   * Manejador para editar un rol
+   * Manejador para editar un rol (modificado para mostrar confirmación)
    */
   const handleEdit = async (role) => {
     // No permitir editar el Super Administrador
@@ -164,7 +218,21 @@ const Roles = () => {
       return
     }
 
+    // Mostrar diálogo de confirmación
+    setRoleToEdit(role)
+    setShowEditConfirm(true)
+  }
+  
+  /**
+   * Función para confirmar la edición
+   */
+  const confirmEdit = async () => {
     try {
+      setShowEditConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage("Cargando datos del rol...")
+      
+      const role = roleToEdit
       setCurrentRole(role)
       setModalTitle("Editar Rol")
 
@@ -182,8 +250,10 @@ const Roles = () => {
         esCliente: role.IdRol === 2
       })
 
+      setIsProcessing(false)
       setShowModal(true)
     } catch (err) {
+      setIsProcessing(false)
       console.error("Error al cargar datos para editar rol:", err)
       toast.error("Error al cargar los datos para editar el rol", {
         position: "top-right",
@@ -213,17 +283,17 @@ const Roles = () => {
     }
 
     // No permitir eliminar el rol de Cliente (ID 2)
-  if (role.IdRol === 2) {
-    toast.error("No se puede eliminar el rol de Cliente", {
-      position: "top-right",
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-    })
-    return
-  }
+    if (role.IdRol === 2) {
+      toast.error("No se puede eliminar el rol de Cliente", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      })
+      return
+    }
 
     setRoleToDelete(role)
     setShowDeleteConfirm(true)
@@ -235,34 +305,40 @@ const Roles = () => {
   const confirmDelete = async () => {
     if (roleToDelete) {
       try {
-        await rolesService.delete(roleToDelete.IdRol)
+        setShowDeleteConfirm(false);
+        setIsProcessing(true);
+        setProcessingMessage("Eliminando rol...");
+        
+        // Limpiar cualquier notificación pendiente anterior
+        pendingToastRef.current = null;
+        toastShownRef.current = false;
+        
+        await rolesService.delete(roleToDelete.IdRol);
 
         // Actualizar la lista de roles
-        setRoles(roles.filter((r) => r.IdRol !== roleToDelete.IdRol))
-
-        toast.success(`El rol "${roleToDelete.NombreRol}" ha sido eliminado correctamente`, {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        })
+        setRoles(roles.filter((r) => r.IdRol !== roleToDelete.IdRol));
+        
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `El rol "${roleToDelete.NombreRol}" ha sido eliminado correctamente`
+        };
+        
+        setIsProcessing(false);
       } catch (err) {
-        console.error("Error al eliminar rol:", err)
-        toast.error("Error al eliminar el rol", {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        })
+        setIsProcessing(false);
+        console.error("Error al eliminar rol:", err);
+        
+        // En caso de error, también guardar el toast para después
+        pendingToastRef.current = {
+          type: "error",
+          message: "Error al eliminar el rol"
+        };
       }
     }
-    setShowDeleteConfirm(false)
-    setRoleToDelete(null)
-  }
+    setShowDeleteConfirm(false);
+    setRoleToDelete(null);
+  };
 
   /**
    * Función para cancelar el proceso de eliminación
@@ -273,7 +349,7 @@ const Roles = () => {
   }
 
   /**
-   * Manejador para cambiar el estado de un rol
+   * Manejador para cambiar el estado de un rol (modificado para mostrar confirmación)
    */
   const handleToggleStatus = async (role) => {
     if (role.IdRol === 1) {
@@ -288,58 +364,74 @@ const Roles = () => {
       return
     }
 
-  // No permitir cambiar el estado del rol de Cliente (ID 2)
-  if (role.IdRol === 2) {
-    toast.error("No se puede cambiar el estado del rol de Cliente", {
-      position: "top-right",
-      autoClose: 5000,
-      hideProgressBar: false,
-      closeOnClick: true,
-      pauseOnHover: true,
-      draggable: true,
-    })
-    return
-  }
+    // No permitir cambiar el estado del rol de Cliente (ID 2)
+    if (role.IdRol === 2) {
+      toast.error("No se puede cambiar el estado del rol de Cliente", {
+        position: "top-right",
+        autoClose: 5000,
+        hideProgressBar: false,
+        closeOnClick: true,
+        pauseOnHover: true,
+        draggable: true,
+      })
+      return
+    }
 
+    // Mostrar diálogo de confirmación
+    setRoleToToggle(role)
+    setShowStatusConfirm(true)
+  }
+  
+  /**
+   * Función para confirmar el cambio de estado
+   */
+  const confirmToggleStatus = async () => {
     try {
+      setShowStatusConfirm(false);
+      setIsProcessing(true);
+      setProcessingMessage(`Cambiando estado del rol...`);
+      
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null;
+      toastShownRef.current = false;
+      
+      const role = roleToToggle;
       // Cambiar el estado del rol
-      const nuevoEstado = !role.Estado
+      const nuevoEstado = !role.Estado;
 
       await rolesService.update(role.IdRol, {
         NombreRol: role.NombreRol,
         Estado: nuevoEstado,
-      })
+      });
 
       // Actualizar la lista de roles
       const updatedRoles = roles.map((r) => {
         if (r.IdRol === role.IdRol) {
-          return { ...r, Estado: nuevoEstado }
+          return { ...r, Estado: nuevoEstado };
         }
-        return r
-      })
+        return r;
+      });
 
-      setRoles(updatedRoles)
-
-      toast.success(`El rol "${role.NombreRol}" ahora está ${nuevoEstado ? "activo" : "inactivo"}`, {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      })
+      setRoles(updatedRoles);
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "success",
+        message: `El rol "${role.NombreRol}" ahora está ${nuevoEstado ? "activo" : "inactivo"}`
+      };
+      
+      setIsProcessing(false);
     } catch (err) {
-      console.error("Error al cambiar estado del rol:", err)
-      toast.error("Error al cambiar el estado del rol", {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      })
+      setIsProcessing(false);
+      console.error("Error al cambiar estado del rol:", err);
+      
+      // En caso de error, también guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cambiar el estado del rol"
+      };
     }
-  }
+  };
 
   /**
    * Manejador para abrir el modal de agregar rol
@@ -376,35 +468,45 @@ const Roles = () => {
         autoClose: 5000,
         hideProgressBar: false,
         closeOnClick: true,
-        pauseOnHover: true,
+        pauseOnHover: false,
+        pauseOnFocusLoss: false,
         draggable: true,
-      })
-      return
+      });
+      return;
     }
 
     try {
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null;
+      toastShownRef.current = false;
+      
+      setIsProcessing(true);
+      setProcessingMessage(currentRole ? "Actualizando rol..." : "Creando nuevo rol...");
+      
       if (currentRole) {
         // Añadir esta verificación para el rol Cliente
         if (currentRole.IdRol === 2 && formData.nombre !== currentRole.NombreRol) {
+          setIsProcessing(false);
           toast.error("No se puede cambiar el nombre del rol de Cliente", {
             position: "top-right",
             autoClose: 5000,
             hideProgressBar: false,
             closeOnClick: true,
-            pauseOnHover: true,
+            pauseOnHover: false,
+            pauseOnFocusLoss: false,
             draggable: true,
-          })
-          return
+          });
+          return;
         }
 
         // Actualizar rol existente
         await rolesService.update(currentRole.IdRol, {
           NombreRol: formData.nombre,
           Estado: currentRole.Estado,
-        })
+        });
 
         // Asignar permisos al rol
-        await rolPermisoService.assignMultiplePermisos(currentRole.IdRol, formData.permisos)
+        await rolPermisoService.assignMultiplePermisos(currentRole.IdRol, formData.permisos);
 
         // Actualizar la lista de roles
         const updatedRoles = roles.map((r) => {
@@ -412,69 +514,78 @@ const Roles = () => {
             return {
               ...r,
               NombreRol: formData.nombre,
-            }
+            };
           }
-          return r
-        })
+          return r;
+        });
 
-        setRoles(updatedRoles)
-
-        toast.success(`El rol "${formData.nombre}" ha sido actualizado correctamente`, {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        })
+        setRoles(updatedRoles);
+        
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `El rol "${formData.nombre}" ha sido actualizado correctamente`
+        };
       } else {
         // Crear nuevo rol
         const nuevoRol = await rolesService.create({
           NombreRol: formData.nombre,
           Estado: true,
-        })
+        });
 
         // Asignar permisos al rol
         if (formData.permisos.length > 0) {
-          await rolPermisoService.assignMultiplePermisos(nuevoRol.id, formData.permisos)
+          await rolPermisoService.assignMultiplePermisos(nuevoRol.id, formData.permisos);
         }
 
         // Recargar la lista de roles
-        const rolesActualizados = await rolesService.getAll()
+        const rolesActualizados = await rolesService.getAll();
 
         // Ordenar roles para que el Super Administrador (ID 1) aparezca primero
         const sortedRoles = rolesActualizados.sort((a, b) => {
-          if (a.IdRol === 1) return -1
-          if (b.IdRol === 1) return 1
-          return a.NombreRol.localeCompare(b.NombreRol)
-        })
+          if (a.IdRol === 1) return -1;
+          if (b.IdRol === 1) return 1;
+          return a.NombreRol.localeCompare(b.NombreRol);
+        });
 
-        setRoles(sortedRoles)
-
-        toast.success(`El rol "${formData.nombre}" ha sido creado correctamente`, {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        })
+        setRoles(sortedRoles);
+        
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `El rol "${formData.nombre}" ha sido creado correctamente`
+        };
       }
 
       // Cerrar el modal
-      handleCloseModal()
+      handleCloseModal();
+      setIsProcessing(false);
     } catch (err) {
-      console.error("Error al guardar rol:", err)
-      toast.error("Error al guardar el rol", {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      })
+      setIsProcessing(false);
+      console.error("Error al guardar rol:", err);
+      
+      // En caso de error, también guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al guardar el rol"
+      };
     }
-  }
+  };
+
+  // Modificar el efecto para limpiar las notificaciones al montar/desmontar
+  useEffect(() => {
+    // Limpiar todas las notificaciones al montar
+    toast.dismiss();
+    pendingToastRef.current = null;
+    toastShownRef.current = false;
+    
+    return () => {
+      // Limpiar todas las notificaciones al desmontar
+      toast.dismiss();
+      pendingToastRef.current = null;
+      toastShownRef.current = false;
+    };
+  }, []);
 
   /**
    * Efecto para inicializar el modal de Bootstrap
@@ -571,32 +682,41 @@ const Roles = () => {
         </div>
       </div>
 
-      {/* Modal de confirmación para eliminar */}
-      {showDeleteConfirm && <div className="modal-backdrop show"></div>}
-      <div className={`modal fade ${showDeleteConfirm ? "show d-block" : ""}`} tabIndex="-1" role="dialog">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header bg-danger text-white">
-              <h5 className="modal-title">Confirmar eliminación</h5>
-              <button type="button" className="btn-close btn-close-white" onClick={cancelDelete}></button>
-            </div>
-            <div className="modal-body">
-              <div className="d-flex align-items-center">
-                <AlertTriangle size={24} className="text-danger me-3" />
-                <p className="mb-0">¿Está seguro de eliminar el rol "{roleToDelete?.NombreRol}"?</p>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={cancelDelete}>
-                Cancelar
-              </button>
-              <button type="button" className="btn btn-danger" onClick={confirmDelete}>
-                Aceptar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* Diálogos de confirmación */}
+      <ConfirmDialog
+        show={showEditConfirm}
+        title="Confirmar edición"
+        message={`¿Está seguro de editar el rol "${roleToEdit?.NombreRol}"?`}
+        type="info"
+        onConfirm={confirmEdit}
+        onCancel={() => setShowEditConfirm(false)}
+      />
+      
+      <ConfirmDialog
+        show={showStatusConfirm}
+        title="Confirmar cambio de estado"
+        message={`¿Está seguro de ${roleToToggle?.Estado ? "desactivar" : "activar"} el rol "${roleToToggle?.NombreRol}"?`}
+        type="warning"
+        onConfirm={confirmToggleStatus}
+        onCancel={() => setShowStatusConfirm(false)}
+      />
+      
+      <ConfirmDialog
+        show={showDeleteConfirm}
+        title="Confirmar eliminación"
+        message={`¿Está seguro de eliminar el rol "${roleToDelete?.NombreRol}"?`}
+        type="danger"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
+
+      {/* Overlay de carga con el nuevo callback */}
+      <LoadingOverlay 
+        isLoading={isProcessing} 
+        message={processingMessage} 
+        variant="primary"
+        onHide={showPendingToast} // Añadir este callback
+      />
 
       <ToastContainer
         position="top-right"
@@ -605,11 +725,11 @@ const Roles = () => {
         newestOnTop
         closeOnClick
         rtl={false}
-        pauseOnFocusLoss
+        pauseOnFocusLoss={false}
+        pauseOnHover={false}
         draggable
-        pauseOnHover
         theme="light"
-        limit={3}
+        limit={1}
       />
     </div>
   )

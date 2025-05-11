@@ -1,9 +1,11 @@
 "use client"
 
 import { Save } from "lucide-react"
+import "../ClientesComponents/ClienteForm.scss"
 
 /**
  * Componente de formulario para crear/editar/ver clientes
+ * Actualizado con etiquetas flotantes
  */
 const ClienteForm = ({
   showModal,
@@ -31,131 +33,143 @@ const ClienteForm = ({
               onClick={handleCloseModal}
             ></button>
           </div>
-          <div className="modal-body">
+          <div className="modal-body compact-form">
             <form className="cliente-form">
-              <div className="row mb-3">
+              <div className="row g-3">
                 <div className="col-md-6">
-                  <label htmlFor="documento" className="form-label">
-                    Documento <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className={`form-control ${formErrors.documento ? "is-invalid" : ""}`}
-                    id="documento"
-                    name="documento"
-                    value={formData.documento}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    required
-                    placeholder="Ingrese el número de documento"
-                  />
-                  {formErrors.documento && <div className="invalid-feedback">{formErrors.documento}</div>}
-                  <small className="form-text text-muted">Ingrese entre 7 y 12 dígitos sin puntos ni espacios.</small>
+                  <div className="form-floating mb-3">
+                    <input
+                      type="text"
+                      className={`form-control ${formErrors.documento ? "is-invalid" : ""}`}
+                      id="documento"
+                      name="documento"
+                      placeholder=" "
+                      value={formData.documento}
+                      onChange={handleInputChange}
+                      disabled={isViewMode}
+                      required
+                    />
+                    <label htmlFor="documento">
+                      Documento <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.documento && <div className="invalid-feedback">{formErrors.documento}</div>}
+                    <small className="form-text text-muted">Ingrese entre 7 y 12 dígitos sin puntos ni espacios.</small>
+                  </div>
                 </div>
                 <div className="col-md-6">
-                  <label htmlFor="correo" className="form-label">
-                    Correo Electrónico <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    className={`form-control ${formErrors.correo ? "is-invalid" : ""}`}
-                    id="correo"
-                    name="correo"
-                    value={formData.correo}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    required
-                    placeholder="ejemplo@correo.com"
-                  />
-                  {formErrors.correo && <div className="invalid-feedback">{formErrors.correo}</div>}
-                </div>
-              </div>
-
-              <div className="row mb-3">
-                <div className="col-md-6">
-                  <label htmlFor="nombre" className="form-label">
-                    Nombre <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className={`form-control ${formErrors.nombre ? "is-invalid" : ""}`}
-                    id="nombre"
-                    name="nombre"
-                    value={formData.nombre}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    required
-                    placeholder="Ingrese el nombre"
-                    maxLength={50}
-                  />
-                  {formErrors.nombre && <div className="invalid-feedback">{formErrors.nombre}</div>}
-                  <small className="form-text text-muted">Máximo 50 caracteres.</small>
-                </div>
-                <div className="col-md-6">
-                  <label htmlFor="apellido" className="form-label">
-                    Apellido <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className={`form-control ${formErrors.apellido ? "is-invalid" : ""}`}
-                    id="apellido"
-                    name="apellido"
-                    value={formData.apellido}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    required
-                    placeholder="Ingrese el apellido"
-                    maxLength={50}
-                  />
-                  {formErrors.apellido && <div className="invalid-feedback">{formErrors.apellido}</div>}
-                  <small className="form-text text-muted">Máximo 50 caracteres.</small>
+                  <div className="form-floating mb-3">
+                    <input
+                      type="email"
+                      className={`form-control ${formErrors.correo ? "is-invalid" : ""}`}
+                      id="correo"
+                      name="correo"
+                      placeholder=" "
+                      value={formData.correo}
+                      onChange={handleInputChange}
+                      disabled={isViewMode}
+                      required
+                    />
+                    <label htmlFor="correo">
+                      Correo Electrónico <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.correo && <div className="invalid-feedback">{formErrors.correo}</div>}
+                  </div>
                 </div>
               </div>
 
-              <div className="row mb-3">
+              <div className="row g-3">
                 <div className="col-md-6">
-                  <label htmlFor="telefono" className="form-label">
-                    Teléfono <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    className={`form-control ${formErrors.telefono ? "is-invalid" : ""}`}
-                    id="telefono"
-                    name="telefono"
-                    value={formData.telefono}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    required
-                    placeholder="Ej: 3101234567"
-                  />
-                  {formErrors.telefono && <div className="invalid-feedback">{formErrors.telefono}</div>}
-                  <small className="form-text text-muted">Ingrese entre 7 y 10 dígitos sin espacios.</small>
+                  <div className="form-floating mb-3">
+                    <input
+                      type="text"
+                      className={`form-control ${formErrors.nombre ? "is-invalid" : ""}`}
+                      id="nombre"
+                      name="nombre"
+                      placeholder=" "
+                      value={formData.nombre}
+                      onChange={handleInputChange}
+                      disabled={isViewMode}
+                      required
+                      maxLength={50}
+                    />
+                    <label htmlFor="nombre">
+                      Nombre <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.nombre && <div className="invalid-feedback">{formErrors.nombre}</div>}
+                    <small className="form-text text-muted">Máximo 50 caracteres.</small>
+                  </div>
                 </div>
                 <div className="col-md-6">
-                  <label htmlFor="direccion" className="form-label">
-                    Dirección <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className={`form-control ${formErrors.direccion ? "is-invalid" : ""}`}
-                    id="direccion"
-                    name="direccion"
-                    value={formData.direccion}
-                    onChange={handleInputChange}
-                    disabled={isViewMode}
-                    required
-                    placeholder="Ingrese la dirección"
-                    maxLength={100}
-                  />
-                  {formErrors.direccion && <div className="invalid-feedback">{formErrors.direccion}</div>}
-                  <small className="form-text text-muted">Máximo 100 caracteres.</small>
+                  <div className="form-floating mb-3">
+                    <input
+                      type="text"
+                      className={`form-control ${formErrors.apellido ? "is-invalid" : ""}`}
+                      id="apellido"
+                      name="apellido"
+                      placeholder=" "
+                      value={formData.apellido}
+                      onChange={handleInputChange}
+                      disabled={isViewMode}
+                      required
+                      maxLength={50}
+                    />
+                    <label htmlFor="apellido">
+                      Apellido <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.apellido && <div className="invalid-feedback">{formErrors.apellido}</div>}
+                    <small className="form-text text-muted">Máximo 50 caracteres.</small>
+                  </div>
+                </div>
+              </div>
+
+              <div className="row g-3">
+                <div className="col-md-6">
+                  <div className="form-floating mb-3">
+                    <input
+                      type="tel"
+                      className={`form-control ${formErrors.telefono ? "is-invalid" : ""}`}
+                      id="telefono"
+                      name="telefono"
+                      placeholder=" "
+                      value={formData.telefono}
+                      onChange={handleInputChange}
+                      disabled={isViewMode}
+                      required
+                    />
+                    <label htmlFor="telefono">
+                      Teléfono <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.telefono && <div className="invalid-feedback">{formErrors.telefono}</div>}
+                    <small className="form-text text-muted">Ingrese entre 7 y 10 dígitos sin espacios.</small>
+                  </div>
+                </div>
+                <div className="col-md-6">
+                  <div className="form-floating mb-3">
+                    <input
+                      type="text"
+                      className={`form-control ${formErrors.direccion ? "is-invalid" : ""}`}
+                      id="direccion"
+                      name="direccion"
+                      placeholder=" "
+                      value={formData.direccion}
+                      onChange={handleInputChange}
+                      disabled={isViewMode}
+                      required
+                      maxLength={100}
+                    />
+                    <label htmlFor="direccion">
+                      Dirección <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.direccion && <div className="invalid-feedback">{formErrors.direccion}</div>}
+                    <small className="form-text text-muted">Máximo 100 caracteres.</small>
+                  </div>
                 </div>
               </div>
             </form>
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" data-bs-dismiss="modal" onClick={handleCloseModal}>
-              Cancelar
+              {isViewMode ? "Cerrar" : "Cancelar"}
             </button>
 
             {!isViewMode && (

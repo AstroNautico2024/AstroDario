@@ -1,11 +1,13 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Save, Eye, EyeOff } from "lucide-react"
 import { uploadImageToCloudinary } from "../../../services/uploadImageToCloudinary"
+import "../UsuariosComponents/FormStyles.scss"
 
 /**
  * Componente de formulario para crear/editar/ver usuarios
+ * Actualizado con etiquetas flotantes y diseño optimizado
  */
 const UserForm = ({
   showModal,
@@ -23,6 +25,8 @@ const UserForm = ({
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [imageLoading, setImageLoading] = useState(false)
 
+  // Determinar si estamos en modo edición (no vista ni creación)
+  const isEditMode = modalTitle === "Editar Usuario"
   const isViewMode = modalTitle === "Ver Detalles del Usuario"
 
   // Función para manejar la carga de imágenes
@@ -65,6 +69,26 @@ const UserForm = ({
     }
   }
 
+  // Asegurar que los selects se desplieguen hacia abajo
+  useEffect(() => {
+    // Aplicar estilos para forzar que los selects se desplieguen hacia abajo
+    const style = document.createElement("style")
+    style.innerHTML = `
+      .select-container .dropdown-menu {
+        max-height: 200px;
+        overflow-y: auto;
+        top: 100% !important;
+        bottom: auto !important;
+        transform: translate(0, 0) !important;
+      }
+    `
+    document.head.appendChild(style)
+
+    return () => {
+      document.head.removeChild(style)
+    }
+  }, [])
+
   return (
     <div className="modal fade" id="userModal" tabIndex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
       <div className="modal-dialog modal-lg">
@@ -81,238 +105,284 @@ const UserForm = ({
               onClick={onClose}
             ></button>
           </div>
-          <div className="modal-body">
-            <form className="user-form">
-              <div className="row mb-3">
+          <div className="modal-body compact-form">
+            <form className="form-styled">
+              <div className="row g-2">
                 <div className="col-md-6">
-                  <label htmlFor="documento" className="form-label">
-                    Documento <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className={`form-control ${formErrors.documento ? "is-invalid" : ""}`}
-                    id="documento"
-                    name="documento"
-                    value={formData.documento}
-                    onChange={onInputChange}
-                    disabled={isViewMode}
-                    required
-                  />
-                  {formErrors.documento && <div className="invalid-feedback">{formErrors.documento}</div>}
-                  <small className="form-text text-muted">Ingrese entre 7 y 12 dígitos sin puntos ni espacios.</small>
+                  <div className="form-floating mb-2">
+                    <input
+                      type="text"
+                      className={`form-control ${formErrors.documento ? "is-invalid" : ""}`}
+                      id="documento"
+                      name="documento"
+                      placeholder="Documento"
+                      value={formData.documento}
+                      onChange={onInputChange}
+                      disabled={isViewMode}
+                      required
+                    />
+                    <label htmlFor="documento">
+                      Documento <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.documento && <div className="invalid-feedback">{formErrors.documento}</div>}
+                    <small className="form-text text-muted">Ingrese entre 7 y 12 dígitos sin puntos ni espacios.</small>
+                  </div>
                 </div>
                 <div className="col-md-6">
-                  <label htmlFor="correo" className="form-label">
-                    Correo Electrónico <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="email"
-                    className={`form-control ${formErrors.correo ? "is-invalid" : ""}`}
-                    id="correo"
-                    name="correo"
-                    value={formData.correo}
-                    onChange={onInputChange}
-                    disabled={isViewMode}
-                    required
-                  />
-                  {formErrors.correo && <div className="invalid-feedback">{formErrors.correo}</div>}
-                </div>
-              </div>
-
-              <div className="row mb-3">
-                <div className="col-md-6">
-                  <label htmlFor="nombre" className="form-label">
-                    Nombre <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className={`form-control ${formErrors.nombre ? "is-invalid" : ""}`}
-                    id="nombre"
-                    name="nombre"
-                    value={formData.nombre}
-                    onChange={onInputChange}
-                    disabled={isViewMode}
-                    required
-                  />
-                  {formErrors.nombre && <div className="invalid-feedback">{formErrors.nombre}</div>}
-                </div>
-                <div className="col-md-6">
-                  <label htmlFor="apellido" className="form-label">
-                    Apellido <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className={`form-control ${formErrors.apellido ? "is-invalid" : ""}`}
-                    id="apellido"
-                    name="apellido"
-                    value={formData.apellido}
-                    onChange={onInputChange}
-                    disabled={isViewMode}
-                    required
-                  />
-                  {formErrors.apellido && <div className="invalid-feedback">{formErrors.apellido}</div>}
+                  <div className="form-floating mb-2">
+                    <input
+                      type="email"
+                      className={`form-control ${formErrors.correo ? "is-invalid" : ""}`}
+                      id="correo"
+                      name="correo"
+                      placeholder="Correo Electrónico"
+                      value={formData.correo}
+                      onChange={onInputChange}
+                      disabled={isViewMode}
+                      required
+                    />
+                    <label htmlFor="correo">
+                      Correo Electrónico <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.correo && <div className="invalid-feedback">{formErrors.correo}</div>}
+                  </div>
                 </div>
               </div>
 
-              <div className="row mb-3">
+              <div className="row g-2">
                 <div className="col-md-6">
-                  <label htmlFor="telefono" className="form-label">
-                    Teléfono <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    className={`form-control ${formErrors.telefono ? "is-invalid" : ""}`}
-                    id="telefono"
-                    name="telefono"
-                    value={formData.telefono}
-                    onChange={onInputChange}
-                    disabled={isViewMode}
-                    required
-                  />
-                  {formErrors.telefono && <div className="invalid-feedback">{formErrors.telefono}</div>}
-                  <small className="form-text text-muted">Ingrese entre 7 y 10 dígitos sin espacios.</small>
+                  <div className="form-floating mb-2">
+                    <input
+                      type="text"
+                      className={`form-control ${formErrors.nombre ? "is-invalid" : ""}`}
+                      id="nombre"
+                      name="nombre"
+                      placeholder="Nombre"
+                      value={formData.nombre}
+                      onChange={onInputChange}
+                      disabled={isViewMode}
+                      required
+                    />
+                    <label htmlFor="nombre">
+                      Nombre <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.nombre && <div className="invalid-feedback">{formErrors.nombre}</div>}
+                  </div>
                 </div>
                 <div className="col-md-6">
-                  <label htmlFor="direccion" className="form-label">
-                    Dirección <span className="text-danger">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    className={`form-control ${formErrors.direccion ? "is-invalid" : ""}`}
-                    id="direccion"
-                    name="direccion"
-                    value={formData.direccion}
-                    onChange={onInputChange}
-                    disabled={isViewMode}
-                    required
-                  />
-                  {formErrors.direccion && <div className="invalid-feedback">{formErrors.direccion}</div>}
+                  <div className="form-floating mb-2">
+                    <input
+                      type="text"
+                      className={`form-control ${formErrors.apellido ? "is-invalid" : ""}`}
+                      id="apellido"
+                      name="apellido"
+                      placeholder="Apellido"
+                      value={formData.apellido}
+                      onChange={onInputChange}
+                      disabled={isViewMode}
+                      required
+                    />
+                    <label htmlFor="apellido">
+                      Apellido <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.apellido && <div className="invalid-feedback">{formErrors.apellido}</div>}
+                  </div>
                 </div>
               </div>
 
-              <div className="row mb-3">
+              <div className="row g-2">
                 <div className="col-md-6">
-                  <label htmlFor="foto" className="form-label">
-                    Foto
-                  </label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    id="foto"
-                    name="foto"
-                    onChange={handleImageUpload}
-                    disabled={isViewMode || imageLoading}
-                    accept="image/*"
-                  />
-                  {imageLoading && <small className="form-text text-info">Subiendo imagen...</small>}
-                  {formData.foto && typeof formData.foto === "object" && (
-                    <small className="form-text text-success">Archivo seleccionado: {formData.foto.name}</small>
-                  )}
-                  {formData.foto && typeof formData.foto === "string" && formData.foto.trim() !== "" && (
-                    <div className="mt-2">
-                      <img
-                        src={formData.foto || "/placeholder.svg"}
-                        alt="Vista previa"
-                        style={{ maxWidth: "100%", maxHeight: "100px" }}
-                        className="img-thumbnail"
+                  <div className="form-floating mb-2">
+                    <input
+                      type="tel"
+                      className={`form-control ${formErrors.telefono ? "is-invalid" : ""}`}
+                      id="telefono"
+                      name="telefono"
+                      placeholder="Teléfono"
+                      value={formData.telefono}
+                      onChange={onInputChange}
+                      disabled={isViewMode}
+                      required
+                    />
+                    <label htmlFor="telefono">
+                      Teléfono <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.telefono && <div className="invalid-feedback">{formErrors.telefono}</div>}
+                    <small className="form-text text-muted">Ingrese entre 7 y 10 dígitos sin espacios.</small>
+                  </div>
+                </div>
+                <div className="col-md-6">
+                  <div className="form-floating mb-2">
+                    <input
+                      type="text"
+                      className={`form-control ${formErrors.direccion ? "is-invalid" : ""}`}
+                      id="direccion"
+                      name="direccion"
+                      placeholder="Dirección"
+                      value={formData.direccion}
+                      onChange={onInputChange}
+                      disabled={isViewMode}
+                      required
+                    />
+                    <label htmlFor="direccion">
+                      Dirección <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.direccion && <div className="invalid-feedback">{formErrors.direccion}</div>}
+                  </div>
+                </div>
+              </div>
+
+              <div className="row g-2">
+                <div className="col-md-6">
+                  <div className="mb-2">
+                    <label htmlFor="foto" className="form-label">
+                      Foto
+                    </label>
+                    <div className="file-upload-box">
+                      {formData.foto && typeof formData.foto === "string" && formData.foto.trim() !== "" ? (
+                        <div className="image-preview-container">
+                          <img src={formData.foto || "/placeholder.svg"} alt="Vista previa" className="image-preview" />
+                          {!isViewMode && (
+                            <div className="image-overlay">
+                              <label htmlFor="foto" className="change-image-btn">
+                                Cambiar
+                              </label>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <label htmlFor="foto" className="upload-label">
+                          <div className="upload-icon">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              width="24"
+                              height="24"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
+                              <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"></path>
+                              <line x1="16" y1="5" x2="22" y2="5"></line>
+                              <line x1="19" y1="2" x2="19" y2="8"></line>
+                              <circle cx="9" cy="9" r="2"></circle>
+                              <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"></path>
+                            </svg>
+                          </div>
+                          <span className="upload-text">{imageLoading ? "Subiendo..." : "Subir imagen"}</span>
+                        </label>
+                      )}
+                      <input
+                        type="file"
+                        className="file-input"
+                        id="foto"
+                        name="foto"
+                        onChange={handleImageUpload}
+                        disabled={isViewMode || imageLoading}
+                        accept="image/*"
                       />
+                      {formData.foto && typeof formData.foto === "object" && (
+                        <small className="form-text text-success">Archivo seleccionado: {formData.foto.name}</small>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </div>
                 <div className="col-md-6">
-                  <label htmlFor="rol" className="form-label">
-                    Rol <span className="text-danger">*</span>
-                  </label>
-                  <select
-                    className={`form-select ${formErrors.rol ? "is-invalid" : ""}`}
-                    id="rol"
-                    name="rol"
-                    value={formData.rol}
-                    onChange={onInputChange}
-                    disabled={isViewMode}
-                    required
-                  >
-                    <option value="">Seleccione un rol</option>
-                    {roles.map((rol) => (
-                      <option key={rol.id} value={rol.id}>
-                        {rol.nombre}
-                      </option>
-                    ))}
-                  </select>
-                  {formErrors.rol && <div className="invalid-feedback">{formErrors.rol}</div>}
+                  <div className="form-floating mb-2 select-container">
+                    <select
+                      className={`form-select ${formErrors.rol ? "is-invalid" : ""}`}
+                      id="rol"
+                      name="rol"
+                      value={formData.rol}
+                      onChange={onInputChange}
+                      disabled={isViewMode}
+                      required
+                    >
+                      <option value="">Seleccione un rol</option>
+                      {roles.map((rol) => (
+                        <option key={rol.id} value={rol.id}>
+                          {rol.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <label htmlFor="rol">
+                      Rol <span className="text-danger">*</span>
+                    </label>
+                    {formErrors.rol && <div className="invalid-feedback">{formErrors.rol}</div>}
+                  </div>
                 </div>
               </div>
 
-              <div className="row mb-3">
-                <div className="col-md-6">
-                  <label htmlFor="contrasena" className="form-label">
-                    Contraseña {!currentUser && <span className="text-danger">*</span>}
-                  </label>
-                  <div className="input-group">
-                    <input
-                      type={showPassword ? "text" : "password"}
-                      className={`form-control ${formErrors.contrasena ? "is-invalid" : ""}`}
-                      id="contrasena"
-                      name="contrasena"
-                      value={formData.contrasena}
-                      onChange={onInputChange}
-                      disabled={isViewMode}
-                      required={!currentUser}
-                    />
-                    <button
-                      className="btn btn-outline-secondary"
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      disabled={isViewMode}
-                    >
-                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
+              {isEditMode && (
+                <div className="row g-2">
+                  <div className="col-md-6">
+                    <div className="form-group mb-2">
+                      <label htmlFor="contrasena" className="form-label">
+                        Contraseña
+                      </label>
+                      <div className="input-group">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          className={`form-control ${formErrors.contrasena ? "is-invalid" : ""}`}
+                          id="contrasena"
+                          name="contrasena"
+                          value={formData.contrasena}
+                          onChange={onInputChange}
+                          disabled={isViewMode}
+                        />
+                        <button
+                          className="btn btn-outline-secondary"
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          disabled={isViewMode}
+                        >
+                          {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                      {formErrors.contrasena && <div className="invalid-feedback">{formErrors.contrasena}</div>}
+                      <small className="form-text text-muted">
+                        Dejar en blanco para mantener la contraseña actual.
+                      </small>
+                    </div>
                   </div>
-                  {formErrors.contrasena && <div className="invalid-feedback">{formErrors.contrasena}</div>}
-                  {currentUser && !isViewMode && (
-                    <small className="form-text text-muted">Dejar en blanco para mantener la contraseña actual.</small>
-                  )}
-                  {!currentUser && (
-                    <small className="form-text text-muted">
-                      La contraseña debe tener al menos 6 caracteres, una mayúscula, una minúscula, un número y un
-                      carácter especial.
-                    </small>
-                  )}
-                </div>
-                <div className="col-md-6">
-                  <label htmlFor="confirmarContrasena" className="form-label">
-                    Confirmar Contraseña {!currentUser && <span className="text-danger">*</span>}
-                  </label>
-                  <div className="input-group">
-                    <input
-                      type={showConfirmPassword ? "text" : "password"}
-                      className={`form-control ${formErrors.confirmarContrasena ? "is-invalid" : ""}`}
-                      id="confirmarContrasena"
-                      name="confirmarContrasena"
-                      value={formData.confirmarContrasena}
-                      onChange={onInputChange}
-                      disabled={isViewMode}
-                      required={!currentUser}
-                    />
-                    <button
-                      className="btn btn-outline-secondary"
-                      type="button"
-                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      disabled={isViewMode}
-                    >
-                      {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
+                  <div className="col-md-6">
+                    <div className="form-group mb-2">
+                      <label htmlFor="confirmarContrasena" className="form-label">
+                        Confirmar Contraseña
+                      </label>
+                      <div className="input-group">
+                        <input
+                          type={showConfirmPassword ? "text" : "password"}
+                          className={`form-control ${formErrors.confirmarContrasena ? "is-invalid" : ""}`}
+                          id="confirmarContrasena"
+                          name="confirmarContrasena"
+                          value={formData.confirmarContrasena}
+                          onChange={onInputChange}
+                          disabled={isViewMode}
+                        />
+                        <button
+                          className="btn btn-outline-secondary"
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          disabled={isViewMode}
+                        >
+                          {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                        </button>
+                      </div>
+                      {formErrors.confirmarContrasena && (
+                        <div className="invalid-feedback">{formErrors.confirmarContrasena}</div>
+                      )}
+                    </div>
                   </div>
-                  {formErrors.confirmarContrasena && (
-                    <div className="invalid-feedback">{formErrors.confirmarContrasena}</div>
-                  )}
                 </div>
-              </div>
+              )}
             </form>
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-secondary" data-bs-dismiss="modal" onClick={onClose}>
-              Cancelar
+              {isViewMode ? "Cerrar" : "Cancelar"}
             </button>
 
             {!isViewMode && (
