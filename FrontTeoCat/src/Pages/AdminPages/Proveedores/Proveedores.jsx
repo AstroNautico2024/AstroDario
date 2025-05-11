@@ -9,15 +9,23 @@ import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/ToastStyles.css"
 import ProveedorForm from "../../../Components/AdminComponents/ProveedoresComponents/ProveedorForm"
 import DeleteConfirmModal from "../../../Components/AdminComponents/ProveedoresComponents/DeleteConfirmModal"
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay"
+import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog"
 import proveedoresService from "../../../Services/ConsumoAdmin/ProveedoresService.js"
+import "../../../Components/AdminComponents/ProveedoresComponents/ProveedoresForm.scss"
 
 const Proveedores = () => {
+  // Estado para los proveedores
   const [proveedores, setProveedores] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  // Estado para el modal
   const [showModal, setShowModal] = useState(false)
   const [modalTitle, setModalTitle] = useState("Agregar Proveedor")
   const [currentProveedor, setCurrentProveedor] = useState(null)
   const [reloadTrigger, setReloadTrigger] = useState(false)
 
+  // Estado para el formulario
   const [formData, setFormData] = useState({
     documento: "",
     correo: "",
@@ -27,6 +35,7 @@ const Proveedores = () => {
     direccion: "",
   })
 
+  // Estado para errores de validación
   const [formErrors, setFormErrors] = useState({
     documento: "",
     correo: "",
@@ -36,58 +45,114 @@ const Proveedores = () => {
     direccion: "",
   })
 
+  // Estado para los diálogos de confirmación
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showEditConfirm, setShowEditConfirm] = useState(false)
+  const [showStatusConfirm, setShowStatusConfirm] = useState(false)
   const [proveedorToDelete, setProveedorToDelete] = useState(null)
-  const [isLoading, setIsLoading] = useState(false)
-  const [pendingOperations, setPendingOperations] = useState({})
+  const [proveedorToEdit, setProveedorToEdit] = useState(null)
+  const [proveedorToToggle, setProveedorToToggle] = useState(null)
+
+  // Estado para el indicador de carga
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
+
+  // Referencias para las notificaciones
+  const pendingToastRef = useRef(null)
+  const toastShownRef = useRef(false)
   const toastIds = useRef({})
+
+  // Función para mostrar toast después de que el loading se oculte
+  const showPendingToast = () => {
+    if (pendingToastRef.current && !toastShownRef.current) {
+      const { type, message } = pendingToastRef.current
+
+      // Marcar como mostrado
+      toastShownRef.current = true
+
+      // Limpiar todas las notificaciones existentes primero
+      toast.dismiss()
+
+      // Mostrar la notificación después de un pequeño retraso
+      setTimeout(() => {
+        toast[type](message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+          onClose: () => {
+            // Resetear cuando se cierra la notificación
+            pendingToastRef.current = null
+            // Esperar un momento antes de permitir nuevas notificaciones
+            setTimeout(() => {
+              toastShownRef.current = false
+            }, 300)
+          },
+        })
+      }, 300)
+    }
+  }
 
   // Limpiar notificaciones
   const clearAllToasts = () => {
     toast.dismiss()
+    pendingToastRef.current = null
+    toastShownRef.current = false
   }
 
+  // Cargar proveedores al montar el componente
   useEffect(() => {
     clearAllToasts()
+    fetchProveedores()
+
     return () => {
       clearAllToasts()
     }
-  }, [])
-
-  // Cargar proveedores con dependencia en reloadTrigger
-  useEffect(() => {
-    const fetchProveedores = async () => {
-      setIsLoading(true)
-      try {
-        const data = await proveedoresService.getAll()
-        console.log("Proveedores recibidos:", data)
-
-        const proveedoresEstados = JSON.parse(localStorage.getItem("proveedoresEstados") || "{}")
-
-        const proveedoresConEstadoActualizado = data.map((proveedor) => {
-          const proveedorId = proveedor.id || proveedor.IdProveedor
-          const estadoGuardado = proveedoresEstados[proveedorId]
-          if (estadoGuardado) {
-            return {
-              ...proveedor,
-              estado: estadoGuardado,
-            }
-          }
-          return proveedor
-        })
-
-        setProveedores(proveedoresConEstadoActualizado)
-      } catch (error) {
-        console.error("Error al cargar los proveedores:", error)
-        toast.error("Error al cargar los proveedores. Por favor, intente nuevamente.")
-      } finally {
-        setIsLoading(false)
-      }
-    }
-
-    fetchProveedores()
   }, [reloadTrigger])
 
+  /**
+   * Función para obtener todos los proveedores desde la API
+   */
+  const fetchProveedores = async () => {
+    setLoading(true)
+    try {
+      const data = await proveedoresService.getAll()
+      console.log("Proveedores recibidos:", data)
+
+      const proveedoresEstados = JSON.parse(localStorage.getItem("proveedoresEstados") || "{}")
+
+      const proveedoresConEstadoActualizado = data.map((proveedor) => {
+        const proveedorId = proveedor.id || proveedor.IdProveedor
+        const estadoGuardado = proveedoresEstados[proveedorId]
+        if (estadoGuardado) {
+          return {
+            ...proveedor,
+            estado: estadoGuardado,
+          }
+        }
+        return proveedor
+      })
+
+      setProveedores(proveedoresConEstadoActualizado)
+    } catch (error) {
+      console.error("Error al cargar los proveedores:", error)
+
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los proveedores. Por favor, intente nuevamente.",
+      }
+    } finally {
+      setLoading(false)
+      // Mostrar cualquier notificación pendiente después de que se complete la carga
+      showPendingToast()
+    }
+  }
+
+  // Definición de columnas para la tabla
   const columns = [
     { field: "nombreEmpresa", header: "Nombre Empresa" },
     { field: "personaDeContacto", header: "Persona de Contacto" },
@@ -108,9 +173,9 @@ const Proveedores = () => {
           actions={["view", "edit", "toggleStatus", "delete"]}
           row={row}
           onView={handleView}
-          onEdit={handleEdit}
-          onToggleStatus={handleToggleStatus}
-          onDelete={handleDelete}
+          onEdit={handleConfirmEdit}
+          onToggleStatus={handleConfirmToggleStatus}
+          onDelete={handleConfirmDelete}
           customLabels={{
             toggleStatus: row.estado === "Activo" ? "Desactivar" : "Activar",
           }}
@@ -119,223 +184,276 @@ const Proveedores = () => {
     },
   ]
 
+  /**
+   * Manejador para ver detalles de un proveedor
+   */
   const handleView = (proveedor) => {
-    setCurrentProveedor(proveedor)
-    setModalTitle("Ver Detalles del Proveedor")
-    setFormData({
-      documento: proveedor.documento,
-      correo: proveedor.correo,
-      nombreEmpresa: proveedor.nombreEmpresa,
-      personaDeContacto: proveedor.personaDeContacto,
-      telefono: proveedor.telefono,
-      direccion: proveedor.direccion,
-    })
-    setFormErrors({
-      documento: "",
-      correo: "",
-      nombreEmpresa: "",
-      personaDeContacto: "",
-      telefono: "",
-      direccion: "",
-    })
-    setShowModal(true)
-  }
-
-  const handleEdit = (proveedor) => {
-    setCurrentProveedor(proveedor)
-    setModalTitle("Editar Proveedor")
-    setFormData({
-      documento: proveedor.documento,
-      correo: proveedor.correo,
-      nombreEmpresa: proveedor.nombreEmpresa,
-      personaDeContacto: proveedor.personaDeContacto,
-      telefono: proveedor.telefono,
-      direccion: proveedor.direccion,
-    })
-    setFormErrors({
-      documento: "",
-      correo: "",
-      nombreEmpresa: "",
-      personaDeContacto: "",
-      telefono: "",
-      direccion: "",
-    })
-    setShowModal(true)
-  }
-
-  const handleToggleStatus = async (proveedor) => {
     try {
-      const proveedorId = proveedor.id || proveedor.IdProveedor
+      setIsProcessing(true)
+      setProcessingMessage("Cargando detalles del proveedor...")
+
+      setCurrentProveedor(proveedor)
+      setModalTitle("Ver Detalles del Proveedor")
+
+      // Cargar datos del proveedor en el formulario
+      setFormData({
+        documento: proveedor.documento,
+        correo: proveedor.correo,
+        nombreEmpresa: proveedor.nombreEmpresa,
+        personaDeContacto: proveedor.personaDeContacto,
+        telefono: proveedor.telefono,
+        direccion: proveedor.direccion,
+      })
+
+      // Resetear errores
+      setFormErrors({
+        documento: "",
+        correo: "",
+        nombreEmpresa: "",
+        personaDeContacto: "",
+        telefono: "",
+        direccion: "",
+      })
+
+      setIsProcessing(false)
+      setShowModal(true)
+    } catch (err) {
+      setIsProcessing(false)
+      console.error("Error al cargar detalles del proveedor:", err)
+
+      // En caso de error, guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los detalles del proveedor",
+      }
+      showPendingToast()
+    }
+  }
+
+  /**
+   * Manejador para confirmar la edición de un proveedor
+   */
+  const handleConfirmEdit = (proveedor) => {
+    setProveedorToEdit(proveedor)
+    setShowEditConfirm(true)
+  }
+
+  /**
+   * Función para confirmar la edición
+   */
+  const confirmEdit = async () => {
+    try {
+      setShowEditConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage("Cargando datos del proveedor...")
+
+      const proveedor = proveedorToEdit
+      setCurrentProveedor(proveedor)
+      setModalTitle("Editar Proveedor")
+
+      // Cargar datos del proveedor en el formulario
+      setFormData({
+        documento: proveedor.documento,
+        correo: proveedor.correo,
+        nombreEmpresa: proveedor.nombreEmpresa,
+        personaDeContacto: proveedor.personaDeContacto,
+        telefono: proveedor.telefono,
+        direccion: proveedor.direccion,
+      })
+
+      // Resetear errores
+      setFormErrors({
+        documento: "",
+        correo: "",
+        nombreEmpresa: "",
+        personaDeContacto: "",
+        telefono: "",
+        direccion: "",
+      })
+
+      setIsProcessing(false)
+      setShowModal(true)
+    } catch (err) {
+      setIsProcessing(false)
+      console.error("Error al cargar datos para editar proveedor:", err)
+
+      // En caso de error, guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los datos para editar el proveedor",
+      }
+      showPendingToast()
+    }
+  }
+
+  /**
+   * Manejador para confirmar el cambio de estado de un proveedor
+   */
+  const handleConfirmToggleStatus = (proveedor) => {
+    setProveedorToToggle(proveedor)
+    setShowStatusConfirm(true)
+  }
+
+  /**
+   * Manejador para cambiar el estado de un proveedor
+   */
+  const handleToggleStatus = async () => {
+    if (!proveedorToToggle) return
+
+    try {
+      setShowStatusConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage(`Cambiando estado del proveedor...`)
+
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+
+      const proveedorId = proveedorToToggle.id || proveedorToToggle.IdProveedor
 
       if (!proveedorId) {
-        proveedor.id = `temp_${Date.now()}`
-        proveedor.IdProveedor = proveedor.id
+        throw new Error("Error: Proveedor sin ID válido")
       }
 
-      if (pendingOperations[proveedorId]) {
-        toast.info("Por favor, espere a que se complete la operación anterior")
-        return
-      }
-
-      const nuevoEstado = proveedor.estado === "Activo" ? "Inactivo" : "Activo"
-
-      setPendingOperations((prev) => ({ ...prev, [proveedorId]: true }))
-      toast.dismiss()
-
-      const timestamp = Date.now()
-      const loadingToastId = toast.loading(
-        <div>
-          <strong>Actualizando estado</strong>
-          <p>Cambiando estado del proveedor "{proveedor.nombreEmpresa}"...</p>
-        </div>,
-        { position: "top-right", toastId: `loading-${timestamp}` }
-      )
+      const nuevoEstado = proveedorToToggle.estado === "Activo" ? "Inactivo" : "Activo"
 
       // Actualizar estado local primero
-      setProveedores(prevProveedores =>
+      setProveedores((prevProveedores) =>
         prevProveedores.map((p) => {
           if ((p.id && p.id === proveedorId) || (p.IdProveedor && p.IdProveedor === proveedorId)) {
             return { ...p, estado: nuevoEstado }
           }
           return p
-        })
+        }),
       )
 
-      try {
-        const resultado = await proveedoresService.updateStatus(proveedorId, nuevoEstado)
+      // Llamar a la API para cambiar el estado
+      const resultado = await proveedoresService.updateStatus(proveedorId, nuevoEstado)
 
-        if (resultado.IdProveedor && resultado.IdProveedor !== proveedorId) {
-          setProveedores(prevProveedores =>
-            prevProveedores.map((p) => {
-              if ((p.id && p.id === proveedorId) || (p.IdProveedor && p.IdProveedor === proveedorId)) {
-                return {
-                  ...p,
-                  id: resultado.IdProveedor,
-                  IdProveedor: resultado.IdProveedor,
-                  estado: resultado.estado || nuevoEstado,
-                }
+      if (resultado.IdProveedor && resultado.IdProveedor !== proveedorId) {
+        setProveedores((prevProveedores) =>
+          prevProveedores.map((p) => {
+            if ((p.id && p.id === proveedorId) || (p.IdProveedor && p.IdProveedor === proveedorId)) {
+              return {
+                ...p,
+                id: resultado.IdProveedor,
+                IdProveedor: resultado.IdProveedor,
+                estado: resultado.estado || nuevoEstado,
               }
-              return p
-            })
-          )
-        }
-
-        toast.dismiss(loadingToastId)
-        const newStatus = proveedor.estado === "Activo" ? "inactivo" : "activo"
-
-        toast.success(
-          <div>
-            <strong>Estado actualizado</strong>
-            <p>El proveedor "{proveedor.nombreEmpresa}" ahora está {newStatus}.</p>
-          </div>,
-          {
-            icon: "🔄",
-            position: "top-right",
-            autoClose: 3000,
-            toastId: `status-${Date.now()}`,
-          }
+            }
+            return p
+          }),
         )
-      } catch (error) {
-        console.error("Error al cambiar estado del proveedor:", error)
-        toast.dismiss(loadingToastId)
-        toast.warning(
-          <div>
-            <strong>Estado actualizado localmente</strong>
-            <p>El estado se ha actualizado en la interfaz, pero hubo un problema al sincronizar con el servidor.</p>
-          </div>,
-          {
-            position: "top-right",
-            autoClose: 4000,
-            toastId: `warning-${Date.now()}`,
-          }
-        )
-      } finally {
-        setPendingOperations((prev) => {
-          const newState = { ...prev }
-          delete newState[proveedorId]
-          return newState
-        })
       }
+
+      // Guardar el toast para después
+      const newStatus = proveedorToToggle.estado === "Activo" ? "inactivo" : "activo"
+      pendingToastRef.current = {
+        type: "success",
+        message: `El proveedor "${proveedorToToggle.nombreEmpresa}" ahora está ${newStatus}.`,
+      }
+
+      setIsProcessing(false)
     } catch (error) {
-      console.error("Error al cambiar estado del proveedor:", error)
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>No se pudo cambiar el estado del proveedor. Por favor, intente nuevamente.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 4000,
-          toastId: `error-${Date.now()}`,
-        }
-      )
+      setIsProcessing(false)
+      console.error("Error al cambiar estado:", error)
+
+      // En caso de error, también guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cambiar el estado del proveedor",
+      }
     }
+
+    // Cerrar el modal de confirmación
+    setProveedorToToggle(null)
   }
 
-  const handleDelete = (proveedor) => {
+  /**
+   * Manejador para cancelar el cambio de estado
+   */
+  const handleCancelToggleStatus = () => {
+    setShowStatusConfirm(false)
+    setProveedorToToggle(null)
+  }
+
+  /**
+   * Manejador para confirmar la eliminación de un proveedor
+   */
+  const handleConfirmDelete = (proveedor) => {
     setProveedorToDelete(proveedor)
     setShowDeleteConfirm(true)
   }
 
+  /**
+   * Función para confirmar la eliminación
+   */
   const confirmDelete = async () => {
     if (proveedorToDelete) {
       try {
+        setShowDeleteConfirm(false)
+        setIsProcessing(true)
+        setProcessingMessage("Eliminando proveedor...")
+
         const proveedorId = proveedorToDelete.id || proveedorToDelete.IdProveedor
 
         if (!proveedorId) {
-          console.error("Error: Proveedor sin ID válido", proveedorToDelete)
-          toast.error("Error: No se puede eliminar un proveedor sin ID válido")
-          setShowDeleteConfirm(false)
-          setProveedorToDelete(null)
-          return
+          throw new Error("Error: Proveedor sin ID válido")
         }
 
+        // Limpiar notificaciones existentes
+        pendingToastRef.current = null
+        toastShownRef.current = false
+
+        // Llamar a la API para eliminar el proveedor
         await proveedoresService.delete(proveedorId)
-        
-        setProveedores(prevProveedores => 
-          prevProveedores.filter((p) => p.id !== proveedorId && p.IdProveedor !== proveedorId)
+
+        // Actualizar el estado local
+        setProveedores((prevProveedores) =>
+          prevProveedores.filter((p) => p.id !== proveedorId && p.IdProveedor !== proveedorId),
         )
 
-        const toastId = toast.info(
-          <div>
-            <strong>Proveedor eliminado</strong>
-            <p>El proveedor "{proveedorToDelete.nombreEmpresa}" ha sido eliminado correctamente.</p>
-          </div>,
-          {
-            icon: "🗑️",
-            position: "top-right",
-            autoClose: 3000,
-            toastId: `delete-${Date.now()}`,
-          }
-        )
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "info",
+          message: `El proveedor "${proveedorToDelete.nombreEmpresa}" ha sido eliminado correctamente.`,
+        }
 
-        toastIds.current.delete = toastId
+        setIsProcessing(false)
       } catch (error) {
+        setIsProcessing(false)
         console.error("Error al eliminar proveedor:", error)
+
+        let errorMessage = "Error al eliminar el proveedor. Por favor, intente nuevamente."
         if (error.response && error.response.status === 400) {
-          toast.error(
-            <div>
-              <strong>No se puede eliminar</strong>
-              <p>{error.response.data.message}</p>
-            </div>
-          )
-        } else {
-          toast.error("Error al eliminar el proveedor. Por favor, intente nuevamente.")
+          errorMessage = error.response.data.message || errorMessage
+        }
+
+        pendingToastRef.current = {
+          type: "error",
+          message: errorMessage,
         }
       }
+      setProveedorToDelete(null)
     }
-    setShowDeleteConfirm(false)
-    setProveedorToDelete(null)
   }
 
+  /**
+   * Función para cancelar el proceso de eliminación
+   */
   const cancelDelete = () => {
     setShowDeleteConfirm(false)
     setProveedorToDelete(null)
   }
 
+  /**
+   * Manejador para abrir el modal de agregar proveedor
+   */
   const handleAddProveedor = () => {
     setCurrentProveedor(null)
     setModalTitle("Agregar Proveedor")
+
+    // Resetear el formulario
     setFormData({
       documento: "",
       correo: "",
@@ -344,6 +462,8 @@ const Proveedores = () => {
       telefono: "",
       direccion: "",
     })
+
+    // Resetear errores
     setFormErrors({
       documento: "",
       correo: "",
@@ -352,13 +472,20 @@ const Proveedores = () => {
       telefono: "",
       direccion: "",
     })
+
     setShowModal(true)
   }
 
+  /**
+   * Manejador para cerrar el modal
+   */
   const handleCloseModal = () => {
     setShowModal(false)
   }
 
+  /**
+   * Manejador para cambios en los inputs del formulario
+   */
   const handleInputChange = (e) => {
     const { name, value } = e.target
     setFormData({
@@ -371,6 +498,10 @@ const Proveedores = () => {
     })
   }
 
+  /**
+   * Validar el formulario completo
+   * @returns {boolean} - True si el formulario es válido, false en caso contrario
+   */
   const validateForm = () => {
     let isValid = true
     const errors = {
@@ -410,7 +541,7 @@ const Proveedores = () => {
         const documentoExiste = proveedores.some(
           (p) =>
             p.documento.toLowerCase() === formData.documento.trim().toLowerCase() &&
-            (!currentProveedor || p.id !== currentProveedor.id)
+            (!currentProveedor || p.id !== currentProveedor.id),
         )
 
         if (documentoExiste) {
@@ -448,23 +579,28 @@ const Proveedores = () => {
     return isValid
   }
 
+  /**
+   * Manejador para guardar el proveedor
+   */
   const handleSaveProveedor = async () => {
+    // Validar el formulario
     if (!validateForm()) {
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>Por favor, corrija los errores en el formulario.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 4000,
-          toastId: `error-form-${Date.now()}`,
-        }
-      )
+      pendingToastRef.current = {
+        type: "error",
+        message: "Por favor, corrija los errores en el formulario.",
+      }
+      showPendingToast()
       return
     }
 
     try {
+      setIsProcessing(true)
+      setProcessingMessage(currentProveedor ? "Actualizando proveedor..." : "Creando nuevo proveedor...")
+
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+
       const proveedorData = {
         Documento: formData.documento.trim(),
         Correo: formData.correo.trim(),
@@ -475,120 +611,87 @@ const Proveedores = () => {
         Estado: "Activo",
       }
 
-      toast.dismiss()
-      const timestamp = Date.now()
-      const loadingToastId = toast.loading(
-        <div>
-          <strong>{currentProveedor ? "Actualizando" : "Creando"} proveedor</strong>
-          <p>Por favor, espere...</p>
-        </div>,
-        {
-          position: "top-right",
-          toastId: `loading-${timestamp}`,
+      if (currentProveedor) {
+        // Actualizar proveedor existente
+        const proveedorId = currentProveedor.id || currentProveedor.IdProveedor
+
+        if (!proveedorId) {
+          throw new Error("Error: Proveedor sin ID válido")
         }
-      )
 
-      try {
-        if (currentProveedor) {
-          const proveedorId = currentProveedor.id || currentProveedor.IdProveedor
+        const idNumerico = Number.parseInt(proveedorId, 10)
+        if (isNaN(idNumerico)) {
+          throw new Error(`Error: ID de proveedor inválido: ${proveedorId}`)
+        }
 
-          if (!proveedorId) {
-            console.error("Error: Proveedor sin ID válido", currentProveedor)
-            toast.error("Error: No se puede actualizar un proveedor sin ID válido")
-            return
-          }
+        // Actualización optimista del estado local
+        setProveedores((prevProveedores) =>
+          prevProveedores.map((p) => {
+            if ((p.id && p.id === proveedorId) || (p.IdProveedor && p.IdProveedor === proveedorId)) {
+              return {
+                ...p,
+                documento: formData.documento.trim(),
+                correo: formData.correo.trim(),
+                nombreEmpresa: formData.nombreEmpresa.trim(),
+                personaDeContacto: formData.personaDeContacto.trim(),
+                telefono: formData.telefono.trim(),
+                direccion: formData.direccion.trim(),
+              }
+            }
+            return p
+          }),
+        )
 
-          const idNumerico = Number.parseInt(proveedorId, 10)
-          if (isNaN(idNumerico)) {
-            console.error(`Error: ID de proveedor inválido: ${proveedorId}`)
-            toast.error("Error: ID de proveedor inválido")
-            return
-          }
+        // Llamada al servidor para actualizar
+        const updatedProveedor = await proveedoresService.update(idNumerico, proveedorData)
 
-          // 1. Actualización optimista del estado local
-          setProveedores(prevProveedores =>
-            prevProveedores.map(p => {
+        // Actualización con respuesta del servidor
+        if (updatedProveedor) {
+          setProveedores((prevProveedores) =>
+            prevProveedores.map((p) => {
               if ((p.id && p.id === proveedorId) || (p.IdProveedor && p.IdProveedor === proveedorId)) {
                 return {
                   ...p,
-                  documento: formData.documento.trim(),
-                  correo: formData.correo.trim(),
-                  nombreEmpresa: formData.nombreEmpresa.trim(),
-                  personaDeContacto: formData.personaDeContacto.trim(),
-                  telefono: formData.telefono.trim(),
-                  direccion: formData.direccion.trim(),
+                  ...updatedProveedor,
+                  id: updatedProveedor.id || updatedProveedor.IdProveedor || proveedorId,
+                  IdProveedor: updatedProveedor.id || updatedProveedor.IdProveedor || proveedorId,
                 }
               }
               return p
-            })
-          )
-
-          // 2. Llamada al servidor para actualizar
-          const updatedProveedor = await proveedoresService.update(idNumerico, proveedorData)
-
-          // 3. Actualización con respuesta del servidor
-          if (updatedProveedor) {
-            setProveedores(prevProveedores =>
-              prevProveedores.map(p => {
-                if ((p.id && p.id === proveedorId) || (p.IdProveedor && p.IdProveedor === proveedorId)) {
-                  return {
-                    ...p,
-                    ...updatedProveedor,
-                    id: updatedProveedor.id || updatedProveedor.IdProveedor || proveedorId,
-                    IdProveedor: updatedProveedor.id || updatedProveedor.IdProveedor || proveedorId,
-                  }
-                }
-                return p
-              })
-            )
-          }
-
-          toast.dismiss(loadingToastId)
-          toast.success(
-            <div>
-              <strong>Proveedor actualizado</strong>
-              <p>El proveedor "{formData.nombreEmpresa}" ha sido actualizado correctamente.</p>
-            </div>,
-            {
-              icon: "✏️",
-              position: "top-right",
-              autoClose: 3000,
-              toastId: `edit-${Date.now()}`,
-            }
-          )
-        } else {
-          // Creación de nuevo proveedor
-          const newProveedor = await proveedoresService.create(proveedorData)
-          
-          if (!newProveedor.id && !newProveedor.IdProveedor) {
-            throw new Error("El servidor no devolvió un ID válido")
-          }
-
-          setProveedores(prevProveedores => [...prevProveedores, newProveedor])
-          setReloadTrigger(prev => !prev)
-
-          toast.dismiss(loadingToastId)
-          toast.success(
-            <div>
-              <strong>Proveedor creado</strong>
-              <p>El proveedor "{formData.nombreEmpresa}" ha sido creado correctamente.</p>
-            </div>,
-            {
-              icon: "✅",
-              position: "top-right",
-              autoClose: 3000,
-              toastId: `create-${Date.now()}`,
-            }
+            }),
           )
         }
 
-        setShowModal(false)
-      } catch (error) {
-        toast.dismiss(loadingToastId)
-        throw error
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `El proveedor "${formData.nombreEmpresa.trim()}" ha sido actualizado correctamente.`,
+        }
+      } else {
+        // Crear nuevo proveedor
+        const newProveedor = await proveedoresService.create(proveedorData)
+
+        if (!newProveedor.id && !newProveedor.IdProveedor) {
+          throw new Error("El servidor no devolvió un ID válido")
+        }
+
+        setProveedores((prevProveedores) => [...prevProveedores, newProveedor])
+        setReloadTrigger((prev) => !prev)
+
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `El proveedor "${formData.nombreEmpresa.trim()}" ha sido creado correctamente.`,
+        }
       }
+
+      // Cerrar el modal
+      handleCloseModal()
+      setIsProcessing(false)
     } catch (error) {
+      setIsProcessing(false)
       console.error("Error al guardar proveedor:", error)
+
       let errorMessage = "Error al guardar el proveedor. Por favor, intente nuevamente."
 
       if (error.isEmailDuplicate) {
@@ -625,20 +728,11 @@ const Proveedores = () => {
         }
       }
 
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>{errorMessage}</p>
-          {error.response && error.response.status && (
-            <p className="text-sm">Código de error: {error.response.status}</p>
-          )}
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 5000,
-          toastId: `error-${Date.now()}`,
-        }
-      )
+      pendingToastRef.current = {
+        type: "error",
+        message: errorMessage,
+      }
+      showPendingToast()
     }
   }
 
@@ -652,9 +746,10 @@ const Proveedores = () => {
         onAdd={handleAddProveedor}
         addButtonLabel="Agregar Proveedor"
         searchPlaceholder="Buscar proveedores..."
-        loading={isLoading}
+        loading={loading}
       />
 
+      {/* Modal para Agregar/Editar/Ver Proveedor */}
       <ProveedorForm
         showModal={showModal}
         modalTitle={modalTitle}
@@ -665,11 +760,38 @@ const Proveedores = () => {
         onClose={handleCloseModal}
       />
 
+      {/* Diálogos de confirmación */}
+      <ConfirmDialog
+        show={showEditConfirm}
+        title="Confirmar edición"
+        message={`¿Está seguro de editar el proveedor "${proveedorToEdit?.nombreEmpresa}"?`}
+        type="info"
+        onConfirm={confirmEdit}
+        onCancel={() => setShowEditConfirm(false)}
+      />
+
+      <ConfirmDialog
+        show={showStatusConfirm}
+        title="Confirmar cambio de estado"
+        message={`¿Está seguro de ${proveedorToToggle?.estado === "Activo" ? "desactivar" : "activar"} el proveedor "${proveedorToToggle?.nombreEmpresa}"?`}
+        type="warning"
+        onConfirm={handleToggleStatus}
+        onCancel={handleCancelToggleStatus}
+      />
+
       <DeleteConfirmModal
         show={showDeleteConfirm}
         proveedor={proveedorToDelete}
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
+      />
+
+      {/* Overlay de carga con el nuevo callback */}
+      <LoadingOverlay
+        isLoading={isProcessing}
+        message={processingMessage}
+        variant="primary"
+        onHide={showPendingToast}
       />
 
       <ToastContainer
@@ -683,10 +805,7 @@ const Proveedores = () => {
         draggable
         pauseOnHover={false}
         theme="light"
-        limit={2}
-        closeButton
-        containerId="proveedores-toast-container"
-        enableMultiContainer={true}
+        limit={1}
       />
     </div>
   )

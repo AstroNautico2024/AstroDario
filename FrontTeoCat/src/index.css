@@ -16,15 +16,32 @@ body {
 }
 
 :root {
-  --bs-primary: #3b82f6;
-  --bs-primary-rgb: 59, 130, 246;
-  --bs-success: #10b981;
-  --bs-success-rgb: 16, 185, 129;
+  /* Colores corporativos */
+  --bs-primary: #00b8e0;
+  --bs-primary-rgb: 0, 184, 224;
+  --bs-success: #8fd82a;
+  --bs-success-rgb: 143, 216, 42;
+  
+  /* Colores adicionales corporativos */
+  --bs-accent: #f5a623;
+  --bs-dark: #4a3631;
+  --bs-white: #FFFFFF;
+  --bs-light-bg: #f8fcff;
+  --bs-hover: rgba(0, 184, 224, 0.08);
+  --bs-border: #edf2f7;
+  --bs-text: #3a3a3a;
+  --bs-text-muted: #718096;
+  
+  /* Colores para el gradiente animado */
+  --gradient-start: #00b8e0; /* Azul turquesa */
+  --gradient-mid: #8fd82a;   /* Verde lima */
+  --gradient-end: #f5a623;   /* Naranja/ámbar */
 }
 
 body {
   font-family: "Inter", sans-serif;
-  background-color: #f8f9fa;
+  background-color: var(--bs-light-bg);
+  color: var(--bs-text);
   margin: 0;
   padding: 0;
 }
@@ -33,10 +50,26 @@ body {
 .btn-primary {
   --bs-btn-bg: var(--bs-primary);
   --bs-btn-border-color: var(--bs-primary);
-  --bs-btn-hover-bg: #2563eb;
-  --bs-btn-hover-border-color: #2563eb;
-  --bs-btn-active-bg: #1d4ed8;
-  --bs-btn-active-border-color: #1d4ed8;
+  --bs-btn-hover-bg: #009ec3; /* Versión más oscura del primario */
+  --bs-btn-hover-border-color: #009ec3;
+  --bs-btn-active-bg: #0089aa; /* Versión aún más oscura */
+  --bs-btn-active-border-color: #0089aa;
+  
+  /* Nuevo estilo de gradiente para botones */
+  background: linear-gradient(to right, var(--gradient-start), var(--gradient-mid));
+  border-color: var(--gradient-start);
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  background: linear-gradient(to right, var(--gradient-mid), var(--gradient-end));
+  border-color: var(--gradient-mid);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
 }
 
 .text-primary {
@@ -47,8 +80,25 @@ body {
   color: var(--bs-success) !important;
 }
 
+/* Reemplazar el fondo sólido con gradiente animado */
 .bg-primary {
-  background-color: var(--bs-primary) !important;
+  background: linear-gradient(-45deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end), var(--gradient-start));
+  background-size: 400% 400%;
+  animation: gradient 12s ease infinite;
+  color: white !important;
+}
+
+/* Animación del gradiente */
+@keyframes gradient {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .bg-success {
@@ -58,7 +108,7 @@ body {
 /* Estilos para tarjetas */
 .card {
   border-radius: 0.5rem;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--bs-border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   transition: transform 0.2s, box-shadow 0.2s;
 }
@@ -72,10 +122,6 @@ body {
 .form-select:focus,
 .form-check-input:focus {
   border-color: rgba(var(--bs-primary-rgb), 0.5);
-  box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
-}
-
-/* Estilos  0.5);
   box-shadow: 0 0 0 0.25rem rgba(var(--bs-primary-rgb), 0.25);
 }
 
@@ -123,3 +169,41 @@ body {
   }
 }
 
+/* Estilo para encabezados de modal */
+.modal-header {
+  background: linear-gradient(-45deg, var(--gradient-start), var(--gradient-mid), var(--gradient-end), var(--gradient-start));
+  background-size: 400% 400%;
+  animation: gradient 12s ease infinite;
+  color: white;
+  border-bottom: none;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header .btn-close {
+  color: white;
+  opacity: 0.8;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.3));
+}
+
+.modal-header .btn-close:hover {
+  opacity: 1;
+}
+
+.modal-header .modal-title {
+  color: white !important;
+  font-weight: 700 !important;
+  font-size: 1.25rem !important;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Asegurar que cualquier elemento dentro del encabezado del modal sea blanco */
+.modal-header h1, 
+.modal-header h2, 
+.modal-header h3, 
+.modal-header h4, 
+.modal-header h5, 
+.modal-header h6, 
+.modal-header p, 
+.modal-header span {
+  color: white !important;
+}

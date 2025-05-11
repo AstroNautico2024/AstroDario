@@ -8,19 +8,76 @@ import { motion } from "framer-motion"
 import "./Layout.scss"
 
 const Layout = ({ footerComponent }) => {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  // Modificar el estado inicial para que esté abierto por defecto en escritorio
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    // Recuperar el estado guardado en localStorage, si existe
+    const savedState = localStorage.getItem("sidebarOpen")
+    if (savedState !== null) {
+      return savedState === "true"
+    }
+    // Por defecto, abierto en escritorio y cerrado en móvil
+    return window.innerWidth >= 768
+  })
+
+  // Añadir un estado para rastrear si el usuario ha cerrado manualmente el sidebar
+  const [userClosedSidebar, setUserClosedSidebar] = useState(false)
+
   const location = useLocation()
 
   const toggleSidebar = () => {
-    setSidebarOpen(!sidebarOpen)
+    const newState = !sidebarOpen
+    setSidebarOpen(newState)
+    // Guardar el estado en localStorage
+    localStorage.setItem("sidebarOpen", newState.toString())
+
+    // Si estamos en escritorio y el usuario está cerrando el sidebar, marcarlo como cerrado manualmente
+    if (window.innerWidth >= 768 && !newState) {
+      setUserClosedSidebar(true)
+    } else {
+      setUserClosedSidebar(false)
+    }
   }
 
   // Cerrar sidebar en dispositivos móviles al cambiar de ruta
   useEffect(() => {
     if (window.innerWidth < 768) {
       setSidebarOpen(false)
+      localStorage.setItem("sidebarOpen", "false")
     }
   }, [location.pathname])
+
+  // Modificar el efecto para respetar la elección del usuario
+  useEffect(() => {
+    const handleResize = () => {
+      // Si pasamos de móvil a escritorio y el usuario no ha cerrado manualmente el sidebar
+      if (window.innerWidth >= 768 && !sidebarOpen && !userClosedSidebar) {
+        setSidebarOpen(true)
+        localStorage.setItem("sidebarOpen", "true")
+      }
+
+      // Si pasamos de escritorio a móvil, cerrar el sidebar
+      if (window.innerWidth < 768 && sidebarOpen) {
+        setSidebarOpen(false)
+        localStorage.setItem("sidebarOpen", "false")
+      }
+    }
+
+    // Escuchar cambios de tamaño de ventana
+    window.addEventListener("resize", handleResize)
+
+    return () => {
+      window.removeEventListener("resize", handleResize)
+    }
+  }, [sidebarOpen, userClosedSidebar])
+
+  // Efecto inicial para configurar el sidebar al cargar la página
+  useEffect(() => {
+    // Si estamos en escritorio y no hay estado guardado, abrir el sidebar
+    if (window.innerWidth >= 768 && localStorage.getItem("sidebarOpen") === null) {
+      setSidebarOpen(true)
+      localStorage.setItem("sidebarOpen", "true")
+    }
+  }, [])
 
   return (
     <div className="layout">
@@ -85,4 +142,3 @@ const Layout = ({ footerComponent }) => {
 }
 
 export default Layout
-
