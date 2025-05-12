@@ -4,14 +4,16 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import DataTable from "../../../Components/AdminComponents/DataTable"
 import TableActions from "../../../Components/AdminComponents/TableActions"
-import { AlertTriangle, ShieldAlert } from "lucide-react"
+import { AlertTriangle, ShieldAlert } from 'lucide-react'
 import "../../../Styles/AdminStyles/Ventas.css"
-import { toast } from "react-toastify"
+import { ToastContainer, toast } from "react-toastify" // Añadido ToastContainer
 import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/ToastStyles.css"
 import VentasService from "../../../Services/ConsumoAdmin/VentasService.js"
 import UsuariosService from "../../../Services/ConsumoAdmin/usuariosService.js"
 import axios from "../../../Services/ConsumoAdmin/axios.js"
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay" // Nuevo componente
+import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog" // Nuevo componente
 
 // Crear una instancia de axios con la URL base de tu API
 // Usamos una función para determinar la URL basada en el entorno
@@ -53,10 +55,53 @@ const Ventas = () => {
 
   // Referencias para las notificaciones
   const toastIds = useRef({})
-
+  
   // Estado para el motivo de cancelación
   const [motivoCancelacion, setMotivoCancelacion] = useState("")
   const [errorMotivoCancelacion, setErrorMotivoCancelacion] = useState(false)
+  
+  // NUEVOS ESTADOS PARA LAS MEJORAS
+  // Estado para el indicador de carga global
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
+  
+  // Añadir estos nuevos estados para manejar las notificaciones pendientes
+  const pendingToastRef = useRef(null)
+  const toastShownRef = useRef(false)
+  
+  // Función para mostrar toast después de que el loading se oculte
+  const showPendingToast = () => {
+    if (pendingToastRef.current && !toastShownRef.current) {
+      const { type, message } = pendingToastRef.current
+
+      // Marcar como mostrado
+      toastShownRef.current = true
+
+      // Limpiar todas las notificaciones existentes primero
+      toast.dismiss()
+
+      // Mostrar la notificación después de un pequeño retraso
+      setTimeout(() => {
+        toast[type](message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+          onClose: () => {
+            // Resetear cuando se cierra la notificación
+            pendingToastRef.current = null
+            // Esperar un momento antes de permitir nuevas notificaciones
+            setTimeout(() => {
+              toastShownRef.current = false
+            }, 300)
+          },
+        })
+      }, 300)
+    }
+  }
 
   // Cargar ventas al iniciar el componente
   useEffect(() => {
@@ -67,6 +112,7 @@ const Ventas = () => {
   const cargarVentas = async () => {
     setLoading(true)
     setError(null)
+    
     try {
       // Eliminar la verificación del health-check que está causando el error 404
       // y proceder directamente a cargar las ventas
@@ -150,28 +196,16 @@ const Ventas = () => {
       }
 
       setError(errorMessage)
-
-      toast.error(
-        <div>
-          <strong>Error al cargar ventas</strong>
-          <p>{errorMessage}</p>
-          <p>
-            <button className="btn btn-sm btn-outline-light mt-2" onClick={() => setRetryCount((prev) => prev + 1)}>
-              Reintentar
-            </button>
-          </p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 6000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: `Error al cargar ventas: ${errorMessage}`,
+      }
     } finally {
       setLoading(false)
+      // Mostrar cualquier notificación pendiente después de que se complete la carga
+      showPendingToast()
     }
   }
 
@@ -280,44 +314,25 @@ const Ventas = () => {
     try {
       console.log("Iniciando carga de detalles para venta:", venta)
       setLoadingDetalles(true)
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage("Cargando detalles de la venta...") // Mensaje para el LoadingOverlay
 
       // Verificar que tenemos un ID válido
       const ventaId = venta.id || venta.IdVenta
       if (!ventaId) {
         console.error("ID de venta no disponible:", venta)
-        toast.error(
-          <div>
-            <strong>Error</strong>
-            <p>No se pudo identificar la venta. Datos incompletos.</p>
-          </div>,
-          {
-            position: "top-right",
-            autoClose: 4000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          },
-        )
+        
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "error",
+          message: "No se pudo identificar la venta. Datos incompletos.",
+        }
+        
         setLoadingDetalles(false)
+        setIsProcessing(false)
+        showPendingToast()
         return
       }
-
-      // Mostrar notificación de carga
-      const toastId = toast.info(
-        <div>
-          <strong>Cargando detalles</strong>
-          <p>Obteniendo información de la venta...</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: false,
-          hideProgressBar: false,
-          closeOnClick: false,
-          pauseOnHover: true,
-          draggable: false,
-        },
-      )
 
       // Obtener detalles completos de la venta
       console.log("Solicitando datos de venta con ID:", ventaId)
@@ -374,9 +389,6 @@ const Ventas = () => {
         }
       }
 
-      // Cerrar notificación de carga
-      toast.dismiss(toastId)
-
       // Combinar datos
       const ventaConDetalles = {
         ...ventaCompleta,
@@ -424,22 +436,15 @@ const Ventas = () => {
         errorMessage = "No se pudo conectar con el servidor. Verifique su conexión a internet."
       }
 
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>{errorMessage} Por favor, intente nuevamente.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 4000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: `${errorMessage} Por favor, intente nuevamente.`,
+      }
     } finally {
       setLoadingDetalles(false)
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
   }
 
@@ -447,20 +452,12 @@ const Ventas = () => {
     const estado = venta.estado || venta.Estado || "Pendiente"
     // Solo permitir devoluciones de ventas completadas
     if (estado !== "Completada" && estado !== "Efectiva") {
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>No se puede hacer devolución de una venta anulada.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 4000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "No se puede hacer devolución de una venta anulada.",
+      }
+      showPendingToast()
       return
     }
 
@@ -472,20 +469,12 @@ const Ventas = () => {
     const estado = venta.estado || venta.Estado || "Pendiente"
     // Solo permitir anular ventas completadas
     if (estado !== "Completada" && estado !== "Efectiva") {
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>Esta venta ya está anulada.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 4000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Esta venta ya está anulada.",
+      }
+      showPendingToast()
       return
     }
 
@@ -503,6 +492,14 @@ const Ventas = () => {
       }
 
       try {
+        setShowCancelConfirm(false)
+        setIsProcessing(true) // Mostrar LoadingOverlay
+        setProcessingMessage("Anulando venta...") // Mensaje para el LoadingOverlay
+        
+        // Limpiar cualquier notificación pendiente anterior
+        pendingToastRef.current = null
+        toastShownRef.current = false
+        
         // Llamar al servicio para anular la venta con el motivo
         await VentasService.updateStatus(ventaToCancel.id || ventaToCancel.IdVenta, "Cancelada", motivoCancelacion)
 
@@ -521,52 +518,28 @@ const Ventas = () => {
 
         setVentas(updatedVentas)
 
-        // Añadir notificación
-        if (toastIds.current.cancel) {
-          toast.dismiss(toastIds.current.cancel)
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: `La venta con código "${ventaToCancel?.codigoFactura || ventaToCancel?.IdVenta}" ha sido anulada correctamente.`,
         }
-
-        toastIds.current.cancel = toast.info(
-          <div>
-            <strong>Venta anulada</strong>
-            <p>
-              La venta con código "{ventaToCancel?.codigoFactura || ventaToCancel?.IdVenta}" ha sido anulada
-              correctamente.
-            </p>
-          </div>,
-          {
-            icon: "🚫",
-            position: "top-right",
-            autoClose: 3000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          },
-        )
 
         // Limpiar el motivo de cancelación
         setMotivoCancelacion("")
         setErrorMotivoCancelacion(false)
       } catch (error) {
         console.error("Error al anular la venta:", error)
-        toast.error(
-          <div>
-            <strong>Error</strong>
-            <p>No se pudo anular la venta. Por favor, intente nuevamente.</p>
-          </div>,
-          {
-            position: "top-right",
-            autoClose: 4000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          },
-        )
+        
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "error",
+          message: "No se pudo anular la venta. Por favor, intente nuevamente.",
+        }
+      } finally {
+        setIsProcessing(false) // Ocultar LoadingOverlay
+        showPendingToast() // Mostrar cualquier notificación pendiente
       }
     }
-    setShowCancelConfirm(false)
     setVentaToCancel(null)
   }
 
@@ -617,52 +590,56 @@ const Ventas = () => {
     }
   }, [showDetallesModal])
 
-  // Función para imprimir factura estilo tirilla (desde la vista principal)
-// Función para imprimir factura estilo tirilla (desde la vista principal)
-const printReceiptStyle = (venta) => {
-  // Crear una ventana nueva para la impresión
-  const printWindow = window.open("", "_blank")
+  // Función para imprimir factura estilo tirilla
+  const printReceiptStyle = (venta) => {
+    // Crear una ventana nueva para la impresión
+    const printWindow = window.open("", "_blank")
 
-  // Verificar si se pudo abrir la ventana
-  if (!printWindow) {
-    toast.error("El navegador bloqueó la ventana emergente. Por favor, permita ventanas emergentes para este sitio.")
-    return
-  }
+    // Verificar si se pudo abrir la ventana
+    if (!printWindow) {
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "El navegador bloqueó la ventana emergente. Por favor, permita ventanas emergentes para este sitio.",
+      }
+      showPendingToast()
+      return
+    }
 
-  // Obtener información del cliente
-  let clienteNombre = "Consumidor Final"
-  let clienteDocumento = "0000000000"
-  let clienteDireccion = "N/A"
-  let clienteTelefono = "N/A"
+    // Obtener información del cliente
+    let clienteNombre = "Consumidor Final"
+    let clienteDocumento = "0000000000"
+    let clienteDireccion = "N/A"
+    let clienteTelefono = "N/A"
 
-  if (venta.cliente) {
-    clienteNombre =
-      `${venta.cliente.nombre || venta.cliente.Nombre || ""} ${venta.cliente.apellido || venta.cliente.Apellido || ""}`.trim()
-    clienteDocumento = venta.cliente.documento || venta.cliente.Documento || "0000000000"
-    clienteDireccion = venta.cliente.direccion || venta.cliente.Direccion || "N/A"
-    clienteTelefono = venta.cliente.telefono || venta.cliente.Telefono || "N/A"
-  } else if (venta.Cliente) {
-    clienteNombre = venta.Cliente
-  } else if (venta.IdCliente === 0 || venta.idCliente === 0) {
-    clienteNombre = "Consumidor Final"
-  }
+    if (venta.cliente) {
+      clienteNombre =
+        `${venta.cliente.nombre || venta.cliente.Nombre || ""} ${venta.cliente.apellido || venta.cliente.Apellido || ""}`.trim()
+      clienteDocumento = venta.cliente.documento || venta.cliente.Documento || "0000000000"
+      clienteDireccion = venta.cliente.direccion || venta.cliente.Direccion || "N/A"
+      clienteTelefono = venta.cliente.telefono || venta.cliente.Telefono || "N/A"
+    } else if (venta.Cliente) {
+      clienteNombre = venta.Cliente
+    } else if (venta.IdCliente === 0 || venta.idCliente === 0) {
+      clienteNombre = "Consumidor Final"
+    }
 
-  // Formatear fecha
-  const fechaVenta = new Date(venta.fechaVenta || venta.FechaVenta)
-  const fechaFormateada = `${fechaVenta.getDate()}/${fechaVenta.getMonth() + 1}/${fechaVenta.getFullYear()}`
+    // Formatear fecha
+    const fechaVenta = new Date(venta.fechaVenta || venta.FechaVenta)
+    const fechaFormateada = `${fechaVenta.getDate()}/${fechaVenta.getMonth() + 1}/${fechaVenta.getFullYear()}`
 
-  // Determinar si hay información de pago en efectivo
-  const metodoPago = venta.MetodoPago || venta.metodoPago || "efectivo"
-  const montoRecibido = venta.MontoRecibido || venta.montoRecibido || 0
-  const cambio = venta.Cambio || venta.cambio || 0
-  const mostrarCambio = metodoPago === "efectivo" && montoRecibido > 0
+    // Determinar si hay información de pago en efectivo
+    const metodoPago = venta.MetodoPago || venta.metodoPago || "efectivo"
+    const montoRecibido = venta.MontoRecibido || venta.montoRecibido || 0
+    const cambio = venta.Cambio || venta.cambio || 0
+    const mostrarCambio = metodoPago === "efectivo" && montoRecibido > 0
 
-  // Obtener productos y servicios
-  const productos = venta.detallesProductos || venta.productos || []
-  const servicios = venta.detallesServicios || venta.servicios || []
+    // Obtener productos y servicios
+    const productos = venta.detallesProductos || venta.productos || []
+    const servicios = venta.detallesServicios || venta.servicios || []
 
-  // Crear contenido HTML para la tirilla
-  printWindow.document.write(`
+    // Crear contenido HTML para la tirilla
+    printWindow.document.write(`
 <!DOCTYPE html>
 <html>
 <head>
@@ -849,9 +826,8 @@ const printReceiptStyle = (venta) => {
 </html>
 `)
 
-  printWindow.document.close()
-}
-  
+    printWindow.document.close()
+  }
 
   // Función para imprimir factura estilo formal
   const printInvoiceStyle = (venta) => {
@@ -860,7 +836,12 @@ const printReceiptStyle = (venta) => {
 
     // Verificar si se pudo abrir la ventana
     if (!printWindow) {
-      toast.error("El navegador bloqueó la ventana emergente. Por favor, permita ventanas emergentes para este sitio.")
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "El navegador bloqueó la ventana emergente. Por favor, permita ventanas emergentes para este sitio.",
+      }
+      showPendingToast()
       return
     }
 
@@ -1221,23 +1202,16 @@ const printReceiptStyle = (venta) => {
     printWindow.document.close()
   }
 
+  // Función para imprimir factura
   const handlePrint = async (venta) => {
-    toast.info(
-      <div>
-        <strong>Imprimiendo factura</strong>
-        <p>Preparando la impresión de la factura {venta.codigoFactura || venta.IdVenta}...</p>
-      </div>,
-      {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      },
-    )
-  
     try {
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage("Preparando impresión...") // Mensaje para el LoadingOverlay
+      
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+      
       const ventaId = venta.id || venta.IdVenta
   
       // Cargar venta completa
@@ -1254,13 +1228,26 @@ const printReceiptStyle = (venta) => {
   
       // Imprimir en estilo tirilla
       printReceiptStyle(ventaFinal)
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "success",
+        message: "Impresión enviada correctamente.",
+      }
   
     } catch (error) {
       console.error("Error cargando los detalles de la venta:", error)
-      toast.error("No se pudieron cargar los detalles completos de la venta.")
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "No se pudieron cargar los detalles completos de la venta.",
+      }
+    } finally {
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
   }
-  
 
   return (
     <div className="ventas-container">
@@ -1288,53 +1275,43 @@ const printReceiptStyle = (venta) => {
         loading={loading}
       />
 
-      {/* Modal de confirmación para anular venta */}
-      {showCancelConfirm && <div className="modal-backdrop show"></div>}
-      <div className={`modal fade ${showCancelConfirm ? "show d-block" : ""}`} tabIndex="-1" role="dialog">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header bg-danger text-white">
-              <h5 className="modal-title">Confirmar anulación</h5>
-              <button type="button" className="btn-close btn-close-white" onClick={cancelCancel}></button>
+      {/* Reemplazar el modal de confirmación por ConfirmDialog */}
+      <ConfirmDialog
+        show={showCancelConfirm}
+        title="Confirmar anulación"
+        message={
+          <>
+            <div className="d-flex align-items-center mb-3">
+              <AlertTriangle size={24} className="text-danger me-3" />
+              <p className="mb-0">
+                ¿Está seguro de anular la venta con código "{ventaToCancel?.codigoFactura || ventaToCancel?.IdVenta}"?
+              </p>
             </div>
-            <div className="modal-body">
-              <div className="d-flex align-items-center mb-3">
-                <AlertTriangle size={24} className="text-danger me-3" />
-                <p className="mb-0">
-                  ¿Está seguro de anular la venta con código "{ventaToCancel?.codigoFactura || ventaToCancel?.IdVenta}"?
-                </p>
-              </div>
-              <div className="form-group">
-                <label htmlFor="motivoCancelacion" className="form-label">
-                  Motivo de cancelación <span className="text-danger">*</span>
-                </label>
-                <textarea
-                  className={`form-control ${errorMotivoCancelacion ? "is-invalid" : ""}`}
-                  id="motivoCancelacion"
-                  rows="3"
-                  value={motivoCancelacion}
-                  onChange={(e) => {
-                    setMotivoCancelacion(e.target.value)
-                    setErrorMotivoCancelacion(false)
-                  }}
-                  placeholder="Ingrese el motivo de la cancelación"
-                ></textarea>
-                {errorMotivoCancelacion && (
-                  <div className="invalid-feedback">El motivo de cancelación es obligatorio</div>
-                )}
-              </div>
+            <div className="form-group">
+              <label htmlFor="motivoCancelacion" className="form-label">
+                Motivo de cancelación <span className="text-danger">*</span>
+              </label>
+              <textarea
+                className={`form-control ${errorMotivoCancelacion ? "is-invalid" : ""}`}
+                id="motivoCancelacion"
+                rows="3"
+                value={motivoCancelacion}
+                onChange={(e) => {
+                  setMotivoCancelacion(e.target.value)
+                  setErrorMotivoCancelacion(false)
+                }}
+                placeholder="Ingrese el motivo de la cancelación"
+              ></textarea>
+              {errorMotivoCancelacion && (
+                <div className="invalid-feedback">El motivo de cancelación es obligatorio</div>
+              )}
             </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={cancelCancel}>
-                No, mantener
-              </button>
-              <button type="button" className="btn btn-danger" onClick={confirmCancel}>
-                Sí, anular
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+        type="danger"
+        onConfirm={confirmCancel}
+        onCancel={cancelCancel}
+      />
 
       {/* Modal para Ver Detalles de la Venta */}
       <div
@@ -1647,6 +1624,29 @@ const printReceiptStyle = (venta) => {
           </div>
         </div>
       </div>
+
+      {/* Añadir LoadingOverlay */}
+      <LoadingOverlay
+        isLoading={isProcessing}
+        message={processingMessage}
+        variant="primary"
+        onHide={showPendingToast}
+      />
+
+      {/* Añadir ToastContainer */}
+      <ToastContainer
+        position="top-right"
+        autoClose={5000}
+        hideProgressBar={false}
+        newestOnTop
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss={false}
+        pauseOnHover={false}
+        draggable
+        theme="light"
+        limit={1}
+      />
     </div>
   )
 }

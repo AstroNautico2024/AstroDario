@@ -12,6 +12,9 @@ import "../../../Styles/AdminStyles/ToastStyles.css"
 
 // Importar el servicio de citas
 import CitasService from "../../../Services/ConsumoAdmin/CitasService.js"
+// Importar los nuevos componentes
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay"
+import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog"
 
 /**
  * Componente para la gestión de citas
@@ -39,6 +42,49 @@ const AgendarCitas = () => {
 
   // Referencias para las notificaciones
   const toastIds = useRef({})
+  
+  // NUEVOS ESTADOS PARA LAS MEJORAS
+  // Estado para el indicador de carga global
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
+  
+  // Añadir estos nuevos estados para manejar las notificaciones pendientes
+  const pendingToastRef = useRef(null)
+  const toastShownRef = useRef(false)
+  
+  // Función para mostrar toast después de que el loading se oculte
+  const showPendingToast = () => {
+    if (pendingToastRef.current && !toastShownRef.current) {
+      const { type, message } = pendingToastRef.current
+
+      // Marcar como mostrado
+      toastShownRef.current = true
+
+      // Limpiar todas las notificaciones existentes primero
+      toast.dismiss()
+
+      // Mostrar la notificación después de un pequeño retraso
+      setTimeout(() => {
+        toast[type](message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+          onClose: () => {
+            // Resetear cuando se cierra la notificación
+            pendingToastRef.current = null
+            // Esperar un momento antes de permitir nuevas notificaciones
+            setTimeout(() => {
+              toastShownRef.current = false
+            }, 300)
+          },
+        })
+      }, 300)
+    }
+  }
 
   /**
    * Función para formatear números con separadores de miles
@@ -213,9 +259,25 @@ const AgendarCitas = () => {
    * @param {Object} cita - Objeto de cita a visualizar
    */
   const handleView = (cita) => {
-    setCurrentCita(cita)
-    setModalTitle("Ver Detalles de la Cita")
-    setShowModal(true)
+    setIsProcessing(true) // Mostrar LoadingOverlay
+    setProcessingMessage("Cargando detalles de la cita...") // Mensaje para el LoadingOverlay
+    
+    try {
+      setCurrentCita(cita)
+      setModalTitle("Ver Detalles de la Cita")
+      setShowModal(true)
+    } catch (error) {
+      console.error("Error al cargar detalles de la cita:", error)
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "No se pudieron cargar los detalles de la cita.",
+      }
+    } finally {
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
+    }
   }
 
   /**
@@ -235,20 +297,12 @@ const AgendarCitas = () => {
   const handleCancel = (cita) => {
     // Solo permitir cancelar citas que no estén ya canceladas
     if (cita.Estado === "Cancelada" || cita.estado === "Cancelada") {
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>Esta cita ya está cancelada.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Esta cita ya está cancelada.",
+      }
+      showPendingToast()
       return
     }
 
@@ -262,6 +316,14 @@ const AgendarCitas = () => {
    */
   const confirmCancel = async () => {
     if (citaToCancel) {
+      setShowCancelConfirm(false)
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage("Cancelando cita...") // Mensaje para el LoadingOverlay
+      
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+      
       try {
         // Llamar a la API para cambiar el estado de la cita
         await CitasService.cambiarEstadoCita(citaToCancel.IdCita || citaToCancel.id, "Cancelada")
@@ -280,45 +342,24 @@ const AgendarCitas = () => {
 
         setCitas(updatedCitas)
 
-        // Añadir notificación
-        if (toastIds.current.cancel) {
-          toast.dismiss(toastIds.current.cancel)
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "info",
+          message: "La cita ha sido cancelada correctamente.",
         }
-
-        toastIds.current.cancel = toast.info(
-          <div>
-            <strong>Cita cancelada</strong>
-            <p>La cita ha sido cancelada correctamente.</p>
-          </div>,
-          {
-            icon: "🚫",
-            position: "top-right",
-            autoClose: 3000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          },
-        )
       } catch (error) {
         console.error("Error al cancelar la cita:", error)
-        toast.error(
-          <div>
-            <strong>Error</strong>
-            <p>No se pudo cancelar la cita. Por favor, intente nuevamente.</p>
-          </div>,
-          {
-            position: "top-right",
-            autoClose: 3000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          },
-        )
+        
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "error",
+          message: "No se pudo cancelar la cita. Por favor, intente nuevamente.",
+        }
+      } finally {
+        setIsProcessing(false) // Ocultar LoadingOverlay
+        showPendingToast() // Mostrar cualquier notificación pendiente
       }
     }
-    setShowCancelConfirm(false)
     setCitaToCancel(null)
   }
 
@@ -453,22 +494,15 @@ const AgendarCitas = () => {
         setCitas(citasProcesadas)
       } catch (error) {
         console.error('Error al cargar datos:', error)
-        toast.error(
-          <div>
-            <strong>Error</strong>
-            <p>Error al cargar los datos. Por favor, intente nuevamente.</p>
-          </div>,
-          {
-            position: "top-right",
-            autoClose: 5000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          }
-        )
+        
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "error",
+          message: "Error al cargar los datos. Por favor, intente nuevamente.",
+        }
       } finally {
         setIsLoading(false)
+        showPendingToast() // Mostrar cualquier notificación pendiente
       }
     }
 
@@ -488,35 +522,23 @@ const AgendarCitas = () => {
         loading={isLoading}
       />
 
-      {/* Modal de confirmación para cancelar cita */}
-      {showCancelConfirm && <div className="modal-backdrop show"></div>}
-      <div className={`modal fade ${showCancelConfirm ? "show d-block" : ""}`} tabIndex="-1" role="dialog">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header bg-danger text-white">
-              <h5 className="modal-title">Confirmar cancelación</h5>
-              <button type="button" className="btn-close btn-close-white" onClick={cancelCancel}></button>
-            </div>
-            <div className="modal-body">
-              <div className="d-flex align-items-center">
-                <AlertTriangle size={24} className="text-danger me-3" />
-                <p className="mb-0">
-                  ¿Está seguro de cancelar la cita para {citaToCancel?.cliente?.nombre} el día {formatearFecha(citaToCancel?.fecha || citaToCancel?.Fecha)} a
-                  las {formatearHora(citaToCancel?.hora || citaToCancel?.Fecha)}?
-                </p>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={cancelCancel}>
-                No, mantener
-              </button>
-              <button type="button" className="btn btn-danger" onClick={confirmCancel}>
-                Sí, cancelar
-              </button>
-            </div>
+      {/* Reemplazar el modal de confirmación por ConfirmDialog */}
+      <ConfirmDialog
+        show={showCancelConfirm}
+        title="Confirmar cancelación"
+        message={
+          <div className="d-flex align-items-center">
+            <AlertTriangle size={24} className="text-danger me-3" />
+            <p className="mb-0">
+              ¿Está seguro de cancelar la cita para {citaToCancel?.cliente?.nombre} el día {formatearFecha(citaToCancel?.fecha || citaToCancel?.Fecha)} a
+              las {formatearHora(citaToCancel?.hora || citaToCancel?.Fecha)}?
+            </p>
           </div>
-        </div>
-      </div>
+        }
+        type="danger"
+        onConfirm={confirmCancel}
+        onCancel={cancelCancel}
+      />
 
       {/* Modal para Ver Detalles de la Cita */}
       <div
@@ -706,18 +728,26 @@ const AgendarCitas = () => {
         </div>
       </div>
 
+      {/* Añadir LoadingOverlay */}
+      <LoadingOverlay
+        isLoading={isProcessing}
+        message={processingMessage}
+        variant="primary"
+        onHide={showPendingToast}
+      />
+
       <ToastContainer
         position="top-right"
-        autoClose={3000}
+        autoClose={5000}
         hideProgressBar={false}
         newestOnTop
         closeOnClick
         rtl={false}
-        pauseOnFocusLoss
+        pauseOnFocusLoss={false}
+        pauseOnHover={false}
         draggable
-        pauseOnHover
         theme="light"
-        limit={3}
+        limit={1}
       />
     </div>
   )

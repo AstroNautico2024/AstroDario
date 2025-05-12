@@ -19,6 +19,7 @@ const UserForm = ({
   onInputChange,
   onSave,
   onClose,
+  onDocumentoBlur
 }) => {
   // Estado para mostrar/ocultar contraseña
   const [showPassword, setShowPassword] = useState(false)
@@ -118,6 +119,7 @@ const UserForm = ({
                       placeholder="Documento"
                       value={formData.documento}
                       onChange={onInputChange}
+                      onBlur={onDocumentoBlur}
                       disabled={isViewMode}
                       required
                     />

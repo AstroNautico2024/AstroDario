@@ -105,6 +105,22 @@ const rolesService = {
       throw error
     }
   },
+
+  /**
+   * Cambia el estado de un rol
+   * @param {number} id - ID del rol
+   * @param {boolean} estado - Nuevo estado del rol (true: activo, false: inactivo)
+   * @returns {Promise} Promesa con la respuesta
+   */
+  changeStatus: async (id, estado) => {
+    try {
+      const response = await api.patch(`/auth/roles/${id}/status`, { Estado: estado })
+      return response.data
+    } catch (error) {
+      console.error(`Error al cambiar el estado del rol con ID ${id}:`, error)
+      throw error
+    }
+  },
 }
 
 export default rolesService

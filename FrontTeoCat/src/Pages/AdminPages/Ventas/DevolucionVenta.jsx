@@ -6,6 +6,7 @@ import { toast } from "react-toastify"
 import VentasService from "../../../Services/ConsumoAdmin/VentasService.js"
 import DetallesVentasService from "../../../Services/ConsumoAdmin/DetallesVentasService.js"
 import ProductosService from "../../../Services/ConsumoAdmin/ProductosService.js"
+import "../../../Pages/AdminPages/Ventas/DevolucionVenta.scss"
 
 // Función para formatear moneda
 const formatearMoneda = (valor) => {
@@ -440,14 +441,8 @@ const DevolucionVenta = () => {
 
   const totales = calcularTotales()
 
-  // Obtener información del cliente
-  // Obtener información del cliente de manera más robusta
-  // const nombreCliente = venta.cliente
-  //   ? `${venta.cliente.nombre || ""} ${venta.cliente.apellido || ""}`
-  //   : `Cliente ID: ${venta.IdCliente || "No disponible"}`
-
   return (
-    <div className="container-fluid mt-4">
+    <div className="devolucion-venta-container container-fluid mt-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Devolución de Venta</h2>
         <Link to="/ventas/ventas" className="btn btn-outline-secondary">
@@ -458,44 +453,73 @@ const DevolucionVenta = () => {
       <form onSubmit={handleSubmit}>
         {/* Información de la venta original - Versión compacta */}
         <div className="card mb-4">
-          <div className="card-header bg-primary text-white">
+          <div className="card-header">
             <h5 className="mb-0">Información de la Venta Original</h5>
           </div>
           <div className="card-body">
             <div className="row">
               <div className="col-md-3">
-                <label className="form-label">Cliente</label>
-                <input type="text" className="form-control" value={nombreCliente} readOnly />
-              </div>
-              {/* Modificar el formato de fecha en la sección de información de venta
-              Reemplazar la sección donde se muestra la fecha de venta */}
-              <div className="col-md-3">
-                <label className="form-label">Fecha de Venta</label>
-                <input
-                  type="date"
-                  className="form-control"
-                  value={venta.FechaVenta || ""}
-                  readOnly
-                  onChange={() => {}} // Agregar onChange vacío para evitar advertencias de React
-                />
-                {/* Mostrar la fecha en formato legible como texto de ayuda */}
-                {venta.FechaVenta && (
-                  <small className="text-muted">
-                    {new Date(venta.FechaVenta).toLocaleDateString("es-CO", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </small>
-                )}
+                <div className="form-floating">
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    id="cliente-nombre"
+                    placeholder="Cliente"
+                    value={nombreCliente} 
+                    readOnly 
+                  />
+                  <label htmlFor="cliente-nombre">Cliente</label>
+                </div>
               </div>
               <div className="col-md-3">
-                <label className="form-label">Factura</label>
-                <input type="text" className="form-control" value={venta.IdVenta || ""} readOnly />
+                <div className="form-floating">
+                  <input
+                    type="date"
+                    className="form-control"
+                    id="fecha-venta"
+                    placeholder="Fecha de Venta"
+                    value={venta.FechaVenta || ""}
+                    readOnly
+                    onChange={() => {}} // Agregar onChange vacío para evitar advertencias de React
+                  />
+                  <label htmlFor="fecha-venta">Fecha de Venta</label>
+                  {/* Mostrar la fecha en formato legible como texto de ayuda */}
+                  {venta.FechaVenta && (
+                    <small className="text-muted">
+                      {new Date(venta.FechaVenta).toLocaleDateString("es-CO", {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                      })}
+                    </small>
+                  )}
+                </div>
               </div>
               <div className="col-md-3">
-                <label className="form-label">Total</label>
-                <input type="text" className="form-control" value={formatearMoneda(venta.TotalMonto || 0)} readOnly />
+                <div className="form-floating">
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    id="factura"
+                    placeholder="Factura"
+                    value={venta.IdVenta || ""} 
+                    readOnly 
+                  />
+                  <label htmlFor="factura">Factura</label>
+                </div>
+              </div>
+              <div className="col-md-3">
+                <div className="form-floating">
+                  <input 
+                    type="text" 
+                    className="form-control" 
+                    id="total-venta"
+                    placeholder="Total"
+                    value={formatearMoneda(venta.TotalMonto || 0)} 
+                    readOnly 
+                  />
+                  <label htmlFor="total-venta">Total</label>
+                </div>
               </div>
             </div>
           </div>
@@ -699,17 +723,30 @@ const DevolucionVenta = () => {
 
                 <div className="row mb-3">
                   <div className="col-md-5">
-                    <select className="form-select" id="productoCambio">
-                      <option value="">Seleccione un producto...</option>
-                      {productosDisponibles.map((producto) => (
-                        <option key={producto.IdProducto} value={producto.IdProducto}>
-                          {producto.NombreProducto} - {formatearMoneda(producto.Precio)}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="form-floating">
+                      <select className="form-select" id="productoCambio" placeholder="Seleccione un producto">
+                        <option value="">Seleccione un producto...</option>
+                        {productosDisponibles.map((producto) => (
+                          <option key={producto.IdProducto} value={producto.IdProducto}>
+                            {producto.NombreProducto} - {formatearMoneda(producto.Precio)}
+                          </option>
+                        ))}
+                      </select>
+                      <label htmlFor="productoCambio">Producto</label>
+                    </div>
                   </div>
                   <div className="col-md-2">
-                    <input type="number" className="form-control" id="cantidadCambio" min="1" defaultValue="1" />
+                    <div className="form-floating">
+                      <input 
+                        type="number" 
+                        className="form-control" 
+                        id="cantidadCambio" 
+                        placeholder="Cantidad"
+                        min="1" 
+                        defaultValue="1" 
+                      />
+                      <label htmlFor="cantidadCambio">Cantidad</label>
+                    </div>
                   </div>
                   <div className="col-md-2">
                     <button
@@ -784,51 +821,73 @@ const DevolucionVenta = () => {
           {/* Pestaña de Motivo y Estado */}
           <div className="tab-pane fade" id="motivo" role="tabpanel" aria-labelledby="motivo-tab">
             <div className="card mb-4">
-              <div className="card-header bg-primary text-white">
+              <div className="card-header">
                 <h5 className="mb-0">Motivo y Estado</h5>
               </div>
               <div className="card-body">
                 <div className="row">
                   <div className="col-md-4">
-                    <label className="form-label">Motivo de la Devolución</label>
-                    <select className="form-select" value={motivo} onChange={(e) => setMotivo(e.target.value)} required>
-                      <option value="">Seleccione un motivo...</option>
-                      <option value="defectuoso">Producto defectuoso</option>
-                      <option value="equivocado">Producto equivocado</option>
-                      <option value="insatisfaccion">Insatisfacción del cliente</option>
-                      <option value="otro">Otro motivo</option>
-                    </select>
+                    <div className="form-floating">
+                      <select 
+                        className="form-select" 
+                        id="motivo-select"
+                        placeholder="Motivo de la Devolución"
+                        value={motivo} 
+                        onChange={(e) => setMotivo(e.target.value)} 
+                        required
+                      >
+                        <option value="">Seleccione un motivo...</option>
+                        <option value="defectuoso">Producto defectuoso</option>
+                        <option value="equivocado">Producto equivocado</option>
+                        <option value="insatisfaccion">Insatisfacción del cliente</option>
+                        <option value="otro">Otro motivo</option>
+                      </select>
+                      <label htmlFor="motivo-select">Motivo de la Devolución</label>
+                    </div>
 
                     {motivo === "otro" && (
-                      <div className="mt-3">
-                        <label className="form-label">Especifique el motivo:</label>
+                      <div className="form-floating mt-3">
                         <textarea
                           className="form-control"
+                          id="motivo-personalizado"
+                          placeholder="Especifique el motivo"
                           value={motivoPersonalizado}
                           onChange={(e) => setMotivoPersonalizado(e.target.value)}
-                          placeholder="Ingrese el motivo de la devolución"
-                          rows="2"
+                          style={{ height: "100px" }}
                           required
                         ></textarea>
+                        <label htmlFor="motivo-personalizado">Especifique el motivo</label>
                       </div>
                     )}
                   </div>
                   <div className="col-md-4">
-                    <label className="form-label">Estado de la Devolución</label>
-                    <select className="form-select" value={estado} onChange={(e) => setEstado(e.target.value)}>
-                      <option value="Pendiente">Pendiente</option>
-                      <option value="Efectiva">Efectiva</option>
-                      <option value="Cancelada">Cancelada</option>
-                    </select>
+                    <div className="form-floating">
+                      <select 
+                        className="form-select" 
+                        id="estado-select"
+                        placeholder="Estado de la Devolución"
+                        value={estado} 
+                        onChange={(e) => setEstado(e.target.value)}
+                      >
+                        <option value="Pendiente">Pendiente</option>
+                        <option value="Efectiva">Efectiva</option>
+                        <option value="Cancelada">Cancelada</option>
+                      </select>
+                      <label htmlFor="estado-select">Estado de la Devolución</label>
+                    </div>
                   </div>
                   <div className="col-md-4">
-                    <label className="form-label">Fecha de Devolución</label>
-                    <input
-                      type="date"
-                      className="form-control"
-                      value={fechaDevolucion}
-                      onChange={(e) => setFechaDevolucion(e.target.value)}
-                    />
+                    <div className="form-floating">
+                      <input
+                        type="date"
+                        className="form-control"
+                        id="fecha-devolucion"
+                        placeholder="Fecha de Devolución"
+                        value={fechaDevolucion}
+                        onChange={(e) => setFechaDevolucion(e.target.value)}
+                      />
+                      <label htmlFor="fecha-devolucion">Fecha de Devolución</label>
+                    </div>
                   </div>
                 </div>
               </div>

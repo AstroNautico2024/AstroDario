@@ -9,6 +9,7 @@ import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/ToastStyles.css"
 import MascotaForm from "../../../Components/AdminComponents/MascotasComponents/MascotaForm"
 import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog"
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay" // Nuevo componente
 import { uploadImageToCloudinary } from "../../../Services/uploadImageToCloudinary"
 import mascotasService from "../../../Services/ConsumoAdmin/MascotasService.js"
 import clientesService from "../../../Services/ConsumoAdmin/ClientesService.js"
@@ -60,6 +61,10 @@ const Mascotas = () => {
   const pendingToastRef = useRef(null)
   const toastShownRef = useRef(false)
   const toastIds = useRef({})
+  
+  // NUEVOS ESTADOS PARA EL LOADINGOVERLAY
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
 
   // Función para mostrar toast
   const showPendingToast = () => {
@@ -253,6 +258,9 @@ const Mascotas = () => {
    */
   const handleView = (mascota) => {
     try {
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage("Cargando detalles de la mascota...") // Mensaje para el LoadingOverlay
+      
       setCurrentMascota(mascota)
       setModalTitle("Ver Detalles de la Mascota")
 
@@ -283,7 +291,9 @@ const Mascotas = () => {
         type: "error",
         message: "Error al cargar los detalles de la mascota",
       }
-      showPendingToast()
+    } finally {
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
   }
 
@@ -301,6 +311,8 @@ const Mascotas = () => {
   const confirmEdit = async () => {
     try {
       setShowEditConfirm(false)
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage("Preparando edición de la mascota...") // Mensaje para el LoadingOverlay
 
       const mascota = mascotaToEdit
       setCurrentMascota(mascota)
@@ -332,7 +344,9 @@ const Mascotas = () => {
         type: "error",
         message: "Error al cargar los datos para editar la mascota",
       }
-      showPendingToast()
+    } finally {
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
   }
 
@@ -352,6 +366,8 @@ const Mascotas = () => {
 
     try {
       setShowStatusConfirm(false)
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage("Cambiando estado de la mascota...") // Mensaje para el LoadingOverlay
 
       // Limpiar cualquier notificación pendiente anterior
       pendingToastRef.current = null
@@ -404,7 +420,6 @@ const Mascotas = () => {
         type: "success",
         message: `La mascota "${mascotaToToggle.Nombre}" ahora está ${newStatus}.`,
       }
-      showPendingToast()
     } catch (error) {
       console.error("Error al cambiar estado:", error)
 
@@ -413,7 +428,9 @@ const Mascotas = () => {
         type: "error",
         message: "Error al cambiar el estado de la mascota",
       }
-      showPendingToast()
+    } finally {
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
 
     // Cerrar el modal de confirmación
@@ -463,6 +480,8 @@ const Mascotas = () => {
     if (mascotaToDelete) {
       try {
         setShowDeleteConfirm(false)
+        setIsProcessing(true) // Mostrar LoadingOverlay
+        setProcessingMessage("Eliminando mascota...") // Mensaje para el LoadingOverlay
 
         // Limpiar notificaciones existentes
         pendingToastRef.current = null
@@ -490,7 +509,6 @@ const Mascotas = () => {
           type: "info",
           message: `La mascota "${mascotaToDelete.Nombre}" ha sido eliminada correctamente.`,
         }
-        showPendingToast()
       } catch (error) {
         console.error("Error al eliminar mascota:", error)
 
@@ -506,7 +524,9 @@ const Mascotas = () => {
             message: "Error al eliminar la mascota. Por favor, intente nuevamente.",
           }
         }
-        showPendingToast()
+      } finally {
+        setIsProcessing(false) // Ocultar LoadingOverlay
+        showPendingToast() // Mostrar cualquier notificación pendiente
       }
       setMascotaToDelete(null)
     }
@@ -611,6 +631,8 @@ const Mascotas = () => {
 
     // Indicar que la imagen está cargando
     setIsImageLoading(true)
+    setIsProcessing(true) // Mostrar LoadingOverlay
+    setProcessingMessage("Subiendo imagen...") // Mensaje para el LoadingOverlay
 
     try {
       // Subir la imagen a Cloudinary en la carpeta 'mascotas'
@@ -632,13 +654,11 @@ const Mascotas = () => {
           type: "success",
           message: "La imagen se ha subido correctamente.",
         }
-        showPendingToast()
       } else {
         pendingToastRef.current = {
           type: "error",
           message: "Error al subir la imagen. Intente nuevamente.",
         }
-        showPendingToast()
       }
     } catch (error) {
       console.error("Error al subir la imagen:", error)
@@ -646,10 +666,11 @@ const Mascotas = () => {
         type: "error",
         message: "Error al subir la imagen. Intente nuevamente.",
       }
-      showPendingToast()
     } finally {
       // Indicar que la imagen ya no está cargando
       setIsImageLoading(false)
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
   }
 
@@ -678,6 +699,9 @@ const Mascotas = () => {
     }
 
     try {
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage(currentMascota ? "Actualizando mascota..." : "Creando mascota...") // Mensaje para el LoadingOverlay
+      
       // Limpiar cualquier notificación pendiente anterior
       pendingToastRef.current = null
       toastShownRef.current = false
@@ -743,7 +767,6 @@ const Mascotas = () => {
 
       // Cerrar el modal
       setShowModal(false)
-      showPendingToast()
     } catch (error) {
       console.error("Error al guardar mascota:", error)
 
@@ -751,7 +774,9 @@ const Mascotas = () => {
         type: "error",
         message: "Error al guardar la mascota. Por favor, intente nuevamente.",
       }
-      showPendingToast()
+    } finally {
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
   }
 
@@ -880,6 +905,14 @@ const Mascotas = () => {
         type="danger"
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
+      />
+
+      {/* Añadir LoadingOverlay */}
+      <LoadingOverlay
+        isLoading={isProcessing}
+        message={processingMessage}
+        variant="primary"
+        onHide={showPendingToast}
       />
 
       <ToastContainer

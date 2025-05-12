@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react"
 import DataTable from "../../../Components/AdminComponents/DataTable"
 import TableActions from "../../../Components/AdminComponents/TableActions"
-import DeleteConfirmModal from "../../../Components/AdminComponents/ProductosComponents/DeleteConfirmModal"
+import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog" // Cambiado por ConfirmDialog genérico
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay" // Nuevo componente
 import "../../../Styles/AdminStyles/Productos.css"
 import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
@@ -46,22 +47,73 @@ const Productos = () => {
     NoVence: false,
   })
 
-  // Estado para el modal de confirmación de eliminación
+  // Estado para los diálogos de confirmación
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [productToDelete, setProductToDelete] = useState(null)
+  
+  // NUEVOS ESTADOS PARA EL LOADINGOVERLAY
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
 
   // Referencias para las notificaciones
+  const pendingToastRef = useRef(null)
+  const toastShownRef = useRef(false)
   const toastIds = useRef({})
+
+  // Función para mostrar toast pendiente
+  const showPendingToast = () => {
+    if (pendingToastRef.current && !toastShownRef.current) {
+      const { type, title, message } = pendingToastRef.current
+
+      // Marcar como mostrado
+      toastShownRef.current = true
+
+      // Limpiar todas las notificaciones existentes primero
+      toast.dismiss()
+
+      // Mostrar la notificación después de un pequeño retraso
+      setTimeout(() => {
+        toast[type](
+          <div>
+            <strong>{title}</strong>
+            <p>{message}</p>
+          </div>,
+          {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: false,
+            pauseOnFocusLoss: false,
+            draggable: true,
+            onClose: () => {
+              // Resetear cuando se cierra la notificación
+              pendingToastRef.current = null
+              // Esperar un momento antes de permitir nuevas notificaciones
+              setTimeout(() => {
+                toastShownRef.current = false
+              }, 300)
+            },
+          }
+        )
+      }, 300)
+    }
+  }
+
+  // Limpiar notificaciones
+  const clearAllToasts = () => {
+    toast.dismiss()
+    pendingToastRef.current = null
+    toastShownRef.current = false
+  }
 
   // Cargar productos al montar el componente
   useEffect(() => {
+    clearAllToasts()
     fetchProductos()
-    // Limpiar todas las notificaciones al montar el componente
-    toast.dismiss()
 
     return () => {
-      // Limpiar todas las notificaciones al desmontar el componente
-      toast.dismiss()
+      clearAllToasts()
       // Limpiar referencias
       toastIds.current = {}
     }
@@ -73,6 +125,7 @@ const Productos = () => {
   const fetchProductos = async () => {
     try {
       setLoading(true)
+      
       console.log("Iniciando fetchProductos...")
 
       const data = await ProductosService.getAll()
@@ -81,6 +134,13 @@ const Productos = () => {
       if (!Array.isArray(data)) {
         console.error("Error: La respuesta no es un array", data)
         setProductos([])
+        
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "error",
+          title: "Error",
+          message: "La respuesta del servidor no tiene el formato esperado."
+        }
         return
       }
 
@@ -109,43 +169,19 @@ const Productos = () => {
     } catch (error) {
       console.error("Error en fetchProductos:", error)
 
-      // Mostrar notificación de error
-      showToast(
-        "error",
-        "Error",
-        `No se pudieron cargar los productos. ${error.response?.data?.message || error.message}`,
-      )
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        title: "Error",
+        message: `No se pudieron cargar los productos. ${error.response?.data?.message || error.message}`
+      }
 
       // Establecer un array vacío para evitar errores
       setProductos([])
     } finally {
       setLoading(false)
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
-  }
-
-  // Función para mostrar notificaciones de manera consistente
-  const showToast = (type, title, message, icon = null, autoClose = 4000) => {
-    // Primero, cerrar TODAS las notificaciones existentes
-    toast.dismiss()
-
-    // Esperar un momento antes de mostrar la nueva notificación
-    setTimeout(() => {
-      toast[type](
-        <div>
-          <strong>{title}</strong>
-          <p>{message}</p>
-        </div>,
-        {
-          icon: icon,
-          position: "top-right",
-          autoClose: autoClose,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: false,
-          draggable: true,
-        },
-      )
-    }, 300)
   }
 
   /**
@@ -196,7 +232,7 @@ const Productos = () => {
           onView={handleView}
           onEdit={handleEdit}
           onToggleStatus={handleToggleStatus}
-          onDelete={handleDelete}
+          onDelete={handleConfirmDelete}
         />
       ),
     },
@@ -207,6 +243,13 @@ const Productos = () => {
    */
   const handleView = async (product) => {
     try {
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage("Cargando detalles del producto...") // Mensaje para el LoadingOverlay
+      
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+      
       // Obtener datos completos del producto
       const productoCompleto = await ProductosService.getById(product.id)
 
@@ -233,11 +276,16 @@ const Productos = () => {
       setShowModal(true)
     } catch (error) {
       console.error("Error al obtener detalles del producto:", error)
-      showToast(
-        "error",
-        "Error",
-        `No se pudieron cargar los detalles del producto. ${error.response?.data?.message || error.message}`,
-      )
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        title: "Error",
+        message: `No se pudieron cargar los detalles del producto. ${error.response?.data?.message || error.message}`
+      }
+    } finally {
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
   }
 
@@ -254,8 +302,12 @@ const Productos = () => {
    */
   const handleToggleStatus = async (product) => {
     try {
-      // Limpiar notificaciones existentes
-      toast.dismiss()
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage(`${product.Estado === "Activo" ? "Desactivando" : "Activando"} producto...`) // Mensaje para el LoadingOverlay
+      
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
 
       // Llamar a la API para cambiar el estado
       const newStatus = product.Estado === "Activo" ? false : true
@@ -274,32 +326,35 @@ const Productos = () => {
 
       setProductos(updatedProducts)
 
-      // Añadir notificación
+      // Guardar el toast para después
       const statusText = product.Estado === "Activo" ? "inactivo" : "activo"
-      showToast(
-        "success",
-        "Estado actualizado",
-        `El producto "${product.NombreProducto}" ahora está ${statusText}.`,
-        "🔄",
-        3000,
-      )
+      pendingToastRef.current = {
+        type: "success",
+        title: "Estado actualizado",
+        message: `El producto "${product.NombreProducto}" ahora está ${statusText}.`
+      }
 
       // Recargar los productos para asegurar sincronización con el servidor
       await fetchProductos()
     } catch (error) {
       console.error("Error al cambiar estado:", error)
-      showToast(
-        "error",
-        "Error",
-        error.response?.data?.message || "No se pudo cambiar el estado del producto. Intente nuevamente.",
-      )
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        title: "Error",
+        message: error.response?.data?.message || "No se pudo cambiar el estado del producto. Intente nuevamente."
+      }
+    } finally {
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
   }
 
   /**
-   * Manejador para iniciar el proceso de eliminación
+   * Manejador para confirmar la eliminación de un producto
    */
-  const handleDelete = (product) => {
+  const handleConfirmDelete = (product) => {
     setProductToDelete(product)
     setShowDeleteConfirm(true)
   }
@@ -310,8 +365,12 @@ const Productos = () => {
   const confirmDelete = async () => {
     if (productToDelete) {
       try {
-        // Limpiar notificaciones existentes
-        toast.dismiss()
+        setIsProcessing(true) // Mostrar LoadingOverlay
+        setProcessingMessage("Eliminando producto...") // Mensaje para el LoadingOverlay
+        
+        // Limpiar cualquier notificación pendiente anterior
+        pendingToastRef.current = null
+        toastShownRef.current = false
 
         // Llamar a la API para eliminar el producto
         await ProductosService.delete(productToDelete.id)
@@ -320,24 +379,27 @@ const Productos = () => {
         const updatedProducts = productos.filter((p) => p.id !== productToDelete.id)
         setProductos(updatedProducts)
 
-        // Añadir notificación
-        showToast(
-          "info",
-          "Producto eliminado",
-          `El producto "${productToDelete.NombreProducto}" ha sido eliminado correctamente.`,
-          "🗑️",
-          3000,
-        )
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "info",
+          title: "Producto eliminado",
+          message: `El producto "${productToDelete.NombreProducto}" ha sido eliminado correctamente.`
+        }
 
         // Recargar los productos para asegurar sincronización con el servidor
         await fetchProductos()
       } catch (error) {
         console.error("Error al eliminar producto:", error)
-        showToast(
-          "error",
-          "Error",
-          error.response?.data?.message || "No se pudo eliminar el producto. Intente nuevamente.",
-        )
+        
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "error",
+          title: "Error",
+          message: error.response?.data?.message || "No se pudo eliminar el producto. Intente nuevamente."
+        }
+      } finally {
+        setIsProcessing(false) // Ocultar LoadingOverlay
+        showPendingToast() // Mostrar cualquier notificación pendiente
       }
     }
     setShowDeleteConfirm(false)
@@ -515,13 +577,28 @@ const Productos = () => {
         </div>
       </div>
 
-      {/* Modal de confirmación para eliminar */}
-      <DeleteConfirmModal
+      {/* Reemplazar DeleteConfirmModal por ConfirmDialog */}
+      <ConfirmDialog
         show={showDeleteConfirm}
-        item={productToDelete}
-        onCancel={cancelDelete}
+        title="Confirmar eliminación"
+        message={
+          <>
+            ¿Está seguro que desea eliminar el producto <strong>{productToDelete?.NombreProducto}</strong>?
+            <br />
+            <span className="text-danger">Esta acción no se puede deshacer.</span>
+          </>
+        }
+        type="danger"
         onConfirm={confirmDelete}
-        itemType="producto"
+        onCancel={cancelDelete}
+      />
+
+      {/* Añadir LoadingOverlay */}
+      <LoadingOverlay
+        isLoading={isProcessing}
+        message={processingMessage}
+        variant="primary"
+        onHide={showPendingToast}
       />
 
       <ToastContainer
