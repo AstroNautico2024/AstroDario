@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
 import PropTypes from "prop-types"
-import { Home, Settings, Package, ShoppingCart, DollarSign, Scissors, PawPrint, ChevronRight } from "lucide-react"
+import { Home, Settings, Package, ShoppingCart, DollarSign, Scissors, PawPrint, ChevronRight } from 'lucide-react'
 import { motion, AnimatePresence } from "framer-motion"
 import logo from "../../assets/Logo2.jpg"
 import "./Sidebar.scss"
@@ -56,11 +56,7 @@ const getMenuItems = () => {
           path: "/inventario/productos",
           visible: authService.hasPermiso("Visualizar Productos"),
         },
-        {
-          title: "Registrar Nuevo Producto",
-          path: "/inventario/registrar-producto",
-          visible: authService.hasPermiso("Crear Productos"),
-        },
+        // Se eliminó "Registrar Nuevo Producto"
         {
           title: "Notificaciones",
           path: "/inventario/notificaciones",
@@ -83,11 +79,7 @@ const getMenuItems = () => {
           path: "/compras/compras",
           visible: authService.hasPermiso("Visualizar Compras"),
         },
-        {
-          title: "Registrar Compra",
-          path: "/compras/registrar-compra",
-          visible: authService.hasPermiso("Crear Compras"),
-        },
+        // Se eliminó "Registrar Compra"
       ],
     },
     {
@@ -105,11 +97,7 @@ const getMenuItems = () => {
           path: "/ventas/ventas",
           visible: authService.hasPermiso("Visualizar Ventas"),
         },
-        {
-          title: "Registrar Venta",
-          path: "/ventas/registrar-venta",
-          visible: authService.hasPermiso("Crear Ventas"),
-        },
+        // Se eliminó "Registrar Venta"
       ],
     },
     {
@@ -130,11 +118,7 @@ const getMenuItems = () => {
           path: "/servicios/servicios",
           visible: authService.hasPermiso("Visualizar Servicios"),
         },
-        {
-          title: "Registrar Nuevo Servicio",
-          path: "/servicios/registrar-servicio",
-          visible: authService.hasPermiso("Crear Servicios"),
-        },
+        // Se eliminó "Registrar Nuevo Servicio"
         {
           title: "Agendar Citas",
           path: "/servicios/AgendarCitas",
@@ -145,12 +129,17 @@ const getMenuItems = () => {
     {
       title: "Mascotas",
       icon: PawPrint,
-      visible: authService.hasPermiso("Visualizar Mascotas"),
+      visible: authService.hasPermiso("Visualizar Mascotas") || authService.hasPermiso("Visualizar Especies"),
       submenu: [
         {
-          title: "Registrar Mascota",
+          title: "Mascotas",
           path: "/mascotas/lista",
           visible: authService.hasPermiso("Visualizar Mascotas"),
+        },
+        {
+          title: "Especies",
+          path: "/admin/especies",
+          visible: authService.hasPermiso("Visualizar Especies"),
         },
       ],
     },
