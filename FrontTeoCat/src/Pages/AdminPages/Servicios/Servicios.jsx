@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import DataTable from "../../../Components/AdminComponents/DataTable"
 import TableActions from "../../../Components/AdminComponents/TableActions"
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle } from 'lucide-react'
 import "../../../Styles/AdminStyles/Servicios.css"
 import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
@@ -12,6 +12,9 @@ import "../../../Styles/AdminStyles/ToastStyles.css"
 import { useNavigate } from "react-router-dom"
 // Importar el servicio de servicios
 import serviciosService from "../../../Services/ConsumoAdmin/serviciosService.js"
+// Importar los nuevos componentes
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay"
+import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog"
 
 /**
  * Componente para la gestión de servicios
@@ -48,6 +51,49 @@ const Servicios = () => {
 
   // Referencias para las notificaciones
   const toastIds = useRef({})
+  
+  // NUEVOS ESTADOS PARA LAS MEJORAS
+  // Estado para el indicador de carga global
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
+  
+  // Añadir estos nuevos estados para manejar las notificaciones pendientes
+  const pendingToastRef = useRef(null)
+  const toastShownRef = useRef(false)
+  
+  // Función para mostrar toast después de que el loading se oculte
+  const showPendingToast = () => {
+    if (pendingToastRef.current && !toastShownRef.current) {
+      const { type, message } = pendingToastRef.current
+
+      // Marcar como mostrado
+      toastShownRef.current = true
+
+      // Limpiar todas las notificaciones existentes primero
+      toast.dismiss()
+
+      // Mostrar la notificación después de un pequeño retraso
+      setTimeout(() => {
+        toast[type](message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+          onClose: () => {
+            // Resetear cuando se cierra la notificación
+            pendingToastRef.current = null
+            // Esperar un momento antes de permitir nuevas notificaciones
+            setTimeout(() => {
+              toastShownRef.current = false
+            }, 300)
+          },
+        })
+      }, 300)
+    }
+  }
 
   /**
    * Efecto para cargar datos iniciales
@@ -62,6 +108,7 @@ const Servicios = () => {
    */
   const fetchServicios = async () => {
     setLoading(true)
+    
     try {
       const data = await serviciosService.obtenerTodos()
 
@@ -91,9 +138,16 @@ const Servicios = () => {
       setServicios(serviciosFormateados)
     } catch (error) {
       console.error("Error al cargar servicios:", error)
-      toast.error("No se pudieron cargar los servicios. Intente nuevamente más tarde.")
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "No se pudieron cargar los servicios. Intente nuevamente más tarde.",
+      }
     } finally {
       setLoading(false)
+      // Mostrar cualquier notificación pendiente después de que se complete la carga
+      showPendingToast()
     }
   }
 
@@ -182,21 +236,37 @@ const Servicios = () => {
    * @param {Object} servicio - Objeto de servicio a visualizar
    */
   const handleView = (servicio) => {
-    setCurrentServicio(servicio)
-    setModalTitle("Ver Detalles del Servicio")
+    setIsProcessing(true) // Mostrar LoadingOverlay
+    setProcessingMessage("Cargando detalles del servicio...") // Mensaje para el LoadingOverlay
+    
+    try {
+      setCurrentServicio(servicio)
+      setModalTitle("Ver Detalles del Servicio")
 
-    // Cargar datos del servicio en el formulario
-    setFormData({
-      nombre: servicio.nombre,
-      descripcion: servicio.descripcion,
-      precio: servicio.precio.toString(),
-      duracion: servicio.duracion.toString(),
-      beneficios: servicio.beneficios || [],
-      queIncluye: servicio.queIncluye || [],
-      imagenes: servicio.imagenes || [null, null, null, null],
-    })
+      // Cargar datos del servicio en el formulario
+      setFormData({
+        nombre: servicio.nombre,
+        descripcion: servicio.descripcion,
+        precio: servicio.precio.toString(),
+        duracion: servicio.duracion.toString(),
+        beneficios: servicio.beneficios || [],
+        queIncluye: servicio.queIncluye || [],
+        imagenes: servicio.imagenes || [null, null, null, null],
+      })
 
-    setShowModal(true)
+      setShowModal(true)
+    } catch (error) {
+      console.error("Error al cargar detalles del servicio:", error)
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "No se pudieron cargar los detalles del servicio.",
+      }
+    } finally {
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
+    }
   }
 
   /**
@@ -213,6 +283,13 @@ const Servicios = () => {
    * @param {Object} servicio - Objeto de servicio a cambiar estado
    */
   const handleToggleStatus = async (servicio) => {
+    setIsProcessing(true) // Mostrar LoadingOverlay
+    setProcessingMessage(`${servicio.estado === "Activo" ? "Desactivando" : "Activando"} servicio...`) // Mensaje para el LoadingOverlay
+    
+    // Limpiar cualquier notificación pendiente anterior
+    pendingToastRef.current = null
+    toastShownRef.current = false
+    
     try {
       // Llamar a la API para cambiar el estado
       await serviciosService.cambiarEstado(servicio.id, servicio.estado !== "Activo")
@@ -233,31 +310,22 @@ const Servicios = () => {
       // Añadir notificación
       const newStatus = servicio.estado === "Activo" ? "inactivo" : "activo"
 
-      // Descartar notificación anterior si existe
-      if (toastIds.current.status) {
-        toast.dismiss(toastIds.current.status)
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "success",
+        message: `El servicio "${servicio.nombre}" ahora está ${newStatus}.`,
       }
-
-      toastIds.current.status = toast.success(
-        <div>
-          <strong>Estado actualizado</strong>
-          <p>
-            El servicio "{servicio.nombre}" ahora está {newStatus}.
-          </p>
-        </div>,
-        {
-          icon: "🔄",
-          position: "top-right",
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
     } catch (error) {
       console.error("Error al cambiar el estado del servicio:", error)
-      toast.error("No se pudo cambiar el estado del servicio")
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "No se pudo cambiar el estado del servicio.",
+      }
+    } finally {
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
   }
 
@@ -275,6 +343,14 @@ const Servicios = () => {
    */
   const confirmDelete = async () => {
     if (servicioToDelete) {
+      setShowDeleteConfirm(false)
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage("Eliminando servicio...") // Mensaje para el LoadingOverlay
+      
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+      
       try {
         // Llamar a la API para eliminar el servicio
         await serviciosService.eliminar(servicioToDelete.id)
@@ -283,32 +359,24 @@ const Servicios = () => {
         const updatedServicios = servicios.filter((s) => s.id !== servicioToDelete.id)
         setServicios(updatedServicios)
 
-        // Añadir notificación
-        if (toastIds.current.delete) {
-          toast.dismiss(toastIds.current.delete)
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "info",
+          message: `El servicio "${servicioToDelete.nombre}" ha sido eliminado correctamente.`,
         }
-
-        toastIds.current.delete = toast.info(
-          <div>
-            <strong>Servicio eliminado</strong>
-            <p>El servicio "{servicioToDelete.nombre}" ha sido eliminado correctamente.</p>
-          </div>,
-          {
-            icon: "🗑️",
-            position: "top-right",
-            autoClose: 3000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          },
-        )
       } catch (error) {
         console.error("Error al eliminar el servicio:", error)
-        toast.error("No se pudo eliminar el servicio")
+        
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "error",
+          message: "No se pudo eliminar el servicio.",
+        }
+      } finally {
+        setIsProcessing(false) // Ocultar LoadingOverlay
+        showPendingToast() // Mostrar cualquier notificación pendiente
       }
     }
-    setShowDeleteConfirm(false)
     setServicioToDelete(null)
   }
 
@@ -507,45 +575,41 @@ const Servicios = () => {
         </div>
       </div>
 
-      {/* Modal de confirmación para eliminar */}
-      {showDeleteConfirm && <div className="modal-backdrop show"></div>}
-      <div className={`modal fade ${showDeleteConfirm ? "show d-block" : ""}`} tabIndex="-1" role="dialog">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header bg-danger text-white">
-              <h5 className="modal-title">Confirmar eliminación</h5>
-              <button type="button" className="btn-close btn-close-white" onClick={cancelDelete}></button>
-            </div>
-            <div className="modal-body">
-              <div className="d-flex align-items-center">
-                <AlertTriangle size={24} className="text-danger me-3" />
-                <p className="mb-0">¿Está seguro de eliminar el servicio "{servicioToDelete?.nombre}"?</p>
-              </div>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={cancelDelete}>
-                Cancelar
-              </button>
-              <button type="button" className="btn btn-danger" onClick={confirmDelete}>
-                Aceptar
-              </button>
-            </div>
+      {/* Reemplazar el modal de confirmación por ConfirmDialog */}
+      <ConfirmDialog
+        show={showDeleteConfirm}
+        title="Confirmar eliminación"
+        message={
+          <div className="d-flex align-items-center">
+            <AlertTriangle size={24} className="text-danger me-3" />
+            <p className="mb-0">¿Está seguro de eliminar el servicio "{servicioToDelete?.nombre}"?</p>
           </div>
-        </div>
-      </div>
+        }
+        type="danger"
+        onConfirm={confirmDelete}
+        onCancel={cancelDelete}
+      />
+
+      {/* Añadir LoadingOverlay */}
+      <LoadingOverlay
+        isLoading={isProcessing}
+        message={processingMessage}
+        variant="primary"
+        onHide={showPendingToast}
+      />
 
       <ToastContainer
         position="top-right"
-        autoClose={3000}
+        autoClose={5000}
         hideProgressBar={false}
         newestOnTop
         closeOnClick
         rtl={false}
-        pauseOnFocusLoss
+        pauseOnFocusLoss={false}
+        pauseOnHover={false}
         draggable
-        pauseOnHover
         theme="light"
-        limit={3}
+        limit={1}
       />
     </div>
   )

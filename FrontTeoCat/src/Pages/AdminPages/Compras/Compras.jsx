@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import DataTable from "../../../Components/AdminComponents/DataTable"
 import TableActions from "../../../Components/AdminComponents/TableActions"
-import { AlertTriangle, FileText } from "lucide-react"
+import { AlertTriangle, FileText } from 'lucide-react'
 import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/Compras.css"
@@ -12,6 +12,9 @@ import "../../../Styles/AdminStyles/ToastStyles.css"
 import ComprasService from "../../../Services/ConsumoAdmin/ComprasService.js"
 import DetalleComprasService from "../../../Services/ConsumoAdmin/DetalleComprasService.js"
 import ProveedoresService from "../../../Services/ConsumoAdmin/ProveedoresService.js"
+// Importar los nuevos componentes
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay"
+import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog"
 
 /**
  * Componente para la gestión de compras
@@ -48,6 +51,49 @@ const Compras = () => {
 
   // Estado para controlar recargas
   const [reloadTrigger, setReloadTrigger] = useState(false)
+  
+  // NUEVOS ESTADOS PARA LAS MEJORAS
+  // Estado para el indicador de carga global
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
+  
+  // Añadir estos nuevos estados para manejar las notificaciones pendientes
+  const pendingToastRef = useRef(null)
+  const toastShownRef = useRef(false)
+  
+  // Función para mostrar toast después de que el loading se oculte
+  const showPendingToast = () => {
+    if (pendingToastRef.current && !toastShownRef.current) {
+      const { type, message } = pendingToastRef.current
+
+      // Marcar como mostrado
+      toastShownRef.current = true
+
+      // Limpiar todas las notificaciones existentes primero
+      toast.dismiss()
+
+      // Mostrar la notificación después de un pequeño retraso
+      setTimeout(() => {
+        toast[type](message, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+          onClose: () => {
+            // Resetear cuando se cierra la notificación
+            pendingToastRef.current = null
+            // Esperar un momento antes de permitir nuevas notificaciones
+            setTimeout(() => {
+              toastShownRef.current = false
+            }, 300)
+          },
+        })
+      }, 300)
+    }
+  }
 
   /**
    * Efecto para cargar datos iniciales
@@ -224,27 +270,20 @@ const Compras = () => {
    */
   const handleView = async (compra) => {
     try {
-      setIsLoading(true)
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage("Cargando detalles de la compra...") // Mensaje para el LoadingOverlay
+      
       console.log("Obteniendo detalles de compra:", compra)
-
-      // Mostrar toast de carga
-      const loadingToastId = toast.loading(
-        <div>
-          <strong>Cargando detalles</strong>
-          <p>Obteniendo información de la compra...</p>
-        </div>,
-        {
-          position: "top-right",
-        },
-      )
 
       // Obtener los datos completos de la compra
       const compraCompleta = await ComprasService.getById(compra.IdCompra || compra.id)
 
       if (!compraCompleta) {
-        toast.dismiss(loadingToastId)
-        toast.error("No se pudo cargar la información de la compra")
-        setIsLoading(false)
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "error",
+          message: "No se pudo cargar la información de la compra",
+        }
         return
       }
 
@@ -312,16 +351,25 @@ const Compras = () => {
       setCompraSeleccionada(compraCompleta)
       setDetallesCompra(detallesNormalizados)
 
-      // Cerrar toast de carga
-      toast.dismiss(loadingToastId)
-
       // Mostrar modal
       setShowDetallesModal(true)
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "success",
+        message: "Detalles de la compra cargados correctamente",
+      }
     } catch (error) {
       console.error("Error al obtener detalles de la compra:", error)
-      toast.error("Error al cargar los detalles de la compra")
+      
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los detalles de la compra",
+      }
     } finally {
-      setIsLoading(false)
+      setIsProcessing(false) // Ocultar LoadingOverlay
+      showPendingToast() // Mostrar cualquier notificación pendiente
     }
   }
 
@@ -333,20 +381,12 @@ const Compras = () => {
   const handleEdit = (compra) => {
     // Solo permitir editar compras efectivas
     if (compra.Estado === "Cancelada") {
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>No se puede editar una compra cancelada.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 4000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "No se puede editar una compra cancelada.",
+      }
+      showPendingToast()
       return
     }
 
@@ -357,20 +397,12 @@ const Compras = () => {
     const diferenciaHoras = diferenciaTiempo / (1000 * 60 * 60)
 
     if (diferenciaHoras > 24) {
-      toast.warning(
-        <div>
-          <strong>Advertencia</strong>
-          <p>Esta compra tiene más de 24 horas. Los cambios podrían afectar al inventario y reportes.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "warning",
+        message: "Esta compra tiene más de 24 horas. Los cambios podrían afectar al inventario y reportes.",
+      }
+      showPendingToast()
     }
 
     // Redirigir a la vista de edición
@@ -384,20 +416,12 @@ const Compras = () => {
   const handleCancel = (compra) => {
     // Solo permitir cancelar compras efectivas
     if (compra.Estado === "Cancelada") {
-      toast.error(
-        <div>
-          <strong>Error</strong>
-          <p>Esta compra ya está cancelada.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 4000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "error",
+        message: "Esta compra ya está cancelada.",
+      }
+      showPendingToast()
       return
     }
 
@@ -408,20 +432,12 @@ const Compras = () => {
     const diferenciaHoras = diferenciaTiempo / (1000 * 60 * 60)
 
     if (diferenciaHoras > 24) {
-      toast.warning(
-        <div>
-          <strong>Advertencia</strong>
-          <p>Esta compra tiene más de 24 horas. Su cancelación afectará al inventario y reportes.</p>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 5000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-        },
-      )
+      // Guardar el toast para después
+      pendingToastRef.current = {
+        type: "warning",
+        message: "Esta compra tiene más de 24 horas. Su cancelación afectará al inventario y reportes.",
+      }
+      showPendingToast()
     }
 
     setCompraToCancel(compra)
@@ -433,18 +449,15 @@ const Compras = () => {
    */
   const confirmCancel = async () => {
     if (compraToCancel) {
+      setShowCancelConfirm(false)
+      setIsProcessing(true) // Mostrar LoadingOverlay
+      setProcessingMessage("Cancelando compra...") // Mensaje para el LoadingOverlay
+      
+      // Limpiar cualquier notificación pendiente anterior
+      pendingToastRef.current = null
+      toastShownRef.current = false
+      
       try {
-        // Mostrar toast de carga
-        const loadingToastId = toast.loading(
-          <div>
-            <strong>Cancelando compra</strong>
-            <p>Por favor, espere...</p>
-          </div>,
-          {
-            position: "top-right",
-          },
-        )
-
         // Actualizar el estado local primero para una respuesta inmediata
         setCompras((prevCompras) =>
           prevCompras.map((c) => {
@@ -481,47 +494,27 @@ const Compras = () => {
         // Llamar a la API para cancelar la compra
         await ComprasService.updateStatus(compraToCancel.IdCompra || compraToCancel.id, "Cancelada")
 
-        // Cerrar toast de carga
-        toast.dismiss(loadingToastId)
-
-        // Mostrar notificación de éxito
-        toast.success(
-          <div>
-            <strong>Compra cancelada</strong>
-            <p>La compra ha sido cancelada correctamente.</p>
-          </div>,
-          {
-            icon: "🚫",
-            position: "top-right",
-            autoClose: 3000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          },
-        )
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "success",
+          message: "La compra ha sido cancelada correctamente.",
+        }
 
         // Recargar datos para asegurar consistencia
         setReloadTrigger(!reloadTrigger)
       } catch (error) {
         console.error("Error al cancelar la compra:", error)
-        toast.error(
-          <div>
-            <strong>Error</strong>
-            <p>No se pudo cancelar la compra en el servidor, pero se ha marcado como cancelada localmente.</p>
-          </div>,
-          {
-            position: "top-right",
-            autoClose: 4000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          },
-        )
+        
+        // Guardar el toast para después
+        pendingToastRef.current = {
+          type: "error",
+          message: "No se pudo cancelar la compra en el servidor, pero se ha marcado como cancelada localmente.",
+        }
+      } finally {
+        setIsProcessing(false) // Ocultar LoadingOverlay
+        showPendingToast() // Mostrar cualquier notificación pendiente
       }
     }
-    setShowCancelConfirm(false)
     setCompraToCancel(null)
   }
 
@@ -642,38 +635,28 @@ const Compras = () => {
         />
       )}
 
-      {/* Modal de confirmación para cancelar compra */}
-      {showCancelConfirm && <div className="modal-backdrop show"></div>}
-      <div className={`modal fade ${showCancelConfirm ? "show d-block" : ""}`} tabIndex="-1" role="dialog">
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header bg-danger text-white">
-              <h5 className="modal-title">Confirmar cancelación</h5>
-              <button type="button" className="btn-close btn-close-white" onClick={cancelCancel}></button>
+      {/* Reemplazar el modal de confirmación por ConfirmDialog */}
+      <ConfirmDialog
+        show={showCancelConfirm}
+        title="Confirmar cancelación"
+        message={
+          <>
+            <div className="d-flex align-items-center">
+              <AlertTriangle size={24} className="text-danger me-3" />
+              <p className="mb-0">¿Está seguro de cancelar esta compra?</p>
             </div>
-            <div className="modal-body">
-              <div className="d-flex align-items-center">
-                <AlertTriangle size={24} className="text-danger me-3" />
-                <p className="mb-0">¿Está seguro de cancelar esta compra?</p>
-              </div>
-              <div className="alert alert-warning mt-3">
-                <small>
-                  <strong>Importante:</strong> Al cancelar esta compra, se revertirán los cambios en el inventario. Esta
-                  acción no se puede deshacer.
-                </small>
-              </div>
+            <div className="alert alert-warning mt-3">
+              <small>
+                <strong>Importante:</strong> Al cancelar esta compra, se revertirán los cambios en el inventario. Esta
+                acción no se puede deshacer.
+              </small>
             </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={cancelCancel}>
-                No, mantener
-              </button>
-              <button type="button" className="btn btn-danger" onClick={confirmCancel}>
-                Sí, cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
+          </>
+        }
+        type="danger"
+        onConfirm={confirmCancel}
+        onCancel={cancelCancel}
+      />
 
       {/* Modal para Ver Detalles de la Compra */}
       <div
@@ -847,18 +830,26 @@ const Compras = () => {
         </div>
       </div>
 
+      {/* Añadir LoadingOverlay */}
+      <LoadingOverlay
+        isLoading={isProcessing}
+        message={processingMessage}
+        variant="primary"
+        onHide={showPendingToast}
+      />
+
       <ToastContainer
         position="top-right"
-        autoClose={3000}
+        autoClose={5000}
         hideProgressBar={false}
         newestOnTop
         closeOnClick
         rtl={false}
-        pauseOnFocusLoss
+        pauseOnFocusLoss={false}
+        pauseOnHover={false}
         draggable
-        pauseOnHover
         theme="light"
-        limit={3}
+        limit={1}
       />
     </div>
   )
