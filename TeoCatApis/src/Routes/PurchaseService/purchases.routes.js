@@ -15,6 +15,11 @@ router.put('/proveedores/:id', authMiddleware, validatePermission('Modificar Pro
 router.patch('/proveedores/:id/status', authMiddleware, validatePermission('Cambiar Estado Proveedores'), proveedoresController.changeStatus);
 router.delete('/proveedores/:id', authMiddleware, validatePermission('Eliminar Proveedores'), proveedoresController.delete);
 
+// NUEVAS RUTAS PARA CATÁLOGO DE PROVEEDORES
+router.get('/proveedores/:id/catalogo', authMiddleware, validatePermission('Visualizar Proveedores'), proveedoresController.getCatalogo);
+router.post('/proveedores/:id/catalogo', authMiddleware, validatePermission('Modificar Proveedores'), proveedoresController.addToCatalogo);
+router.delete('/proveedores/:id/catalogo/:productoId', authMiddleware, validatePermission('Modificar Proveedores'), proveedoresController.removeFromCatalogo);
+
 // Rutas para compras (orden corregido)
 router.get('/compras', authMiddleware, validatePermission('Visualizar Compras'), comprasController.getAll);
 // Primero las rutas específicas

@@ -383,55 +383,53 @@ const Roles = () => {
   }
   
   /**
-   * Función para confirmar el cambio de estado
-   */
-  const confirmToggleStatus = async () => {
-    try {
-      setShowStatusConfirm(false);
-      setIsProcessing(true);
-      setProcessingMessage(`Cambiando estado del rol...`);
-      
-      // Limpiar cualquier notificación pendiente anterior
-      pendingToastRef.current = null;
-      toastShownRef.current = false;
-      
-      const role = roleToToggle;
-      // Cambiar el estado del rol
-      const nuevoEstado = !role.Estado;
+ * Función para confirmar el cambio de estado
+ */
+const confirmToggleStatus = async () => {
+  try {
+    setShowStatusConfirm(false);
+    setIsProcessing(true);
+    setProcessingMessage(`Cambiando estado del rol...`);
+    
+    // Limpiar cualquier notificación pendiente anterior
+    pendingToastRef.current = null;
+    toastShownRef.current = false;
+    
+    const role = roleToToggle;
+    // Cambiar el estado del rol
+    const nuevoEstado = !role.Estado;
 
-      await rolesService.update(role.IdRol, {
-        NombreRol: role.NombreRol,
-        Estado: nuevoEstado,
-      });
+    // Usar el nuevo método changeStatus en lugar de update
+    await rolesService.changeStatus(role.IdRol, nuevoEstado);
 
-      // Actualizar la lista de roles
-      const updatedRoles = roles.map((r) => {
-        if (r.IdRol === role.IdRol) {
-          return { ...r, Estado: nuevoEstado };
-        }
-        return r;
-      });
+    // Actualizar la lista de roles
+    const updatedRoles = roles.map((r) => {
+      if (r.IdRol === role.IdRol) {
+        return { ...r, Estado: nuevoEstado };
+      }
+      return r;
+    });
 
-      setRoles(updatedRoles);
-      
-      // Guardar el toast para después
-      pendingToastRef.current = {
-        type: "success",
-        message: `El rol "${role.NombreRol}" ahora está ${nuevoEstado ? "activo" : "inactivo"}`
-      };
-      
-      setIsProcessing(false);
-    } catch (err) {
-      setIsProcessing(false);
-      console.error("Error al cambiar estado del rol:", err);
-      
-      // En caso de error, también guardar el toast para después
-      pendingToastRef.current = {
-        type: "error",
-        message: "Error al cambiar el estado del rol"
-      };
-    }
-  };
+    setRoles(updatedRoles);
+    
+    // Guardar el toast para después
+    pendingToastRef.current = {
+      type: "success",
+      message: `El rol "${role.NombreRol}" ahora está ${nuevoEstado ? "activo" : "inactivo"}`
+    };
+    
+    setIsProcessing(false);
+  } catch (err) {
+    setIsProcessing(false);
+    console.error("Error al cambiar estado del rol:", err);
+    
+    // En caso de error, también guardar el toast para después
+    pendingToastRef.current = {
+      type: "error",
+      message: "Error al cambiar el estado del rol"
+    };
+  }
+};
 
   /**
    * Manejador para abrir el modal de agregar rol

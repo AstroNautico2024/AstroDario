@@ -138,10 +138,20 @@ const MascotasService = {
    */
   create: async (mascotaData) => {
     try {
+      // Verificar que los datos requeridos estén presentes
+      if (!mascotaData.IdCliente || !mascotaData.Nombre || !mascotaData.Especie || !mascotaData.Raza) {
+        throw new Error("Faltan campos obligatorios: IdCliente, Nombre, Especie y Raza son requeridos")
+      }
+
       // Asegurarse de que el estado esté en formato numérico para la API
       // y que siempre sea "Activo" (1) para nuevas mascotas
       const mascotaFormateada = {
-        ...mascotaData,
+        IdCliente: mascotaData.IdCliente,
+        Nombre: mascotaData.Nombre,
+        Especie: mascotaData.Especie,
+        Raza: mascotaData.Raza,
+        Tamaño: mascotaData.Tamaño || "Mediano",
+        FechaNacimiento: mascotaData.FechaNacimiento,
         Estado: 1, // Siempre 1 (Activo) para nuevas mascotas
         // IMPORTANTE: Usar Foto en lugar de FotoURL para coincidir con el modelo de la base de datos
         Foto: mascotaData.FotoURL || null,
@@ -161,6 +171,18 @@ const MascotasService = {
       return mascotaCreada
     } catch (error) {
       console.error("Error al crear mascota:", error)
+      
+      // Agregar más detalles sobre el error para depuración
+      if (error.response) {
+        console.error("Respuesta del servidor:", error.response.data)
+        console.error("Estado HTTP:", error.response.status)
+        console.error("Cabeceras:", error.response.headers)
+      } else if (error.request) {
+        console.error("No se recibió respuesta:", error.request)
+      } else {
+        console.error("Error de configuración:", error.message)
+      }
+      
       throw error
     }
   },

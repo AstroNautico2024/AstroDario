@@ -915,6 +915,28 @@ create: async (req, res) => {
       res.status(500).json({ message: "Error en el servidor", error: error.message })
     }
   },
+
+  checkDocumentoExists: async (req, res) => {
+  try {
+    const { documento, excludeUserId } = req.query;
+    
+    let query = "SELECT COUNT(*) as count FROM Usuarios WHERE Documento = ?";
+    let params = [documento];
+    
+    if (excludeUserId) {
+      query += " AND IdUsuario != ?";
+      params.push(excludeUserId);
+    }
+    
+    const result = await db.query(query, params);
+    const exists = result[0].count > 0;
+    
+    res.status(200).json({ exists });
+  } catch (error) {
+    console.error("Error al verificar documento:", error);
+    res.status(500).json({ message: "Error en el servidor", error: error.message });
+  }
+}
 }
 
 // Controlador para autenticación

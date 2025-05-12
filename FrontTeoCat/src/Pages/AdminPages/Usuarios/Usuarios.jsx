@@ -531,300 +531,401 @@ const Usuarios = () => {
   }
 
   /**
-   * Manejador para cambios en los inputs del formulario
-   * @param {Event} e - Evento del input
-   */
-  const handleInputChange = (e) => {
-    const { name, value, type, files } = e.target
+ * Manejador para cambios en los inputs del formulario
+ * @param {Event} e - Evento del input
+ */
+const handleInputChange = async (e) => {
+  const { name, value, type, files } = e.target
 
-    // Si es un input de tipo file, guardar el archivo
-    if (type === "file") {
-      if (files && files[0]) {
-        setFormData({
-          ...formData,
-          [name]: files[0],
-        })
-      }
-    } else {
-      // Para otros tipos de input, guardar el valor
+  // Si es un input de tipo file, guardar el archivo
+  if (type === "file") {
+    if (files && files[0]) {
       setFormData({
         ...formData,
-        [name]: value,
+        [name]: files[0],
       })
     }
-
-    // Limpiar el error específico cuando el usuario comienza a escribir
-    setFormErrors({
-      ...formErrors,
-      [name]: "",
+  } else {
+    // Para otros tipos de input, guardar el valor
+    setFormData({
+      ...formData,
+      [name]: value,
     })
   }
 
-  /**
-   * Validar el formulario completo
-   * @returns {boolean} - True si el formulario es válido, false en caso contrario
-   */
-  const validateForm = () => {
-    let isValid = true
-    const errors = {
-      documento: "",
-      correo: "",
-      nombre: "",
-      apellido: "",
-      telefono: "",
-      direccion: "",
-      rol: "",
-      contrasena: "",
-      confirmarContrasena: "",
-    }
+  // Limpiar el error específico cuando el usuario comienza a escribir
+  setFormErrors({
+    ...formErrors,
+    [name]: "",
+  })
 
-    // Validar documento (requerido y formato)
-    if (!formData.documento.trim()) {
-      errors.documento = "El documento es obligatorio"
-      isValid = false
-    } else if (!/^\d{7,12}$/.test(formData.documento)) {
-      errors.documento = "El documento debe tener entre 7 y 12 dígitos"
-      isValid = false
-    } else {
-      // Verificar si el documento ya existe (excepto para el usuario actual en edición)
-      const documentoExiste = usuarios.some(
-        (user) => user.Documento === formData.documento && (!currentUser || user.IdUsuario !== currentUser.IdUsuario),
-      )
-      if (documentoExiste) {
-        errors.documento = "Este documento ya está registrado"
-        isValid = false
-      }
+  // Si es el campo de documento y tiene al menos 7 caracteres, verificar en tiempo real
+  if (name === "documento" && value.trim().length >= 7) {
+    // Usar un temporizador para evitar demasiadas llamadas mientras se escribe
+    if (window.documentoTimeout) {
+      clearTimeout(window.documentoTimeout);
     }
-
-    // Validar correo (requerido y formato)
-    if (!formData.correo.trim()) {
-      errors.correo = "El correo es obligatorio"
-      isValid = false
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-      if (!emailRegex.test(formData.correo)) {
-        errors.correo = "Formato de correo inválido"
-        isValid = false
-      } else {
-        // Verificar si el correo ya existe (excepto para el usuario actual en edición)
-        const correoExiste = usuarios.some(
-          (user) => user.Correo === formData.correo && (!currentUser || user.IdUsuario !== currentUser.IdUsuario),
-        )
-        if (correoExiste) {
-          errors.correo = "Este correo ya está registrado"
-          isValid = false
+    
+    window.documentoTimeout = setTimeout(async () => {
+      try {
+        // Verificar si el documento ya existe (excluyendo el usuario actual si estamos editando)
+        const excludeUserId = currentUser ? currentUser.IdUsuario : null;
+        const exists = await usuariosService.checkDocumentoExists(value.trim(), excludeUserId);
+        
+        if (exists) {
+          setFormErrors({
+            ...formErrors,
+            documento: "Este documento ya está registrado en el sistema"
+          });
+          
+          // Mostrar notificación
+          toast.error("El documento ya está registrado en el sistema", {
+            position: "top-right",
+            autoClose: 5000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: false,
+            pauseOnFocusLoss: false,
+            draggable: true,
+          });
         }
+      } catch (error) {
+        console.error("Error al verificar documento:", error);
       }
+    }, 500); // Esperar 500ms después de que el usuario deje de escribir
+  }
+}
+
+  // Función para validar el documento cuando pierde el foco
+const handleDocumentoBlur = async (e) => {
+  const documento = e.target.value.trim();
+  
+  if (!documento) {
+    setFormErrors({
+      ...formErrors,
+      documento: "El documento es obligatorio"
+    });
+    return;
+  }
+  
+  if (!/^\d{7,12}$/.test(documento)) {
+    setFormErrors({
+      ...formErrors,
+      documento: "El documento debe tener entre 7 y 12 dígitos"
+    });
+    return;
+  }
+  
+  try {
+    setIsProcessing(true);
+    setProcessingMessage("Verificando documento...");
+    
+    // Verificar si el documento ya existe (excluyendo el usuario actual si estamos editando)
+    const excludeUserId = currentUser ? currentUser.IdUsuario : null;
+    const exists = await usuariosService.checkDocumentoExists(documento, excludeUserId);
+    
+    if (exists) {
+      setFormErrors({
+        ...formErrors,
+        documento: "Este documento ya está registrado en el sistema"
+      });
+      
+      // Mostrar notificación
+      pendingToastRef.current = {
+        type: "error",
+        message: "El documento ya está registrado en el sistema"
+      };
+      showPendingToast();
+    } else {
+      setFormErrors({
+        ...formErrors,
+        documento: ""
+      });
     }
+  } catch (error) {
+    console.error("Error al verificar documento:", error);
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
-    // Validar nombre (requerido)
-    if (!formData.nombre.trim()) {
-      errors.nombre = "El nombre es obligatorio"
-      isValid = false
-    }
+  /**
+ * Validar el formulario completo
+ * @returns {boolean} - True si el formulario es válido, false en caso contrario
+ */
+const validateForm = () => {
+  console.log("Validando formulario con datos:", formData);
+  
+  let isValid = true;
+  const errors = {
+    documento: "",
+    correo: "",
+    nombre: "",
+    apellido: "",
+    telefono: "",
+    direccion: "",
+    rol: "",
+    contrasena: "",
+    confirmarContrasena: "",
+  };
 
-    // Validar apellido (requerido)
-    if (!formData.apellido.trim()) {
-      errors.apellido = "El apellido es obligatorio"
-      isValid = false
-    }
-
-    // Validar teléfono (formato)
-    if (formData.telefono.trim() && !/^\d{7,10}$/.test(formData.telefono)) {
-      errors.telefono = "El teléfono debe tener entre 7 y 10 dígitos"
-      isValid = false
-    }
-
-    // Validar dirección (requerido)
-    if (!formData.direccion.trim()) {
-      errors.direccion = "La dirección es obligatoria"
-      isValid = false
-    }
-
-    // Validar rol (requerido)
-    if (!formData.rol) {
-      errors.rol = "Debe seleccionar un rol"
-      isValid = false
-    }
-
-    // Validar contraseña (requerida para nuevos usuarios, opcional para edición)
-    if (!currentUser) {
-      // Nuevo usuario - contraseña requerida
-      if (!formData.contrasena) {
-        errors.contrasena = "La contraseña es obligatoria"
-        isValid = false
-      } else if (formData.contrasena.length < 6) {
-        errors.contrasena = "La contraseña debe tener al menos 6 caracteres"
-        isValid = false
-      } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/.test(formData.contrasena)) {
-        errors.contrasena =
-          "La contraseña debe incluir al menos una mayúscula, una minúscula, un número y un carácter especial"
-        isValid = false
-      }
-
-      // Confirmar contraseña
-      if (!formData.confirmarContrasena) {
-        errors.confirmarContrasena = "Debe confirmar la contraseña"
-        isValid = false
-      } else if (formData.contrasena !== formData.confirmarContrasena) {
-        errors.confirmarContrasena = "Las contraseñas no coinciden"
-        isValid = false
-      }
-    } else if (formData.contrasena && formData.contrasena !== "********") {
-      // Usuario existente - contraseña opcional pero debe cumplir requisitos si se proporciona
-      if (formData.contrasena.length < 6) {
-        errors.contrasena = "La contraseña debe tener al menos 6 caracteres"
-        isValid = false
-      } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/.test(formData.contrasena)) {
-        errors.contrasena =
-          "La contraseña debe incluir al menos una mayúscula, una minúscula, un número y un carácter especial"
-        isValid = false
-      }
-
-      // Confirmar contraseña si se está cambiando
-      if (!formData.confirmarContrasena) {
-        errors.confirmarContrasena = "Debe confirmar la contraseña"
-        isValid = false
-      } else if (formData.contrasena !== formData.confirmarContrasena) {
-        errors.confirmarContrasena = "Las contraseñas no coinciden"
-        isValid = false
-      }
-    }
-
-    setFormErrors(errors)
-    return isValid
+  // Validar documento (requerido y formato)
+  if (!formData.documento.trim()) {
+    errors.documento = "El documento es obligatorio";
+    isValid = false;
+    console.log("Error: Documento vacío");
+  } else if (!/^\d{7,12}$/.test(formData.documento)) {
+    errors.documento = "El documento debe tener entre 7 y 12 dígitos";
+    isValid = false;
+    console.log("Error: Formato de documento inválido");
   }
 
+  // Validar correo (requerido y formato)
+  if (!formData.correo.trim()) {
+    errors.correo = "El correo es obligatorio";
+    isValid = false;
+    console.log("Error: Correo vacío");
+  } else {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(formData.correo)) {
+      errors.correo = "Formato de correo inválido";
+      isValid = false;
+      console.log("Error: Formato de correo inválido");
+    }
+  }
+
+  // Validar nombre (requerido)
+  if (!formData.nombre.trim()) {
+    errors.nombre = "El nombre es obligatorio";
+    isValid = false;
+    console.log("Error: Nombre vacío");
+  }
+
+  // Validar apellido (requerido)
+  if (!formData.apellido.trim()) {
+    errors.apellido = "El apellido es obligatorio";
+    isValid = false;
+    console.log("Error: Apellido vacío");
+  }
+
+  // Validar teléfono (formato)
+  if (formData.telefono.trim() && !/^\d{7,10}$/.test(formData.telefono)) {
+    errors.telefono = "El teléfono debe tener entre 7 y 10 dígitos";
+    isValid = false;
+    console.log("Error: Formato de teléfono inválido");
+  }
+
+  // Validar dirección (requerido)
+  if (!formData.direccion.trim()) {
+    errors.direccion = "La dirección es obligatoria";
+    isValid = false;
+    console.log("Error: Dirección vacía");
+  }
+
+  // Validar rol (requerido)
+  if (!formData.rol) {
+    errors.rol = "Debe seleccionar un rol";
+    isValid = false;
+    console.log("Error: Rol no seleccionado");
+  }
+
+  // Validar contraseña SOLO si estamos en modo edición y se ha ingresado una contraseña
+  if (currentUser && formData.contrasena && formData.contrasena !== "********") {
+    // Usuario existente - contraseña opcional pero debe cumplir requisitos si se proporciona
+    if (formData.contrasena.length < 6) {
+      errors.contrasena = "La contraseña debe tener al menos 6 caracteres";
+      isValid = false;
+      console.log("Error: Contraseña demasiado corta");
+    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{6,}$/.test(formData.contrasena)) {
+      errors.contrasena = "La contraseña debe incluir al menos una mayúscula, una minúscula, un número y un carácter especial";
+      isValid = false;
+      console.log("Error: Formato de contraseña inválido");
+    }
+
+    // Confirmar contraseña si se está cambiando
+    if (!formData.confirmarContrasena) {
+      errors.confirmarContrasena = "Debe confirmar la contraseña";
+      isValid = false;
+      console.log("Error: Confirmación de contraseña vacía");
+    } else if (formData.contrasena !== formData.confirmarContrasena) {
+      errors.confirmarContrasena = "Las contraseñas no coinciden";
+      isValid = false;
+      console.log("Error: Las contraseñas no coinciden");
+    }
+  }
+
+  console.log("Resultado de validación:", isValid ? "Válido" : "Inválido");
+  console.log("Errores encontrados:", errors);
+  
+  setFormErrors(errors);
+  return isValid;
+};
+
   /**
-   * Manejador para guardar el usuario (crear nuevo o actualizar existente)
-   * Valida los datos y envía la información
-   */
-  const handleSaveUser = async () => {
+ * Manejador para guardar el usuario (crear nuevo o actualizar existente)
+ * Valida los datos y envía la información
+ */
+const handleSaveUser = async () => {
+  try {
     // Validar el formulario
     if (!validateForm()) {
+      // Mostrar los errores específicos que están en formErrors
+      console.log("Errores en el formulario:", formErrors);
+      
       // Limpiar notificaciones existentes
-      toast.dismiss()
+      toast.dismiss();
 
       toast.error("Por favor, corrija los errores en el formulario", {
         position: "top-right",
         autoClose: 5000,
         pauseOnHover: false,
         pauseOnFocusLoss: false,
-      })
-      return
+      });
+      return;
     }
 
-    try {
-      setIsProcessing(true)
-      setProcessingMessage(currentUser ? "Actualizando usuario..." : "Creando nuevo usuario...")
+    setIsProcessing(true);
+    setProcessingMessage(currentUser ? "Actualizando usuario..." : "Creando nuevo usuario...");
 
-      // Limpiar cualquier notificación pendiente anterior
-      pendingToastRef.current = null
-      toastShownRef.current = false
+    // Preparar datos del usuario
+    const userData = {
+      Nombre: formData.nombre,
+      Apellido: formData.apellido,
+      Correo: formData.correo,
+      Documento: formData.documento,
+      Telefono: formData.telefono,
+      Direccion: formData.direccion,
+      Foto: formData.foto,
+      IdRol: Number.parseInt(formData.rol, 10),
+    };
 
-      // Preparar datos del usuario
-      const userData = {
-        Documento: formData.documento,
-        Correo: formData.correo,
-        Nombre: formData.nombre,
-        Apellido: formData.apellido,
-        Telefono: formData.telefono,
-        Direccion: formData.direccion,
-        FotoURL: formData.foto,
-        IdRol: Number.parseInt(formData.rol, 10),
+    // Agregar contraseña SOLO si estamos editando un usuario existente y se ha cambiado la contraseña
+if (currentUser && formData.contrasena && formData.contrasena !== "********") {
+  userData.Password = formData.contrasena;
+}
+
+    console.log("Datos preparados para enviar:", userData);
+
+    // Agregar contraseña si es un nuevo usuario o si se está cambiando
+    if (currentUser && formData.contrasena && formData.contrasena !== "********") {
+      userData.Password = formData.contrasena;
+    }
+
+    if (currentUser) {
+      // Actualizar usuario existente
+      console.log(`Actualizando usuario ID ${currentUser.IdUsuario}:`, userData);
+      await usuariosService.update(currentUser.IdUsuario, userData);
+
+      // Actualizar la lista de usuarios
+      const updatedUsers = await usuariosService.getAll();
+      setUsuarios(updatedUsers);
+
+      // Cerrar el modal primero para evitar problemas con el estado
+      setShowModal(false);
+      
+      // Mostrar notificación después de cerrar el modal
+      setTimeout(() => {
+        toast.success(`El usuario "${formData.nombre} ${formData.apellido}" ha sido actualizado correctamente`, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+        });
+      }, 300);
+    } else {
+      // Crear nuevo usuario
+      console.log("Creando nuevo usuario:", userData);
+      await usuariosService.create(userData);
+
+      // Actualizar la lista de usuarios
+      const updatedUsers = await usuariosService.getAll();
+      setUsuarios(updatedUsers);
+
+      // Cerrar el modal primero para evitar problemas con el estado
+      setShowModal(false);
+      
+      // Mostrar notificación después de cerrar el modal
+      setTimeout(() => {
+        toast.success(`El usuario "${formData.nombre} ${formData.apellido}" ha sido creado correctamente`, {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: false,
+          pauseOnFocusLoss: false,
+          draggable: true,
+        });
+      }, 300);
+    }
+
+    setIsProcessing(false);
+  } catch (error) {
+    setIsProcessing(false);
+    console.error("Error al guardar usuario:", error);
+    console.error("Mensaje de error:", error.message);
+    console.error("Respuesta del servidor:", error.response?.data);
+
+    // Mostrar notificación de error
+    toast.error(`Error al guardar el usuario: ${error.response?.data?.message || error.message || "Error desconocido"}`, {
+      position: "top-right",
+      autoClose: 5000,
+      hideProgressBar: false,
+      closeOnClick: true,
+      pauseOnHover: false,
+      pauseOnFocusLoss: false,
+      draggable: true,
+    });
+  }
+};
+
+  /**
+ * Efecto para inicializar el modal de Bootstrap
+ */
+useEffect(() => {
+  let modalInstance = null;
+  const modalElement = document.getElementById("userModal");
+
+  if (showModal) {
+    import("bootstrap").then((bootstrap) => {
+      if (modalElement) {
+        modalInstance = new bootstrap.Modal(modalElement);
+        modalInstance.show();
       }
-
-      // Agregar contraseña si es un nuevo usuario o si se está cambiando
-      if (!currentUser || (formData.contrasena && formData.contrasena !== "********")) {
-        userData.Password = formData.contrasena
-      }
-
-      if (currentUser) {
-        // Actualizar usuario existente
-        await usuariosService.update(currentUser.IdUsuario, userData)
-
-        // Actualizar la lista de usuarios
-        const updatedUsers = await usuariosService.getAll()
-        setUsuarios(updatedUsers)
-
-        // Guardar el toast para después
-        pendingToastRef.current = {
-          type: "success",
-          message: `El usuario "${formData.nombre} ${formData.apellido}" ha sido actualizado correctamente`,
+    });
+  } else {
+    // Si showModal es false y el modal está abierto, cerrarlo programáticamente
+    if (modalElement && modalElement.classList.contains("show")) {
+      import("bootstrap").then((bootstrap) => {
+        modalInstance = bootstrap.Modal.getInstance(modalElement);
+        if (modalInstance) {
+          modalInstance.hide();
         }
-      } else {
-        // Crear nuevo usuario
-        await usuariosService.create(userData)
-
-        // Actualizar la lista de usuarios
-        const updatedUsers = await usuariosService.getAll()
-        setUsuarios(updatedUsers)
-
-        // Guardar el toast para después
-        pendingToastRef.current = {
-          type: "success",
-          message: `El usuario "${formData.nombre} ${formData.apellido}" ha sido creado correctamente`,
-        }
-      }
-
-      // Cerrar el modal
-      setShowModal(false)
-      setIsProcessing(false)
-    } catch (error) {
-      setIsProcessing(false)
-      console.error("Error al guardar usuario:", error)
-
-      // En caso de error, también guardar el toast para después
-      pendingToastRef.current = {
-        type: "error",
-        message: `Error al guardar el usuario: ${error.message || "Error desconocido"}`,
-      }
+      });
     }
   }
 
-  /**
-   * Efecto para inicializar el modal de Bootstrap
-   */
-  useEffect(() => {
-    let modalInstance = null
-    const modalElement = document.getElementById("userModal")
+  // Evento para cuando el modal se cierra con el botón X o haciendo clic fuera
+  const handleHidden = () => {
+    setShowModal(false);
+  };
 
-    if (showModal) {
-      import("bootstrap").then((bootstrap) => {
-        modalInstance = new bootstrap.Modal(modalElement)
-        modalInstance.show()
-      })
-    } else {
-      // Si showModal es false y el modal está abierto, cerrarlo programáticamente
-      if (modalElement && modalElement.classList.contains("show")) {
-        import("bootstrap").then((bootstrap) => {
-          modalInstance = bootstrap.Modal.getInstance(modalElement)
-          if (modalInstance) {
-            modalInstance.hide()
-          }
-        })
-      }
+  modalElement?.addEventListener("hidden.bs.modal", handleHidden);
+
+  return () => {
+    modalElement?.removeEventListener("hidden.bs.modal", handleHidden);
+    // Asegurarse de que se elimine cualquier backdrop residual al desmontar
+    const backdrop = document.querySelector(".modal-backdrop");
+    if (backdrop) {
+      backdrop.remove();
     }
-
-    // Evento para cuando el modal se cierra con el botón X o haciendo clic fuera
-    const handleHidden = () => {
-      setShowModal(false)
-    }
-
-    modalElement?.addEventListener("hidden.bs.modal", handleHidden)
-
-    return () => {
-      modalElement?.removeEventListener("hidden.bs.modal", handleHidden)
-      // Asegurarse de que se elimine cualquier backdrop residual al desmontar
-      const backdrop = document.querySelector(".modal-backdrop")
-      if (backdrop) {
-        backdrop.remove()
-      }
-      document.body.classList.remove("modal-open")
-      document.body.style.overflow = ""
-      document.body.style.paddingRight = ""
-    }
-  }, [showModal])
+    document.body.classList.remove("modal-open");
+    document.body.style.overflow = "";
+    document.body.style.paddingRight = "";
+  };
+}, [showModal]);
 
   return (
     <div className="usuarios-container">
@@ -859,6 +960,8 @@ const Usuarios = () => {
         onInputChange={handleInputChange}
         onSave={handleSaveUser}
         onClose={handleCloseModal}
+        setFormErrors={setFormErrors} // Añadir esta prop
+        onDocumentoBlur={handleDocumentoBlur} // Añadir esta prop
       />
 
       {/* Diálogos de confirmación */}

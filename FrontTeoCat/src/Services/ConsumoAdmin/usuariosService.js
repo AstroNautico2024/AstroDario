@@ -76,6 +76,8 @@ const usuariosService = {
    */
   create: async (userData) => {
     try {
+      console.log("Datos recibidos para crear usuario:", userData);
+      
       // Asegurarse de que los datos estén en el formato esperado por la API
       const formattedData = {
         Nombre: userData.Nombre,
@@ -86,15 +88,22 @@ const usuariosService = {
         Direccion: userData.Direccion,
         Foto: userData.Foto,
         IdRol: userData.IdRol,
-        Password: userData.Password,
       }
 
-      console.log("Datos enviados para crear usuario:", formattedData)
-      const response = await api.post("/auth/usuarios", formattedData)
-      return response.data
+      // Solo incluir la contraseña si se proporciona
+      if (userData.Password) {
+        formattedData.Password = userData.Password;
+      }
+
+      console.log("Datos formateados para crear usuario:", formattedData);
+      const response = await api.post("/auth/usuarios", formattedData);
+      console.log("Respuesta del servidor al crear usuario:", response.data);
+      return response.data;
     } catch (error) {
-      console.error("Error al crear usuario:", error)
-      throw error
+      console.error("Error al crear usuario:", error);
+      console.error("Mensaje de error:", error.message);
+      console.error("Respuesta del servidor:", error.response?.data);
+      throw error;
     }
   },
 
@@ -106,6 +115,8 @@ const usuariosService = {
    */
   update: async (id, userData) => {
     try {
+      console.log("Datos recibidos para actualizar usuario:", userData);
+      
       // Asegurarse de que los datos estén en el formato esperado por la API
       const formattedData = {
         Nombre: userData.Nombre,
@@ -120,15 +131,18 @@ const usuariosService = {
 
       // Si hay contraseña, incluirla
       if (userData.Password) {
-        formattedData.Password = userData.Password
+        formattedData.Password = userData.Password;
       }
 
-      console.log("Datos enviados para actualizar usuario:", formattedData)
-      const response = await api.put(`/auth/usuarios/${id}`, formattedData)
-      return response.data
+      console.log("Datos formateados para actualizar usuario:", formattedData);
+      const response = await api.put(`/auth/usuarios/${id}`, formattedData);
+      console.log("Respuesta del servidor al actualizar usuario:", response.data);
+      return response.data;
     } catch (error) {
-      console.error(`Error al actualizar usuario con ID ${id}:`, error)
-      throw error
+      console.error(`Error al actualizar usuario con ID ${id}:`, error);
+      console.error("Mensaje de error:", error.message);
+      console.error("Respuesta del servidor:", error.response?.data);
+      throw error;
     }
   },
 
@@ -176,6 +190,34 @@ const usuariosService = {
     } catch (error) {
       console.error(`Error al cambiar estado del usuario con ID ${id}:`, error)
       throw error
+    }
+  },
+
+  /**
+   * Verifica si un documento ya está registrado
+   * @param {string} documento - Documento a verificar
+   * @param {number} excludeUserId - ID de usuario a excluir de la verificación (opcional)
+   * @returns {Promise<boolean>} - True si el documento existe, false en caso contrario
+   */
+  checkDocumentoExists: async (documento, excludeUserId = null) => {
+    try {
+      console.log(`Verificando si el documento ${documento} existe (excluyendo usuario ID: ${excludeUserId})`);
+      
+      // Verificar localmente si el documento existe en los usuarios ya cargados
+      // Esta es una solución temporal hasta que se implemente el endpoint en el backend
+      const allUsers = await usuariosService.getAll();
+      
+      const exists = allUsers.some(user => 
+        user.Documento === documento && 
+        (!excludeUserId || user.IdUsuario !== excludeUserId)
+      );
+      
+      console.log(`Resultado de verificación de documento ${documento}: ${exists ? 'Existe' : 'No existe'}`);
+      return exists;
+    } catch (error) {
+      console.error(`Error al verificar documento ${documento}:`, error);
+      // En caso de error, asumimos que no existe para evitar bloquear al usuario
+      return false;
     }
   },
 

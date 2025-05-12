@@ -155,6 +155,228 @@ export const proveedoresController = {
       res.status(500).json({ message: "Error en el servidor", error: error.message })
     }
   },
+
+  // NUEVAS FUNCIONES PARA CATÁLOGO DE PROVEEDORES
+  
+  // Obtener catálogo de un proveedor
+  getCatalogo: async (req, res) => {
+    try {
+      const { id } = req.params
+      
+      // Verificar si el proveedor existe
+      const proveedor = await proveedoresModel.getById(id)
+      if (!proveedor) {
+        return res.status(404).json({ message: "Proveedor no encontrado" })
+      }
+      
+      // Consultar el catálogo del proveedor
+      // Asumiendo que existe una tabla CatalogoProveedores o similar
+      const [catalogo] = await query(`
+        SELECT cp.*, p.NombreProducto, p.Descripcion, p.CodigoBarras, p.Stock, 
+               p.PrecioVenta, p.Imagen, c.NombreCategoria
+        FROM CatalogoProveedores cp
+        JOIN Productos p ON cp.IdProducto = p.IdProducto
+        LEFT JOIN CategoriasDeProductos c ON p.IdCategoriaDeProducto = c.IdCategoriaDeProducto
+        WHERE cp.IdProveedor = ?
+        AND cp.Estado = 1
+      `, [id])
+      
+      // Si no existe la tabla, intentar con una consulta alternativa
+      if (catalogo === undefined) {
+        // Consulta alternativa: productos que han sido comprados a este proveedor
+        const [productosComprados] = await query(`
+          SELECT DISTINCT p.*, c.NombreCategoria,
+                 MAX(dc.PrecioUnitario) as UltimoPrecioCompra
+          FROM DetalleCompras dc
+          JOIN Compras co ON dc.IdCompra = co.IdCompra
+          JOIN Productos p ON dc.IdProducto = p.IdProducto
+          LEFT JOIN CategoriasDeProductos c ON p.IdCategoriaDeProducto = c.IdCategoriaDeProducto
+          WHERE co.IdProveedor = ?
+          GROUP BY p.IdProducto, p.Estado, p.NombreProducto, p.Descripcion, p.CodigoBarras, 
+                   p.Stock, p.PrecioVenta, p.Imagen, c.NombreCategoria
+        `, [id])
+        
+        return res.status(200).json({
+          proveedor: proveedor,
+          productos: productosComprados || [],
+          mensaje: "Catálogo generado a partir del historial de compras"
+        })
+      }
+      
+      res.status(200).json({
+        proveedor: proveedor,
+        productos: catalogo
+      })
+    } catch (error) {
+      console.error("Error al obtener catálogo del proveedor:", error)
+      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    }
+  },
+  
+  // Agregar producto al catálogo de un proveedor
+  addToCatalogo: async (req, res) => {
+    let connection
+    try {
+      connection = await getConnection()
+      await connection.beginTransaction()
+      
+      const { id } = req.params
+      const { IdProducto, PrecioReferencia, Notas } = req.body
+      
+      // Verificar si el proveedor existe
+      const [proveedores] = await connection.query(`SELECT * FROM Proveedores WHERE IdProveedor = ?`, [id])
+      if (proveedores.length === 0) {
+        await connection.rollback()
+        return res.status(404).json({ message: "Proveedor no encontrado" })
+      }
+      
+      // Verificar si el producto existe
+      const [productos] = await connection.query(`SELECT * FROM Productos WHERE IdProducto = ?`, [IdProducto])
+      if (productos.length === 0) {
+        await connection.rollback()
+        return res.status(404).json({ message: "Producto no encontrado" })
+      }
+      
+      // Verificar si ya existe en el catálogo
+      const [catalogoExistente] = await connection.query(`
+        SELECT * FROM CatalogoProveedores 
+        WHERE IdProveedor = ? AND IdProducto = ?
+      `, [id, IdProducto])
+      
+      let resultado
+      
+      if (catalogoExistente.length > 0) {
+        // Actualizar entrada existente
+        await connection.query(`
+          UPDATE CatalogoProveedores 
+          SET PrecioReferencia = ?, Notas = ?, Estado = 1, FechaActualizacion = NOW()
+          WHERE IdProveedor = ? AND IdProducto = ?
+        `, [PrecioReferencia, Notas, id, IdProducto])
+        
+        resultado = {
+          message: "Producto actualizado en el catálogo",
+          IdProveedor: id,
+          IdProducto: IdProducto,
+          PrecioReferencia,
+          Notas
+        }
+      } else {
+        // Crear nueva entrada
+        // Primero verificar si existe la tabla
+        try {
+          await connection.query(`
+            INSERT INTO CatalogoProveedores 
+            (IdProveedor, IdProducto, PrecioReferencia, Notas, Estado, FechaCreacion, FechaActualizacion)
+            VALUES (?, ?, ?, ?, 1, NOW(), NOW())
+          `, [id, IdProducto, PrecioReferencia, Notas])
+          
+          resultado = {
+            message: "Producto agregado al catálogo",
+            IdProveedor: id,
+            IdProducto: IdProducto,
+            PrecioReferencia,
+            Notas
+          }
+        } catch (error) {
+          // Si la tabla no existe, crear una relación alternativa
+          if (error.code === 'ER_NO_SUCH_TABLE') {
+            // Actualizar el producto para indicar que este proveedor lo suministra
+            await connection.query(`
+              UPDATE Productos 
+              SET Origen = 'Proveedor', IdProveedorPrincipal = ?
+              WHERE IdProducto = ?
+            `, [id, IdProducto])
+            
+            resultado = {
+              message: "Producto asociado al proveedor (método alternativo)",
+              IdProveedor: id,
+              IdProducto: IdProducto,
+              PrecioReferencia,
+              Notas
+            }
+          } else {
+            throw error
+          }
+        }
+      }
+      
+      await connection.commit()
+      res.status(200).json(resultado)
+    } catch (error) {
+      if (connection) await connection.rollback()
+      console.error("Error al agregar producto al catálogo:", error)
+      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    } finally {
+      if (connection) connection.release()
+    }
+  },
+  
+  // Eliminar producto del catálogo
+  removeFromCatalogo: async (req, res) => {
+    let connection
+    try {
+      connection = await getConnection()
+      await connection.beginTransaction()
+      
+      const { id, productoId } = req.params
+      
+      // Verificar si el proveedor existe
+      const [proveedores] = await connection.query(`SELECT * FROM Proveedores WHERE IdProveedor = ?`, [id])
+      if (proveedores.length === 0) {
+        await connection.rollback()
+        return res.status(404).json({ message: "Proveedor no encontrado" })
+      }
+      
+      // Verificar si el producto existe
+      const [productos] = await connection.query(`SELECT * FROM Productos WHERE IdProducto = ?`, [productoId])
+      if (productos.length === 0) {
+        await connection.rollback()
+        return res.status(404).json({ message: "Producto no encontrado" })
+      }
+      
+      // Intentar eliminar de la tabla de catálogo
+      try {
+        await connection.query(`
+          UPDATE CatalogoProveedores 
+          SET Estado = 0, FechaActualizacion = NOW()
+          WHERE IdProveedor = ? AND IdProducto = ?
+        `, [id, productoId])
+      } catch (error) {
+        // Si la tabla no existe, usar método alternativo
+        if (error.code === 'ER_NO_SUCH_TABLE') {
+          // Verificar si este proveedor es el principal para este producto
+          const [producto] = await connection.query(`
+            SELECT * FROM Productos 
+            WHERE IdProducto = ? AND IdProveedorPrincipal = ?
+          `, [productoId, id])
+          
+          if (producto.length > 0) {
+            // Quitar la asociación
+            await connection.query(`
+              UPDATE Productos 
+              SET IdProveedorPrincipal = NULL
+              WHERE IdProducto = ? AND IdProveedorPrincipal = ?
+            `, [productoId, id])
+          }
+        } else {
+          throw error
+        }
+      }
+      
+      await connection.commit()
+      res.status(200).json({ 
+        message: "Producto eliminado del catálogo",
+        IdProveedor: id,
+        IdProducto: productoId
+      })
+    } catch (error) {
+      if (connection) await connection.rollback()
+      console.error("Error al eliminar producto del catálogo:", error)
+      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    } finally {
+      if (connection) connection.release()
+    }
+  }
 }
 
 // Controlador para compras
@@ -200,6 +422,9 @@ export const comprasController = {
   create: async (req, res) => {
     let connection // Declarar la conexión fuera del try para poder acceder en catch/finally
     try {
+      // Primero, desactivar temporalmente el modo only_full_group_by
+      await query(`SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))`)
+      
       connection = await getConnection() // Usar la función importada
       await connection.beginTransaction()
 
@@ -239,17 +464,24 @@ export const comprasController = {
 
       if (detalles && detalles.length > 0) {
         for (const detalle of detalles) {
-          // Verificar si el producto existe
-          const [productos] = await connection.query(`SELECT * FROM Productos WHERE IdProducto = ?`, [
-            detalle.IdProducto,
-          ])
+          // Verificar si el producto existe - MODIFICADO para evitar el error de GROUP BY
+          const [productosResult] = await connection.query(`
+            SELECT p.*, 
+                  COALESCE(p.UnidadMedida, 'Unidad') as UnidadMedida,
+                  COALESCE(p.FactorConversion, 1) as FactorConversion,
+                  COALESCE(p.MargenGanancia, 30) as MargenGanancia,
+                  COALESCE(p.PorcentajeIVA, 19) as PorcentajeIVA,
+                  COALESCE(p.AplicaIVA, 1) as AplicaIVA
+            FROM Productos p
+            WHERE p.IdProducto = ?
+          `, [detalle.IdProducto])
 
-          if (productos.length === 0) {
+          if (productosResult.length === 0) {
             await connection.rollback()
             return res.status(404).json({ message: `Producto con ID ${detalle.IdProducto} no encontrado` })
           }
 
-          const producto = productos[0]
+          const producto = productosResult[0]
 
           // Calcular subtotal e IVA
           const precioUnitario = detalle.PrecioUnitario
@@ -263,24 +495,24 @@ export const comprasController = {
           const subtotalConIva = subtotalDetalle + ivaUnitario * detalle.Cantidad
 
           // Crear detalle
-const [resultDetalle] = await connection.query(
-  `INSERT INTO DetalleCompras 
-  (IdCompra, IdProducto, Cantidad, PrecioUnitario, Subtotal, IvaUnitario, SubtotalConIva, UnidadMedida, FactorConversion, CantidadConvertida, PrecioVentaSugerido) 
-  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  [
-    idCompra,
-    detalle.IdProducto,
-    detalle.Cantidad,
-    precioUnitario,
-    subtotalDetalle,
-    ivaUnitario,
-    subtotalConIva,
-    producto.UnidadMedida || 'Unidad',
-    producto.FactorConversion || 1,
-    detalle.Cantidad * (producto.FactorConversion || 1),
-    precioUnitario * (1 + (producto.MargenGanancia || 30) / 100)
-  ],
-)
+          const [resultDetalle] = await connection.query(
+            `INSERT INTO DetalleCompras 
+            (IdCompra, IdProducto, Cantidad, PrecioUnitario, Subtotal, IvaUnitario, SubtotalConIva, UnidadMedida, FactorConversion, CantidadConvertida, PrecioVentaSugerido) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              idCompra,
+              detalle.IdProducto,
+              detalle.Cantidad,
+              precioUnitario,
+              subtotalDetalle,
+              ivaUnitario,
+              subtotalConIva,
+              producto.UnidadMedida,
+              producto.FactorConversion,
+              detalle.Cantidad * producto.FactorConversion,
+              precioUnitario * (1 + producto.MargenGanancia / 100)
+            ],
+          )
 
           detallesCreados.push({
             id: resultDetalle.insertId,
@@ -335,6 +567,13 @@ const [resultDetalle] = await connection.query(
       res.status(500).json({ message: "Error en el servidor", error: error.message })
     } finally {
       if (connection) connection.release() // Verificar que connection existe antes de liberarla
+      
+      // Restaurar el modo SQL original
+      try {
+        await query(`SET SESSION sql_mode=(SELECT CONCAT(@@sql_mode, ',ONLY_FULL_GROUP_BY'))`)
+      } catch (error) {
+        console.error("Error al restaurar el modo SQL:", error)
+      }
     }
   },
 
@@ -342,6 +581,9 @@ const [resultDetalle] = await connection.query(
   update: async (req, res) => {
     let connection
     try {
+      // Desactivar temporalmente el modo only_full_group_by
+      await query(`SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))`)
+      
       connection = await getConnection()
       await connection.beginTransaction()
 
@@ -385,17 +627,24 @@ const [resultDetalle] = await connection.query(
       // Insertar los nuevos detalles
       if (detalles && detalles.length > 0) {
         for (const detalle of detalles) {
-          // Verificar si el producto existe
-          const [productos] = await connection.query(`SELECT * FROM Productos WHERE IdProducto = ?`, [
-            detalle.IdProducto,
-          ])
+          // Verificar si el producto existe - MODIFICADO para evitar el error de GROUP BY
+          const [productosResult] = await connection.query(`
+            SELECT p.*, 
+                  COALESCE(p.UnidadMedida, 'Unidad') as UnidadMedida,
+                  COALESCE(p.FactorConversion, 1) as FactorConversion,
+                  COALESCE(p.MargenGanancia, 30) as MargenGanancia,
+                  COALESCE(p.PorcentajeIVA, 19) as PorcentajeIVA,
+                  COALESCE(p.AplicaIVA, 1) as AplicaIVA
+            FROM Productos p
+            WHERE p.IdProducto = ?
+          `, [detalle.IdProducto])
 
-          if (productos.length === 0) {
+          if (productosResult.length === 0) {
             await connection.rollback()
             return res.status(404).json({ message: `Producto con ID ${detalle.IdProducto} no encontrado` })
           }
 
-          const producto = productos[0]
+          const producto = productosResult[0]
 
           // Calcular IVA y subtotal con IVA
           const precioUnitario = detalle.PrecioUnitario
@@ -412,9 +661,21 @@ const [resultDetalle] = await connection.query(
           // Insertar el detalle
           await connection.query(
             `INSERT INTO DetalleCompras 
-            (IdCompra, IdProducto, Cantidad, PrecioUnitario, Subtotal, IvaUnitario, SubtotalConIva) 
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-            [id, detalle.IdProducto, detalle.Cantidad, precioUnitario, subtotal, ivaUnitario, subtotalConIva],
+            (IdCompra, IdProducto, Cantidad, PrecioUnitario, Subtotal, IvaUnitario, SubtotalConIva, UnidadMedida, FactorConversion, CantidadConvertida, PrecioVentaSugerido) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+              id,
+              detalle.IdProducto,
+              detalle.Cantidad,
+              precioUnitario,
+              subtotal,
+              ivaUnitario,
+              subtotalConIva,
+              producto.UnidadMedida,
+              producto.FactorConversion,
+              detalle.Cantidad * producto.FactorConversion,
+              precioUnitario * (1 + producto.MargenGanancia / 100)
+            ],
           )
 
           // Actualizar stock del producto si es necesario
@@ -435,6 +696,13 @@ const [resultDetalle] = await connection.query(
       res.status(500).json({ message: "Error en el servidor", error: error.message })
     } finally {
       if (connection) connection.release()
+      
+      // Restaurar el modo SQL original
+      try {
+        await query(`SET SESSION sql_mode=(SELECT CONCAT(@@sql_mode, ',ONLY_FULL_GROUP_BY'))`)
+      } catch (error) {
+        console.error("Error al restaurar el modo SQL:", error)
+      }
     }
   },
 
@@ -611,85 +879,106 @@ export const detalleComprasController = {
   },
 
   // Crear un nuevo detalle de compra
-create: async (req, res) => {
-  try {
-    const detalleData = req.body
+  create: async (req, res) => {
+    try {
+      // Desactivar temporalmente el modo only_full_group_by
+      await query(`SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))`)
+      
+      const detalleData = req.body
 
-    // Verificar si la compra existe
-    const compra = await comprasModel.getById(detalleData.IdCompra)
-    if (!compra) {
-      return res.status(404).json({ message: "Compra no encontrada" })
+      // Verificar si la compra existe
+      const compra = await comprasModel.getById(detalleData.IdCompra)
+      if (!compra) {
+        return res.status(404).json({ message: "Compra no encontrada" })
+      }
+
+      // Verificar si el producto existe - MODIFICADO para evitar el error de GROUP BY
+      const [productosResult] = await query(`
+        SELECT p.*, 
+              COALESCE(p.UnidadMedida, 'Unidad') as UnidadMedida,
+              COALESCE(p.FactorConversion, 1) as FactorConversion,
+              COALESCE(p.MargenGanancia, 30) as MargenGanancia,
+              COALESCE(p.PorcentajeIVA, 19) as PorcentajeIVA,
+              COALESCE(p.AplicaIVA, 1) as AplicaIVA
+        FROM Productos p
+        WHERE p.IdProducto = ?
+      `, [detalleData.IdProducto])
+
+      if (productosResult.length === 0) {
+        return res.status(404).json({ message: "Producto no encontrado" })
+      }
+
+      const producto = productosResult[0]
+
+      // Calcular subtotal e IVA
+      const precioUnitario = detalleData.PrecioUnitario
+      const subtotal = precioUnitario * detalleData.Cantidad
+      let ivaUnitario = 0
+
+      if (producto.AplicaIVA) {
+        ivaUnitario = precioUnitario * (producto.PorcentajeIVA / 100)
+      }
+
+      const subtotalConIva = subtotal + ivaUnitario * detalleData.Cantidad
+      const factorConversion = producto.FactorConversion || 1
+      const cantidadConvertida = detalleData.Cantidad * factorConversion
+      const precioVentaSugerido = precioUnitario * (1 + (producto.MargenGanancia || 30) / 100)
+
+      // Crear detalle con los campos correctos
+      const detalleCreado = await detalleComprasModel.create(detalleData.IdCompra, {
+        IdProducto: detalleData.IdProducto,
+        Cantidad: detalleData.Cantidad,
+        PrecioUnitario: precioUnitario,
+        Subtotal: subtotal,
+        IvaUnitario: ivaUnitario,
+        SubtotalConIva: subtotalConIva,
+        UnidadMedida: producto.UnidadMedida || 'Unidad',
+        FactorConversion: factorConversion,
+        CantidadConvertida: cantidadConvertida,
+        PrecioVentaSugerido: precioVentaSugerido
+      })
+
+      // Actualizar stock del producto
+      await productosModel.updateStock(detalleData.IdProducto, detalleData.Cantidad)
+
+      // Actualizar totales de la compra
+      const detalles = await detalleComprasModel.getByCompraId(detalleData.IdCompra)
+
+      let subtotalCompra = 0
+      let totalIva = 0
+
+      // Sumar totales de detalles
+      for (const detalle of detalles) {
+        subtotalCompra += detalle.Subtotal || 0
+        totalIva += (detalle.IvaUnitario || 0) * detalle.Cantidad
+      }
+
+      const totalMontoConIva = subtotalCompra + totalIva
+
+      // Actualizar compra
+      await comprasModel.update(detalleData.IdCompra, {
+        TotalMonto: subtotalCompra,
+        TotalIva: totalIva,
+        TotalMontoConIva: totalMontoConIva
+      })
+
+      res.status(201).json(detalleCreado)
+      
+      // Restaurar el modo SQL original
+      await query(`SET SESSION sql_mode=(SELECT CONCAT(@@sql_mode, ',ONLY_FULL_GROUP_BY'))`)
+    } catch (error) {
+      console.error("Error al crear detalle de compra:", error)
+      res.status(500).json({ message: "Error en el servidor", error: error.message })
     }
-
-    // Verificar si el producto existe
-    const producto = await productosModel.getById(detalleData.IdProducto)
-    if (!producto) {
-      return res.status(404).json({ message: "Producto no encontrado" })
-    }
-
-    // Calcular subtotal e IVA
-    const precioUnitario = detalleData.PrecioUnitario
-    const subtotal = precioUnitario * detalleData.Cantidad
-    let ivaUnitario = 0
-
-    if (producto.AplicaIVA) {
-      ivaUnitario = precioUnitario * (producto.PorcentajeIVA / 100)
-    }
-
-    const subtotalConIva = subtotal + ivaUnitario * detalleData.Cantidad
-    const factorConversion = producto.FactorConversion || 1
-    const cantidadConvertida = detalleData.Cantidad * factorConversion
-    const precioVentaSugerido = precioUnitario * (1 + (producto.MargenGanancia || 30) / 100)
-
-    // Crear detalle con los campos correctos
-    const detalleCreado = await detalleComprasModel.create(detalleData.IdCompra, {
-      IdProducto: detalleData.IdProducto,
-      Cantidad: detalleData.Cantidad,
-      PrecioUnitario: precioUnitario,
-      Subtotal: subtotal,
-      IvaUnitario: ivaUnitario,
-      SubtotalConIva: subtotalConIva,
-      UnidadMedida: producto.UnidadMedida || 'Unidad',
-      FactorConversion: factorConversion,
-      CantidadConvertida: cantidadConvertida,
-      PrecioVentaSugerido: precioVentaSugerido
-    })
-
-    // Actualizar stock del producto
-    await productosModel.updateStock(detalleData.IdProducto, detalleData.Cantidad)
-
-    // Actualizar totales de la compra
-    const detalles = await detalleComprasModel.getByCompraId(detalleData.IdCompra)
-
-    let subtotalCompra = 0
-    let totalIva = 0
-
-    // Sumar totales de detalles
-    for (const detalle of detalles) {
-      subtotalCompra += detalle.Subtotal || 0
-      totalIva += (detalle.IvaUnitario || 0) * detalle.Cantidad
-    }
-
-    const totalMontoConIva = subtotalCompra + totalIva
-
-    // Actualizar compra
-    await comprasModel.update(detalleData.IdCompra, {
-      TotalMonto: subtotalCompra,
-      TotalIva: totalIva,
-      TotalMontoConIva: totalMontoConIva
-    })
-
-    res.status(201).json(detalleCreado)
-  } catch (error) {
-    console.error("Error al crear detalle de compra:", error)
-    res.status(500).json({ message: "Error en el servidor", error: error.message })
-  }
-},
+  },
 
   // Actualizar un detalle de compra
   update: async (req, res) => {
     let connection // Declarar la conexión fuera del try para poder acceder en catch/finally
     try {
+      // Desactivar temporalmente el modo only_full_group_by
+      await query(`SET SESSION sql_mode=(SELECT REPLACE(@@sql_mode,'ONLY_FULL_GROUP_BY',''))`)
+      
       connection = await getConnection() // Usar la función importada
       await connection.beginTransaction()
 
@@ -706,17 +995,24 @@ create: async (req, res) => {
 
       const detalleActual = detallesActuales[0]
 
-      // Verificar si el producto existe
-      const [productos] = await connection.query(`SELECT * FROM Productos WHERE IdProducto = ?`, [
-        detalleData.IdProducto || detalleActual.IdProducto,
-      ])
+      // Verificar si el producto existe - MODIFICADO para evitar el error de GROUP BY
+      const [productosResult] = await connection.query(`
+        SELECT p.*, 
+              COALESCE(p.UnidadMedida, 'Unidad') as UnidadMedida,
+              COALESCE(p.FactorConversion, 1) as FactorConversion,
+              COALESCE(p.MargenGanancia, 30) as MargenGanancia,
+              COALESCE(p.PorcentajeIVA, 19) as PorcentajeIVA,
+              COALESCE(p.AplicaIVA, 1) as AplicaIVA
+        FROM Productos p
+        WHERE p.IdProducto = ?
+      `, [detalleData.IdProducto || detalleActual.IdProducto])
 
-      if (productos.length === 0) {
+      if (productosResult.length === 0) {
         await connection.rollback()
         return res.status(404).json({ message: "Producto no encontrado" })
       }
 
-      const producto = productos[0]
+      const producto = productosResult[0]
 
       // Calcular diferencia de cantidad para actualizar stock
       const diferenciaCantidad = (detalleData.Cantidad || detalleActual.Cantidad) - detalleActual.Cantidad
@@ -736,7 +1032,8 @@ create: async (req, res) => {
       // Actualizar detalle
       await connection.query(
         `UPDATE DetalleCompras SET 
-        IdProducto = ?, Cantidad = ?, PrecioUnitario = ?, Subtotal = ?, IvaUnitario = ?, SubtotalConIva = ? 
+        IdProducto = ?, Cantidad = ?, PrecioUnitario = ?, Subtotal = ?, IvaUnitario = ?, SubtotalConIva = ?,
+        UnidadMedida = ?, FactorConversion = ?, CantidadConvertida = ?, PrecioVentaSugerido = ?
         WHERE IdDetalleCompras = ?`,
         [
           detalleData.IdProducto || detalleActual.IdProducto,
@@ -745,6 +1042,10 @@ create: async (req, res) => {
           subtotal,
           ivaUnitario,
           subtotalConIva,
+          producto.UnidadMedida,
+          producto.FactorConversion,
+          cantidad * producto.FactorConversion,
+          precioUnitario * (1 + producto.MargenGanancia / 100),
           id,
         ],
       )
@@ -766,18 +1067,18 @@ create: async (req, res) => {
       let totalIva = 0
 
       // Sumar totales de detalles
-for (const detalle of detallesActualizados) {
-  subtotalCompra += detalle.Subtotal || 0
-  totalIva += (detalle.IvaUnitario || 0) * detalle.Cantidad
-}
+      for (const detalle of detallesActualizados) {
+        subtotalCompra += detalle.Subtotal || 0
+        totalIva += (detalle.IvaUnitario || 0) * detalle.Cantidad
+      }
 
-const totalMontoConIva = subtotalCompra + totalIva
+      const totalMontoConIva = subtotalCompra + totalIva
 
-// Actualizar compra
-await connection.query(
-  `UPDATE Compras SET TotalMonto = ?, TotalIva = ?, TotalMontoConIva = ? WHERE IdCompra = ?`,
-  [subtotalCompra, totalIva, totalMontoConIva, detalleActual.IdCompra],
-)
+      // Actualizar compra
+      await connection.query(
+        `UPDATE Compras SET TotalMonto = ?, TotalIva = ?, TotalMontoConIva = ? WHERE IdCompra = ?`,
+        [subtotalCompra, totalIva, totalMontoConIva, detalleActual.IdCompra],
+      )
 
       await connection.commit()
 
@@ -790,6 +1091,10 @@ await connection.query(
         Subtotal: subtotal,
         IvaUnitario: ivaUnitario,
         SubtotalConIva: subtotalConIva,
+        UnidadMedida: producto.UnidadMedida,
+        FactorConversion: producto.FactorConversion,
+        CantidadConvertida: cantidad * producto.FactorConversion,
+        PrecioVentaSugerido: precioUnitario * (1 + producto.MargenGanancia / 100)
       })
     } catch (error) {
       if (connection) await connection.rollback() // Verificar que connection existe antes de hacer rollback
@@ -797,6 +1102,13 @@ await connection.query(
       res.status(500).json({ message: "Error en el servidor", error: error.message })
     } finally {
       if (connection) connection.release() // Verificar que connection existe antes de liberarla
+      
+      // Restaurar el modo SQL original
+      try {
+        await query(`SET SESSION sql_mode=(SELECT CONCAT(@@sql_mode, ',ONLY_FULL_GROUP_BY'))`)
+      } catch (error) {
+        console.error("Error al restaurar el modo SQL:", error)
+      }
     }
   },
 
@@ -827,19 +1139,19 @@ await connection.query(
       let totalIva = 0
 
       // Sumar totales de detalles
-for (const detalle of detallesActualizados) {
-  subtotalCompra += detalle.Subtotal || 0
-  totalIva += (detalle.IvaUnitario || 0) * detalle.Cantidad
-}
+      for (const detalle of detallesActualizados) {
+        subtotalCompra += detalle.Subtotal || 0
+        totalIva += (detalle.IvaUnitario || 0) * detalle.Cantidad
+      }
 
-const totalMontoConIva = subtotalCompra + totalIva
+      const totalMontoConIva = subtotalCompra + totalIva
 
-// Actualizar compra
-await comprasModel.update(detalleActual.IdCompra, {
-  TotalMonto: subtotalCompra,
-  TotalIva: totalIva,
-  TotalMontoConIva: totalMontoConIva
-})
+      // Actualizar compra
+      await comprasModel.update(detalleActual.IdCompra, {
+        TotalMonto: subtotalCompra,
+        TotalIva: totalIva,
+        TotalMontoConIva: totalMontoConIva
+      })
 
       res.status(200).json({ message: "Detalle de compra eliminado correctamente" })
     } catch (error) {

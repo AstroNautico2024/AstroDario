@@ -1,12 +1,12 @@
 "use client"
 
-import { AlertTriangle } from "lucide-react"
+import { AlertTriangle } from 'lucide-react'
 
 /**
- * Modal de confirmación para eliminar cliente
+ * Modal de confirmación para eliminar mascota
  */
-const DeleteConfirmModal = ({ show, cliente, onConfirm, onCancel }) => {
-  if (!cliente) return null
+const DeleteConfirmModal = ({ show, mascota, onConfirm, onCancel }) => {
+  if (!mascota) return null
 
   return (
     <>
@@ -22,12 +22,12 @@ const DeleteConfirmModal = ({ show, cliente, onConfirm, onCancel }) => {
               <div className="d-flex align-items-center">
                 <AlertTriangle size={24} className="text-danger me-3" />
                 <p className="mb-0">
-                  ¿Está seguro de eliminar el cliente "{cliente?.Nombre} {cliente?.Apellido}"?
+                  ¿Está seguro de eliminar la mascota "{mascota?.Nombre}"?
                 </p>
               </div>
               <p className="mt-2 text-muted small">
-                Esta acción no se puede deshacer. Si el cliente tiene historial, considere desactivarlo en lugar de
-                eliminarlo.
+                Esta acción no se puede deshacer. Si la mascota tiene historial, considere desactivarla en lugar de
+                eliminarla.
               </p>
             </div>
             <div className="modal-footer">

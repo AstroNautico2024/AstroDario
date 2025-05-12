@@ -492,7 +492,7 @@ const Mascotas = () => {
           throw new Error("Error: Mascota sin ID válido")
         }
 
-        // Verificar si la mascota tiene un cliente asociado
+        //// Verificar si la mascota tiene un cliente asociado
         if (mascotaToDelete.IdCliente) {
           throw new Error("No se puede eliminar la mascota porque tiene un cliente asociado.")
         }
@@ -708,7 +708,8 @@ const Mascotas = () => {
 
       // Preparar datos para enviar al servidor
       const mascotaData = {
-        IdCliente: formData.cliente,
+        // CORRECCIÓN: Convertir IdCliente a número
+        IdCliente: parseInt(formData.cliente),
         Nombre: formData.nombre,
         Especie: formData.especie,
         Raza: formData.raza,
