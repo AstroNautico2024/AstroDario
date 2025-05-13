@@ -1,0 +1,19 @@
+[33md3aeb24[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mDavid[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{0}: pull origin main: Fast-forward
+[33m62386c4[m[33m ([m[1;31morigin/David[m[33m)[m HEAD@{1}: commit (merge): Test de Roles,Usuarios,Clientes,CategoriasP,Proveedores
+[33m64d798b[m HEAD@{2}: commit: Correciones Visuales Completadas, para las vistas existentes
+[33m08611c4[m[33m ([m[1;32mmain[m[33m)[m HEAD@{3}: merge main: Fast-forward
+[33m30ffa51[m HEAD@{4}: checkout: moving from main to David
+[33m08611c4[m[33m ([m[1;32mmain[m[33m)[m HEAD@{5}: commit: Mejoras Esteticas en todo el Front de admin
+[33m40274d5[m HEAD@{6}: pull origin main: Fast-forward
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{7}: checkout: moving from David to main
+[33m30ffa51[m HEAD@{8}: commit: Actualizaciones en las apis de productos
+[33m699a664[m HEAD@{9}: commit: Actualizaciones en Compras, Ventas, Usuarios, Productos Y Mascotas
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{10}: checkout: moving from main to David
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{11}: checkout: moving from casta to main
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{12}: checkout: moving from casta to casta
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{13}: checkout: moving from Casta to casta
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{14}: Branch: renamed refs/heads/nombre-de-tu-rama to refs/heads/Casta
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{16}: checkout: moving from main to nombre-de-tu-rama
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{17}: checkout: moving from main to main
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{18}: checkout: moving from main to main
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{19}: clone: from https://github.com/Andreacetre/Proyecto-TeoSoft.git

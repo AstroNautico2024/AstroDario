@@ -1,0 +1,22 @@
+[33md45923a[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mDavid[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m HEAD@{0}: pull origin main: Fast-forward
+[33m62386c4[m[33m ([m[1;31morigin/David[m[33m)[m HEAD@{1}: reset: moving to 62386c4
+[33md3aeb24[m HEAD@{2}: checkout: moving from David to David
+[33md3aeb24[m HEAD@{3}: pull origin main: Fast-forward
+[33m62386c4[m[33m ([m[1;31morigin/David[m[33m)[m HEAD@{4}: commit (merge): Test de Roles,Usuarios,Clientes,CategoriasP,Proveedores
+[33m64d798b[m HEAD@{5}: commit: Correciones Visuales Completadas, para las vistas existentes
+[33m08611c4[m[33m ([m[1;32mmain[m[33m)[m HEAD@{6}: merge main: Fast-forward
+[33m30ffa51[m HEAD@{7}: checkout: moving from main to David
+[33m08611c4[m[33m ([m[1;32mmain[m[33m)[m HEAD@{8}: commit: Mejoras Esteticas en todo el Front de admin
+[33m40274d5[m HEAD@{9}: pull origin main: Fast-forward
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{10}: checkout: moving from David to main
+[33m30ffa51[m HEAD@{11}: commit: Actualizaciones en las apis de productos
+[33m699a664[m HEAD@{12}: commit: Actualizaciones en Compras, Ventas, Usuarios, Productos Y Mascotas
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{13}: checkout: moving from main to David
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{14}: checkout: moving from casta to main
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{15}: checkout: moving from casta to casta
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{16}: checkout: moving from Casta to casta
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{17}: Branch: renamed refs/heads/nombre-de-tu-rama to refs/heads/Casta
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{19}: checkout: moving from main to nombre-de-tu-rama
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{20}: checkout: moving from main to main
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{21}: checkout: moving from main to main
+[33mef2f8db[m[33m ([m[1;32mCasta[m[33m)[m HEAD@{22}: clone: from https://github.com/Andreacetre/Proyecto-TeoSoft.git
