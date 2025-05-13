@@ -19,7 +19,7 @@ const UserForm = ({
   onInputChange,
   onSave,
   onClose,
-  onDocumentoBlur
+  onDocumentoBlur,
 }) => {
   // Estado para mostrar/ocultar contraseña
   const [showPassword, setShowPassword] = useState(false)
@@ -317,12 +317,12 @@ const UserForm = ({
                 </div>
               </div>
 
-              {isEditMode && (
+              {!isViewMode && (
                 <div className="row g-2">
                   <div className="col-md-6">
                     <div className="form-group mb-2">
                       <label htmlFor="contrasena" className="form-label">
-                        Contraseña
+                        {currentUser ? "Nueva Contraseña (opcional)" : "Contraseña"}
                       </label>
                       <div className="input-group">
                         <input
@@ -333,6 +333,7 @@ const UserForm = ({
                           value={formData.contrasena}
                           onChange={onInputChange}
                           disabled={isViewMode}
+                          required={!currentUser}
                         />
                         <button
                           className="btn btn-outline-secondary"
@@ -344,9 +345,11 @@ const UserForm = ({
                         </button>
                       </div>
                       {formErrors.contrasena && <div className="invalid-feedback">{formErrors.contrasena}</div>}
-                      <small className="form-text text-muted">
-                        Dejar en blanco para mantener la contraseña actual.
-                      </small>
+                      {currentUser && (
+                        <small className="form-text text-muted">
+                          Dejar en blanco para mantener la contraseña actual.
+                        </small>
+                      )}
                     </div>
                   </div>
                   <div className="col-md-6">
@@ -363,6 +366,7 @@ const UserForm = ({
                           value={formData.confirmarContrasena}
                           onChange={onInputChange}
                           disabled={isViewMode}
+                          required={!currentUser}
                         />
                         <button
                           className="btn btn-outline-secondary"

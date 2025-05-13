@@ -21,6 +21,7 @@ import RegistrarServicio from "../Pages/AdminPages/Servicios/RegistrarServicio"
 import AgendarCitas from "../Pages/AdminPages/Citas/AgendarCitas"
 import NuevaCita from "../Pages/AdminPages/Citas/NuevaCita"
 import Mascotas from "../Pages/AdminPages/Mascotas/Mascotas"
+import Especies from "../Pages/AdminPages/Especies/Especies" // Importación del componente Especies
 import AuthPage from "../Pages/AuthPage"
 import RecoverPassword from "../Pages/RecoverPassword"
 import NuevaContra from "../Pages/NuevaContra"
@@ -100,6 +101,9 @@ const AppRoutes = () => {
         {/* Mascotas */}
         <Route path="mascotas/lista" element={<Mascotas />} />
         {/* <Route path="mascotas/registrar" element={<RegistrarMascota />} /> */}
+        
+        {/* Especies - Nueva ruta agregada */}
+        <Route path="admin/especies" element={<Especies />} />
       </Route>
 
       {/* Ruta para páginas no encontradas */}
@@ -109,4 +113,3 @@ const AppRoutes = () => {
 }
 
 export default AppRoutes
-

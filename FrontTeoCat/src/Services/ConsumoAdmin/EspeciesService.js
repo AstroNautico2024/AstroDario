@@ -1,9 +1,9 @@
-import axiosInstance from "./axios.js"
+import axiosInstance from "../ConsumoAdmin/axios.js"
 
 const EspeciesService = {
   /**
    * Obtiene todas las especies
-   * @returns {Promise} Promesa con los datos de las especies
+   * @returns {Promise<Array>} Lista de especies
    */
   getAll: async () => {
     try {
@@ -18,7 +18,7 @@ const EspeciesService = {
   /**
    * Obtiene una especie por su ID
    * @param {number} id - ID de la especie
-   * @returns {Promise} Promesa con los datos de la especie
+   * @returns {Promise<Object>} Datos de la especie
    */
   getById: async (id) => {
     try {
@@ -33,7 +33,7 @@ const EspeciesService = {
   /**
    * Crea una nueva especie
    * @param {Object} especieData - Datos de la especie a crear
-   * @returns {Promise} Promesa con los datos de la especie creada
+   * @returns {Promise<Object>} Datos de la especie creada
    */
   create: async (especieData) => {
     try {
@@ -69,7 +69,7 @@ const EspeciesService = {
    * Actualiza una especie existente
    * @param {number} id - ID de la especie a actualizar
    * @param {Object} especie - Datos actualizados de la especie
-   * @returns {Promise} Promesa con los datos de la especie actualizada
+   * @returns {Promise<Object>} Datos de la especie actualizada
    */
   update: async (id, especie) => {
     try {
@@ -118,7 +118,7 @@ const EspeciesService = {
    * Actualiza el estado de una especie
    * @param {number} id - ID de la especie
    * @param {string} estado - Nuevo estado ("Activo" o "Inactivo")
-   * @returns {Promise} Promesa con los datos actualizados
+   * @returns {Promise<Object>} Datos actualizados
    */
   updateStatus: async (id, estado) => {
     try {
@@ -280,7 +280,7 @@ const EspeciesService = {
   /**
    * Elimina una especie
    * @param {number} id - ID de la especie a eliminar
-   * @returns {Promise} Promesa con la respuesta de la eliminación
+   * @returns {Promise<Object>} Resultado de la operación
    */
   delete: async (id) => {
     try {

@@ -67,10 +67,11 @@ const clientesService = {
         Direccion: clienteData.Direccion || "",
         Telefono: clienteData.Telefono || "",
         Estado: clienteData.Estado === "Activo" ? 1 : 0,
+        IdUsuario: clienteData.IdUsuario || null,
       }
 
       console.log("Datos enviados al crear cliente:", clienteFormateado)
-      
+
       // Agregar un timeout para depurar posibles problemas de red
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 segundos de timeout
@@ -90,7 +91,7 @@ const clientesService = {
 
         // Normalizar la respuesta para asegurar que tenga IdCliente
         const clienteRespuesta = response.data
-        
+
         // Si la respuesta tiene 'id' pero no 'IdCliente', usar 'id' como 'IdCliente'
         if (clienteRespuesta.id && !clienteRespuesta.IdCliente) {
           clienteRespuesta.IdCliente = clienteRespuesta.id
@@ -105,6 +106,76 @@ const clientesService = {
         // Asegurarse de que el cliente tenga un ID
         if (!clienteRespuesta.IdCliente) {
           console.warn("El cliente devuelto no tiene ID:", clienteRespuesta)
+        }
+
+        // Si el cliente no tiene IdUsuario, crear un usuario asociado
+        if (!clienteData.IdUsuario && !clienteRespuesta.IdUsuario) {
+          try {
+            console.log("Cliente creado sin usuario asociado, creando usuario...")
+
+            // Verificar si ya existe un usuario con el mismo correo o documento
+            const usuariosResponse = await axiosInstance.get(
+              `/auth/usuarios/search?term=${encodeURIComponent(clienteData.Correo)}`,
+            )
+
+            let usuarioExistente = null
+            if (usuariosResponse.data && usuariosResponse.data.length > 0) {
+              usuarioExistente = usuariosResponse.data.find(
+                (u) => u.Correo === clienteData.Correo || u.Documento === clienteData.Documento,
+              )
+            }
+
+            if (usuarioExistente) {
+              console.log("Usuario existente encontrado:", usuarioExistente)
+
+              // Actualizar el cliente con el IdUsuario
+              await axiosInstance.put(`/customers/clientes/${clienteRespuesta.IdCliente}`, {
+                ...clienteFormateado,
+                IdUsuario: usuarioExistente.IdUsuario,
+              })
+
+              // Actualizar la respuesta
+              clienteRespuesta.IdUsuario = usuarioExistente.IdUsuario
+            } else {
+              console.log("No se encontró usuario existente, creando uno nuevo...")
+
+              // Crear contraseña temporal segura
+              const tempPassword = Math.random().toString(36).substring(2, 10) + "A1!"
+
+              // Crear un nuevo usuario con rol de cliente (IdRol = 2)
+              const usuarioData = {
+                Nombre: clienteData.Nombre,
+                Apellido: clienteData.Apellido,
+                Correo: clienteData.Correo,
+                Documento: clienteData.Documento,
+                Telefono: clienteData.Telefono || "",
+                Direccion: clienteData.Direccion || "",
+                IdRol: 2, // Rol de cliente
+                Password: tempPassword,
+              }
+
+              const usuarioResponse = await axiosInstance.post("/auth/usuarios", usuarioData)
+              console.log("Usuario creado:", usuarioResponse.data)
+
+              if (usuarioResponse.data) {
+                const idUsuario = usuarioResponse.data.id || usuarioResponse.data.IdUsuario
+
+                if (idUsuario) {
+                  // Actualizar el cliente con el IdUsuario
+                  await axiosInstance.put(`/customers/clientes/${clienteRespuesta.IdCliente}`, {
+                    ...clienteFormateado,
+                    IdUsuario: idUsuario,
+                  })
+
+                  // Actualizar la respuesta
+                  clienteRespuesta.IdUsuario = idUsuario
+                  console.log("Cliente actualizado con IdUsuario:", idUsuario)
+                }
+              }
+            }
+          } catch (usuarioError) {
+            console.error("Error al crear usuario asociado:", usuarioError)
+          }
         }
 
         return clienteRespuesta
@@ -178,10 +249,11 @@ const clientesService = {
         Direccion: clienteData.Direccion || "",
         Telefono: clienteData.Telefono || "",
         Estado: clienteData.Estado === "Activo" ? 1 : 0,
+        IdUsuario: clienteData.IdUsuario || null,
       }
 
       console.log(`Actualizando cliente ID ${idNumerico} con datos:`, clienteFormateado)
-      
+
       // Agregar un timeout para depurar posibles problemas de red
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), 10000) // 10 segundos de timeout
@@ -201,7 +273,7 @@ const clientesService = {
 
         // Normalizar la respuesta para asegurar que tenga IdCliente
         const clienteRespuesta = response.data
-        
+
         // Si la respuesta tiene 'id' pero no 'IdCliente', usar 'id' como 'IdCliente'
         if (clienteRespuesta.id && !clienteRespuesta.IdCliente) {
           clienteRespuesta.IdCliente = clienteRespuesta.id
@@ -218,6 +290,110 @@ const clientesService = {
           console.warn("El cliente actualizado no tiene ID:", clienteRespuesta)
           // Asignar el ID que conocemos
           clienteRespuesta.IdCliente = idNumerico
+        }
+
+        // Actualizar o crear el usuario asociado si es necesario
+        try {
+          // Obtener el cliente completo para verificar si tiene IdUsuario
+          const clienteCompleto = await clientesService.getById(idNumerico)
+
+          if (clienteCompleto && clienteCompleto.IdUsuario) {
+            console.log("Cliente tiene usuario asociado, actualizando usuario...")
+
+            // Actualizar el usuario asociado
+            const usuarioData = {
+              Nombre: clienteData.Nombre,
+              Apellido: clienteData.Apellido,
+              Correo: clienteData.Correo,
+              Documento: clienteData.Documento,
+              Telefono: clienteData.Telefono || "",
+              Direccion: clienteData.Direccion || "",
+              Estado: clienteData.Estado === "Activo" || clienteData.Estado === 1,
+              IdRol: 2, // Asegurar que tenga rol de cliente
+            }
+
+            await axiosInstance.put(`/auth/usuarios/${clienteCompleto.IdUsuario}`, usuarioData)
+            console.log("Usuario asociado actualizado correctamente")
+          } else if (!clienteData.IdUsuario) {
+            console.log("Cliente sin usuario asociado, verificando si existe usuario con mismo correo/documento...")
+
+            // Verificar si existe un usuario con el mismo correo o documento
+            const usuariosResponse = await axiosInstance.get(
+              `/auth/usuarios/search?term=${encodeURIComponent(clienteData.Correo)}`,
+            )
+
+            let usuarioExistente = null
+            if (usuariosResponse.data && usuariosResponse.data.length > 0) {
+              usuarioExistente = usuariosResponse.data.find(
+                (u) => u.Correo === clienteData.Correo || u.Documento === clienteData.Documento,
+              )
+            }
+
+            if (usuarioExistente) {
+              console.log("Usuario existente encontrado:", usuarioExistente)
+
+              // Actualizar el usuario existente
+              const usuarioData = {
+                Nombre: clienteData.Nombre,
+                Apellido: clienteData.Apellido,
+                Correo: clienteData.Correo,
+                Documento: clienteData.Documento,
+                Telefono: clienteData.Telefono || "",
+                Direccion: clienteData.Direccion || "",
+                Estado: clienteData.Estado === "Activo" || clienteData.Estado === 1,
+                IdRol: 2, // Asegurar que tenga rol de cliente
+              }
+
+              await axiosInstance.put(`/auth/usuarios/${usuarioExistente.IdUsuario}`, usuarioData)
+
+              // Actualizar el cliente con el IdUsuario
+              await axiosInstance.put(`/customers/clientes/${idNumerico}`, {
+                ...clienteFormateado,
+                IdUsuario: usuarioExistente.IdUsuario,
+              })
+
+              // Actualizar la respuesta
+              clienteRespuesta.IdUsuario = usuarioExistente.IdUsuario
+            } else {
+              console.log("No se encontró usuario existente, creando uno nuevo...")
+
+              // Crear contraseña temporal segura
+              const tempPassword = Math.random().toString(36).substring(2, 10) + "A1!"
+
+              // Crear un nuevo usuario con rol de cliente (IdRol = 2)
+              const usuarioData = {
+                Nombre: clienteData.Nombre,
+                Apellido: clienteData.Apellido,
+                Correo: clienteData.Correo,
+                Documento: clienteData.Documento,
+                Telefono: clienteData.Telefono || "",
+                Direccion: clienteData.Direccion || "",
+                IdRol: 2, // Rol de cliente
+                Password: tempPassword,
+              }
+
+              const usuarioResponse = await axiosInstance.post("/auth/usuarios", usuarioData)
+              console.log("Usuario creado:", usuarioResponse.data)
+
+              if (usuarioResponse.data) {
+                const idUsuario = usuarioResponse.data.id || usuarioResponse.data.IdUsuario
+
+                if (idUsuario) {
+                  // Actualizar el cliente con el IdUsuario
+                  await axiosInstance.put(`/customers/clientes/${idNumerico}`, {
+                    ...clienteFormateado,
+                    IdUsuario: idUsuario,
+                  })
+
+                  // Actualizar la respuesta
+                  clienteRespuesta.IdUsuario = idUsuario
+                  console.log("Cliente actualizado con IdUsuario:", idUsuario)
+                }
+              }
+            }
+          }
+        } catch (usuarioError) {
+          console.error("Error al actualizar/crear usuario asociado:", usuarioError)
         }
 
         return clienteRespuesta
@@ -260,6 +436,29 @@ const clientesService = {
       const idNumerico = Number.parseInt(id, 10)
       if (isNaN(idNumerico)) {
         throw new Error(`ID de cliente inválido: ${id}`)
+      }
+
+      // Obtener el cliente para verificar si tiene usuario asociado
+      try {
+        const cliente = await clientesService.getById(idNumerico)
+
+        if (cliente && cliente.IdUsuario) {
+          console.log(`Cliente con ID ${idNumerico} tiene usuario asociado (ID: ${cliente.IdUsuario})`)
+
+          // Verificar si el usuario tiene rol de cliente
+          const usuarioResponse = await axiosInstance.get(`/auth/usuarios/${cliente.IdUsuario}`)
+
+          if (usuarioResponse.data && usuarioResponse.data.IdRol === 2) {
+            console.log("El usuario asociado tiene rol de cliente, eliminando usuario...")
+
+            // Eliminar el usuario asociado
+            await axiosInstance.delete(`/auth/usuarios/${cliente.IdUsuario}`)
+            console.log("Usuario asociado eliminado")
+          }
+        }
+      } catch (usuarioError) {
+        console.error("Error al verificar/eliminar usuario asociado:", usuarioError)
+        // Continuar con la eliminación del cliente aunque falle la eliminación del usuario
       }
 
       console.log(`Eliminando cliente ID ${idNumerico}`)
@@ -357,6 +556,7 @@ const clientesService = {
           Direccion: clienteActual.Direccion,
           Telefono: clienteActual.Telefono,
           Estado: estadoNumerico, // Actualizar solo el estado
+          IdUsuario: clienteActual.IdUsuario,
         }
 
         console.log(`Actualizando cliente con datos:`, clienteActualizado)
@@ -368,7 +568,7 @@ const clientesService = {
 
         // Normalizar la respuesta para asegurar que tenga IdCliente
         const clienteRespuesta = response.data
-        
+
         // Si la respuesta tiene 'id' pero no 'IdCliente', usar 'id' como 'IdCliente'
         if (clienteRespuesta.id && !clienteRespuesta.IdCliente) {
           clienteRespuesta.IdCliente = clienteRespuesta.id
@@ -378,6 +578,93 @@ const clientesService = {
         // Convertir el estado numérico a texto en la respuesta
         if (typeof clienteRespuesta.Estado === "number") {
           clienteRespuesta.Estado = clienteRespuesta.Estado === 1 ? "Activo" : "Inactivo"
+        }
+
+        // Actualizar el estado del usuario asociado si existe
+        if (clienteActual.IdUsuario) {
+          try {
+            console.log(`Actualizando estado del usuario asociado (ID: ${clienteActual.IdUsuario})`)
+
+            await axiosInstance.patch(`/auth/usuarios/${clienteActual.IdUsuario}/status`, {
+              Estado: estadoNumerico === 1,
+            })
+
+            console.log(`Estado del usuario asociado actualizado a ${estado}`)
+          } catch (usuarioError) {
+            console.error(`Error al actualizar estado del usuario asociado:`, usuarioError)
+          }
+        } else {
+          console.log("Cliente no tiene usuario asociado, verificando si existe usuario con mismo correo/documento...")
+
+          // Verificar si existe un usuario con el mismo correo o documento
+          const usuariosResponse = await axiosInstance.get(
+            `/auth/usuarios/search?term=${encodeURIComponent(clienteActual.Correo)}`,
+          )
+
+          let usuarioExistente = null
+          if (usuariosResponse.data && usuariosResponse.data.length > 0) {
+            usuarioExistente = usuariosResponse.data.find(
+              (u) => u.Correo === clienteActual.Correo || u.Documento === clienteActual.Documento,
+            )
+          }
+
+          if (usuarioExistente) {
+            console.log("Usuario existente encontrado:", usuarioExistente)
+
+            // Actualizar el estado del usuario
+            await axiosInstance.patch(`/auth/usuarios/${usuarioExistente.IdUsuario}/status`, {
+              Estado: estadoNumerico === 1,
+            })
+
+            console.log(`Estado del usuario actualizado a ${estado}`)
+
+            // Actualizar el cliente con el IdUsuario
+            await axiosInstance.put(`/customers/clientes/${idNumerico}`, {
+              ...clienteActualizado,
+              IdUsuario: usuarioExistente.IdUsuario,
+            })
+
+            // Actualizar la respuesta
+            clienteRespuesta.IdUsuario = usuarioExistente.IdUsuario
+          } else if (estadoNumerico === 1) {
+            // Solo crear un usuario si estamos activando el cliente
+            console.log("No se encontró usuario existente, creando uno nuevo...")
+
+            // Crear contraseña temporal segura
+            const tempPassword = Math.random().toString(36).substring(2, 10) + "A1!"
+
+            // Crear un nuevo usuario con rol de cliente (IdRol = 2)
+            const usuarioData = {
+              Nombre: clienteActual.Nombre,
+              Apellido: clienteActual.Apellido,
+              Correo: clienteActual.Correo,
+              Documento: clienteActual.Documento,
+              Telefono: clienteActual.Telefono || "",
+              Direccion: clienteActual.Direccion || "",
+              IdRol: 2, // Rol de cliente
+              Password: tempPassword,
+              Estado: true, // Activo
+            }
+
+            const usuarioResponse = await axiosInstance.post("/auth/usuarios", usuarioData)
+            console.log("Usuario creado:", usuarioResponse.data)
+
+            if (usuarioResponse.data) {
+              const idUsuario = usuarioResponse.data.id || usuarioResponse.data.IdUsuario
+
+              if (idUsuario) {
+                // Actualizar el cliente con el IdUsuario
+                await axiosInstance.put(`/customers/clientes/${idNumerico}`, {
+                  ...clienteActualizado,
+                  IdUsuario: idUsuario,
+                })
+
+                // Actualizar la respuesta
+                clienteRespuesta.IdUsuario = idUsuario
+                console.log("Cliente actualizado con IdUsuario:", idUsuario)
+              }
+            }
+          }
         }
 
         return clienteRespuesta

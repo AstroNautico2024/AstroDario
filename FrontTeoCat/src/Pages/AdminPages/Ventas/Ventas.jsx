@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
 import DataTable from "../../../Components/AdminComponents/DataTable"
 import TableActions from "../../../Components/AdminComponents/TableActions"
-import { AlertTriangle, ShieldAlert } from 'lucide-react'
+import { AlertTriangle, ShieldAlert } from "lucide-react"
 import "../../../Styles/AdminStyles/Ventas.css"
 import { ToastContainer, toast } from "react-toastify" // Añadido ToastContainer
 import "react-toastify/dist/ReactToastify.css"
@@ -55,20 +55,18 @@ const Ventas = () => {
 
   // Referencias para las notificaciones
   const toastIds = useRef({})
-  
+
   // Estado para el motivo de cancelación
-  const [motivoCancelacion, setMotivoCancelacion] = useState("")
-  const [errorMotivoCancelacion, setErrorMotivoCancelacion] = useState(false)
-  
+
   // NUEVOS ESTADOS PARA LAS MEJORAS
   // Estado para el indicador de carga global
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingMessage, setProcessingMessage] = useState("")
-  
+
   // Añadir estos nuevos estados para manejar las notificaciones pendientes
   const pendingToastRef = useRef(null)
   const toastShownRef = useRef(false)
-  
+
   // Función para mostrar toast después de que el loading se oculte
   const showPendingToast = () => {
     if (pendingToastRef.current && !toastShownRef.current) {
@@ -112,7 +110,7 @@ const Ventas = () => {
   const cargarVentas = async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
       // Eliminar la verificación del health-check que está causando el error 404
       // y proceder directamente a cargar las ventas
@@ -196,7 +194,7 @@ const Ventas = () => {
       }
 
       setError(errorMessage)
-      
+
       // Guardar el toast para después
       pendingToastRef.current = {
         type: "error",
@@ -321,13 +319,13 @@ const Ventas = () => {
       const ventaId = venta.id || venta.IdVenta
       if (!ventaId) {
         console.error("ID de venta no disponible:", venta)
-        
+
         // Guardar el toast para después
         pendingToastRef.current = {
           type: "error",
           message: "No se pudo identificar la venta. Datos incompletos.",
         }
-        
+
         setLoadingDetalles(false)
         setIsProcessing(false)
         showPendingToast()
@@ -485,23 +483,17 @@ const Ventas = () => {
   // Función para confirmar la anulación de la venta
   const confirmCancel = async () => {
     if (ventaToCancel) {
-      // Validar que se haya ingresado un motivo
-      if (!motivoCancelacion.trim()) {
-        setErrorMotivoCancelacion(true)
-        return
-      }
-
       try {
         setShowCancelConfirm(false)
         setIsProcessing(true) // Mostrar LoadingOverlay
         setProcessingMessage("Anulando venta...") // Mensaje para el LoadingOverlay
-        
+
         // Limpiar cualquier notificación pendiente anterior
         pendingToastRef.current = null
         toastShownRef.current = false
-        
-        // Llamar al servicio para anular la venta con el motivo
-        await VentasService.updateStatus(ventaToCancel.id || ventaToCancel.IdVenta, "Cancelada", motivoCancelacion)
+
+        // Llamar al servicio para anular la venta
+        await VentasService.updateStatus(ventaToCancel.id || ventaToCancel.IdVenta, "Cancelada")
 
         // Actualizar el estado local
         const updatedVentas = ventas.map((v) => {
@@ -510,7 +502,6 @@ const Ventas = () => {
               ...v,
               estado: "Cancelada",
               Estado: "Cancelada",
-              motivoCancelacion: motivoCancelacion,
             }
           }
           return v
@@ -523,13 +514,9 @@ const Ventas = () => {
           type: "success",
           message: `La venta con código "${ventaToCancel?.codigoFactura || ventaToCancel?.IdVenta}" ha sido anulada correctamente.`,
         }
-
-        // Limpiar el motivo de cancelación
-        setMotivoCancelacion("")
-        setErrorMotivoCancelacion(false)
       } catch (error) {
         console.error("Error al anular la venta:", error)
-        
+
         // Guardar el toast para después
         pendingToastRef.current = {
           type: "error",
@@ -547,8 +534,6 @@ const Ventas = () => {
   const cancelCancel = () => {
     setShowCancelConfirm(false)
     setVentaToCancel(null)
-    setMotivoCancelacion("")
-    setErrorMotivoCancelacion(false)
   }
 
   // Manejador para cerrar el modal de detalles
@@ -1108,14 +1093,14 @@ const Ventas = () => {
       <tr>
         <td>${servicio.NombreServicio || servicio.nombreServicio || `Servicio #${servicio.IdServicio || servicio.idServicio}`}</td>
         <td>${
-  servicio.NombreMascotaTemporal ||
-  servicio.nombreMascotaTemporal ||
-  (servicio.mascota ? servicio.mascota.Nombre || servicio.mascota.nombre : "N/A")
-}${
-  servicio.TipoMascotaTemporal ||
-  servicio.tipoMascotaTemporal ||
-  (servicio.mascota ? ` (${servicio.mascota.Tipo || servicio.mascota.tipo})` : "")
-}</td>
+          servicio.NombreMascotaTemporal ||
+          servicio.nombreMascotaTemporal ||
+          (servicio.mascota ? servicio.mascota.Nombre || servicio.mascota.nombre : "N/A")
+        }${
+          servicio.TipoMascotaTemporal ||
+          servicio.tipoMascotaTemporal ||
+          (servicio.mascota ? ` (${servicio.mascota.Tipo || servicio.mascota.tipo})` : "")
+        }</td>
         <td>${servicio.Cantidad || servicio.cantidad || 1}</td>
         <td>$${formatNumber(servicio.PrecioUnitario || servicio.precioUnitario)}</td>
         <td>$${formatNumber((servicio.IvaUnitario || 0) * (servicio.Cantidad || servicio.cantidad || 1))}</td>
@@ -1207,37 +1192,36 @@ const Ventas = () => {
     try {
       setIsProcessing(true) // Mostrar LoadingOverlay
       setProcessingMessage("Preparando impresión...") // Mensaje para el LoadingOverlay
-      
+
       // Limpiar cualquier notificación pendiente anterior
       pendingToastRef.current = null
       toastShownRef.current = false
-      
+
       const ventaId = venta.id || venta.IdVenta
-  
+
       // Cargar venta completa
       const ventaCompleta = await VentasService.getById(ventaId)
       const detallesProductos = await VentasService.getDetallesProductos(ventaId)
       const detallesServicios = await VentasService.getDetallesServicios(ventaId)
-  
+
       // Combinar todo en un solo objeto
       const ventaFinal = {
         ...ventaCompleta,
         detallesProductos,
         detallesServicios,
       }
-  
+
       // Imprimir en estilo tirilla
       printReceiptStyle(ventaFinal)
-      
+
       // Guardar el toast para después
       pendingToastRef.current = {
         type: "success",
         message: "Impresión enviada correctamente.",
       }
-  
     } catch (error) {
       console.error("Error cargando los detalles de la venta:", error)
-      
+
       // Guardar el toast para después
       pendingToastRef.current = {
         type: "error",
@@ -1280,33 +1264,10 @@ const Ventas = () => {
         show={showCancelConfirm}
         title="Confirmar anulación"
         message={
-          <>
-            <div className="d-flex align-items-center mb-3">
-              <AlertTriangle size={24} className="text-danger me-3" />
-              <p className="mb-0">
-                ¿Está seguro de anular la venta con código "{ventaToCancel?.codigoFactura || ventaToCancel?.IdVenta}"?
-              </p>
-            </div>
-            <div className="form-group">
-              <label htmlFor="motivoCancelacion" className="form-label">
-                Motivo de cancelación <span className="text-danger">*</span>
-              </label>
-              <textarea
-                className={`form-control ${errorMotivoCancelacion ? "is-invalid" : ""}`}
-                id="motivoCancelacion"
-                rows="3"
-                value={motivoCancelacion}
-                onChange={(e) => {
-                  setMotivoCancelacion(e.target.value)
-                  setErrorMotivoCancelacion(false)
-                }}
-                placeholder="Ingrese el motivo de la cancelación"
-              ></textarea>
-              {errorMotivoCancelacion && (
-                <div className="invalid-feedback">El motivo de cancelación es obligatorio</div>
-              )}
-            </div>
-          </>
+          <div className="d-flex align-items-center mb-3">
+            <AlertTriangle size={24} className="text-danger me-3" />
+            <p className="mb-0">Una venta no se puede anular.</p>
+          </div>
         }
         type="danger"
         onConfirm={confirmCancel}

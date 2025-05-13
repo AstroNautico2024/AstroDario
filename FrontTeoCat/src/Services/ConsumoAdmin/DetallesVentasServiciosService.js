@@ -153,6 +153,15 @@ const DetallesVentasServiciosService = {
    */
   create: async (detalleData) => {
     try {
+      // Asegurarse de que el detalle de servicio tenga un IdMascota válido
+      if (!detalleData.IdMascota && detalleData.IdMascota !== 0) {
+        console.log(
+          "DetallesVentasServiciosService: Asignando mascota genérica (ID 1) a detalle sin IdMascota:",
+          detalleData,
+        )
+        detalleData.IdMascota = 1
+      }
+
       const response = await axiosInstance.post("/sales/detalles-ventas-servicios", detalleData)
       return response.data
     } catch (error) {
@@ -169,6 +178,15 @@ const DetallesVentasServiciosService = {
    */
   update: async (id, detalleData) => {
     try {
+      // Asegurarse de que el detalle de servicio tenga un IdMascota válido
+      if (!detalleData.IdMascota && detalleData.IdMascota !== 0) {
+        console.log(
+          "DetallesVentasServiciosService: Asignando mascota genérica (ID 1) a detalle sin IdMascota en actualización:",
+          detalleData,
+        )
+        detalleData.IdMascota = 1
+      }
+
       const response = await axiosInstance.put(`/sales/detalles-ventas-servicios/${id}`, detalleData)
       return response.data
     } catch (error) {

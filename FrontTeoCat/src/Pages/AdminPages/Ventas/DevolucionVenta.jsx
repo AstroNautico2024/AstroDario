@@ -6,6 +6,7 @@ import { toast } from "react-toastify"
 import VentasService from "../../../Services/ConsumoAdmin/VentasService.js"
 import DetallesVentasService from "../../../Services/ConsumoAdmin/DetallesVentasService.js"
 import ProductosService from "../../../Services/ConsumoAdmin/ProductosService.js"
+import authService from "../../../Services/ConsumoAdmin/authService.js"
 import "../../../Pages/AdminPages/Ventas/DevolucionVenta.scss"
 
 // Función para formatear moneda
@@ -52,6 +53,7 @@ const DevolucionVenta = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
+  const [usuarioLogueado, setUsuarioLogueado] = useState(null)
 
   // Estados del formulario
   const [motivo, setMotivo] = useState("")
@@ -188,6 +190,13 @@ const DevolucionVenta = () => {
 
     cargarDatos()
   }, [ventaId])
+
+  // Cargar usuario logueado
+  useEffect(() => {
+    const userData = authService.getUserData()
+    setUsuarioLogueado(userData)
+    console.log("Usuario logueado:", userData)
+  }, [])
 
   // Agregar producto a devolver
   const handleAgregarProductoDevolver = (producto, cantidad) => {
@@ -331,19 +340,34 @@ const DevolucionVenta = () => {
           ? `Saldo a favor del cliente: ${formatearMoneda(totales.saldoCliente)}`
           : `Cliente debe pagar: ${formatearMoneda(Math.abs(totales.saldoCliente))}`
 
+      // Obtener el usuario logueado del localStorage
+      let usuarioLogueado = null
+      try {
+        const userData = localStorage.getItem("userData")
+        if (userData) {
+          usuarioLogueado = JSON.parse(userData)
+          console.log("Usuario logueado encontrado para devolución:", usuarioLogueado)
+        }
+      } catch (userError) {
+        console.warn("Error al obtener usuario logueado para devolución:", userError)
+      }
+
       // Crear objeto de devolución con formato de fecha corregido
       const devolucionData = {
         venta: {
           IdCliente: Number(venta.IdCliente || 3),
-          IdUsuario: Number(venta.IdUsuario || 1),
+          // Usar el ID del usuario logueado si está disponible
+          IdUsuario: usuarioLogueado
+            ? Number(usuarioLogueado.IdUsuario || usuarioLogueado.id)
+            : Number(venta.IdUsuario || 1),
           // Usar formato de fecha YYYY-MM-DD para evitar errores
           FechaVenta: fechaDevolucion,
           Subtotal: Number(totales.devolucion.subtotal),
           TotalIva: 0,
           TotalMonto: Number(totales.devolucion.total),
           NotasAdicionales: `Devolución de venta #${ventaId} para ${nombreCliente}. Fecha original: ${venta.FechaVenta || "No disponible"}. Motivo: ${motivoFinal}. ${mensajeSaldo}${productosCambio.length > 0 ? ` Productos para cambio: ${productosCambio.map((p) => `${p.Cantidad} x ${p.NombreProducto}`).join(", ")}` : ""}`,
-          // Usar el estado seleccionado por el usuario
-          Estado: estado,
+          // Usar "Devuelta" como estado en lugar del estado seleccionado por el usuario
+          Estado: "Devuelta",
           Tipo: "Devolucion",
           IdVentaOriginal: Number(ventaId),
           MetodoPago: "efectivo",
@@ -460,13 +484,13 @@ const DevolucionVenta = () => {
             <div className="row">
               <div className="col-md-3">
                 <div className="form-floating">
-                  <input 
-                    type="text" 
-                    className="form-control" 
+                  <input
+                    type="text"
+                    className="form-control"
                     id="cliente-nombre"
                     placeholder="Cliente"
-                    value={nombreCliente} 
-                    readOnly 
+                    value={nombreCliente}
+                    readOnly
                   />
                   <label htmlFor="cliente-nombre">Cliente</label>
                 </div>
@@ -497,26 +521,26 @@ const DevolucionVenta = () => {
               </div>
               <div className="col-md-3">
                 <div className="form-floating">
-                  <input 
-                    type="text" 
-                    className="form-control" 
+                  <input
+                    type="text"
+                    className="form-control"
                     id="factura"
                     placeholder="Factura"
-                    value={venta.IdVenta || ""} 
-                    readOnly 
+                    value={venta.IdVenta || ""}
+                    readOnly
                   />
                   <label htmlFor="factura">Factura</label>
                 </div>
               </div>
               <div className="col-md-3">
                 <div className="form-floating">
-                  <input 
-                    type="text" 
-                    className="form-control" 
+                  <input
+                    type="text"
+                    className="form-control"
                     id="total-venta"
                     placeholder="Total"
-                    value={formatearMoneda(venta.TotalMonto || 0)} 
-                    readOnly 
+                    value={formatearMoneda(venta.TotalMonto || 0)}
+                    readOnly
                   />
                   <label htmlFor="total-venta">Total</label>
                 </div>
@@ -737,13 +761,13 @@ const DevolucionVenta = () => {
                   </div>
                   <div className="col-md-2">
                     <div className="form-floating">
-                      <input 
-                        type="number" 
-                        className="form-control" 
-                        id="cantidadCambio" 
+                      <input
+                        type="number"
+                        className="form-control"
+                        id="cantidadCambio"
                         placeholder="Cantidad"
-                        min="1" 
-                        defaultValue="1" 
+                        min="1"
+                        defaultValue="1"
                       />
                       <label htmlFor="cantidadCambio">Cantidad</label>
                     </div>
@@ -828,12 +852,12 @@ const DevolucionVenta = () => {
                 <div className="row">
                   <div className="col-md-4">
                     <div className="form-floating">
-                      <select 
-                        className="form-select" 
+                      <select
+                        className="form-select"
                         id="motivo-select"
                         placeholder="Motivo de la Devolución"
-                        value={motivo} 
-                        onChange={(e) => setMotivo(e.target.value)} 
+                        value={motivo}
+                        onChange={(e) => setMotivo(e.target.value)}
                         required
                       >
                         <option value="">Seleccione un motivo...</option>
@@ -862,16 +886,16 @@ const DevolucionVenta = () => {
                   </div>
                   <div className="col-md-4">
                     <div className="form-floating">
-                      <select 
-                        className="form-select" 
+                      <select
+                        className="form-select"
                         id="estado-select"
                         placeholder="Estado de la Devolución"
-                        value={estado} 
+                        value={estado}
                         onChange={(e) => setEstado(e.target.value)}
                       >
                         <option value="Pendiente">Pendiente</option>
                         <option value="Efectiva">Efectiva</option>
-                        <option value="Cancelada">Cancelada</option>
+                        <option value="Devuelta">Devuelta</option>
                       </select>
                       <label htmlFor="estado-select">Estado de la Devolución</label>
                     </div>

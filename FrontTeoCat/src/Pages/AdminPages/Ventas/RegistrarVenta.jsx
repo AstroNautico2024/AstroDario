@@ -162,12 +162,28 @@ const RegistrarVenta = () => {
   // Obtener el usuario actual del localStorage
   const getUserFromStorage = () => {
     try {
-      const storedUser = localStorage.getItem("currentUser")
+      // Intentar obtener el usuario del localStorage usando la clave "userData"
+      const userData = localStorage.getItem("userData")
 
-      if (storedUser) {
-        const parsedUser = JSON.parse(storedUser)
+      if (userData) {
+        const parsedUser = JSON.parse(userData)
+        console.log("Usuario logueado encontrado en localStorage:", parsedUser)
 
         // Asegurarse de que el usuario tenga las propiedades necesarias
+        return {
+          id: parsedUser.IdUsuario || parsedUser.id || 1,
+          nombre:
+            `${parsedUser.Nombre || parsedUser.nombre || ""} ${parsedUser.Apellido || parsedUser.apellido || ""}`.trim(),
+          documento: parsedUser.Documento || parsedUser.documento || "1234567890",
+        }
+      }
+
+      // Si no hay usuario en userData, intentar con currentUser
+      const storedUser = localStorage.getItem("currentUser")
+      if (storedUser) {
+        const parsedUser = JSON.parse(storedUser)
+        console.log("Usuario encontrado en currentUser:", parsedUser)
+
         return {
           id: parsedUser.id || parsedUser.Id || parsedUser.idUsuario || parsedUser.IdUsuario || 1,
           nombre: parsedUser.nombre || parsedUser.Nombre || "Usuario Actual",
@@ -176,6 +192,7 @@ const RegistrarVenta = () => {
       }
 
       // Si no hay usuario en localStorage, crear un usuario por defecto
+      console.warn("No se encontró información del usuario en localStorage, usando valores por defecto")
       return {
         id: 1,
         nombre: "Usuario Actual",
@@ -321,12 +338,23 @@ const RegistrarVenta = () => {
             IdCliente: mascota.IdCliente || mascota.idCliente,
             Nombre: mascota.Nombre || mascota.nombre,
             nombre: mascota.nombre || mascota.Nombre,
-            Tipo: mascota.Tipo || mascota.tipo || mascota.Especie || mascota.especie,
-            tipo: mascota.tipo || mascota.Tipo || mascota.Especie || mascota.especie,
+            // Usar la información de especie enriquecida
+            Tipo:
+              mascota.Tipo ||
+              mascota.tipo ||
+              (mascota.especieInfo ? mascota.especieInfo.NombreEspecie : "No especificado"),
+            tipo:
+              mascota.tipo ||
+              mascota.Tipo ||
+              (mascota.especieInfo ? mascota.especieInfo.NombreEspecie : "No especificado"),
             Raza: mascota.Raza || mascota.raza,
             raza: mascota.raza || mascota.Raza,
           },
-          label: `${mascota.Nombre || mascota.nombre} (${mascota.Tipo || mascota.tipo || mascota.Especie || mascota.especie || "No especificado"})`,
+          label: `${mascota.Nombre || mascota.nombre} (${
+            mascota.Tipo ||
+            mascota.tipo ||
+            (mascota.especieInfo ? mascota.especieInfo.NombreEspecie : "No especificado")
+          })`,
         }))
 
         setMascotasOptions(newMascotasOptions)
@@ -482,73 +510,12 @@ const RegistrarVenta = () => {
 
   // Manejador para agregar un producto o servicio a la lista
   // Manejador para agregar un producto o servicio a la lista
- const handleAddProduct = () => {
-  if (!formData.productoSeleccionado) {
-    toast.error(
-      <div>
-        <strong>Error</strong>
-        <p>Por favor, seleccione un producto o servicio.</p>
-      </div>,
-      {
-        position: "top-right",
-        autoClose: 4000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      },
-    )
-    return
-  }
-
-  // Validar que se haya seleccionado una mascota si es un servicio
-  if (tipoItem === "servicio") {
-    // Verificar si es Consumidor Final
-    if (esConsumidorFinal(formData.cliente)) {
-      // Para Consumidor Final, verificar que se haya ingresado un nombre de mascota
-      if (!mascotaTemporal.trim()) {
-        setErrorMascota("Por favor, ingrese un nombre para la mascota")
-        toast.error(
-          <div>
-            <strong>Error</strong>
-            <p>Por favor, ingrese un nombre para la mascota.</p>
-          </div>,
-          {
-            position: "top-right",
-            autoClose: 4000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          },
-        )
-        return
-      }
-
-      // Crear mascota temporal para Consumidor Final
-      const mascotaTemp = {
-        id: null, // Usar null en lugar de ID negativo
-        IdMascota: null,
-        nombre: mascotaTemporal,
-        Nombre: mascotaTemporal,
-        tipo: tipoMascotaTemporal,
-        Tipo: tipoMascotaTemporal,
-        _temporal: true,
-        _nombreMascota: mascotaTemporal, // Guardar el nombre para mostrar en la interfaz
-        _tipoMascota: tipoMascotaTemporal, // Guardar el tipo para mostrar en la interfaz
-      }
-
-      // Establecer la mascota temporal como seleccionada
-      setMascotaSeleccionada(mascotaTemp)
-      console.log("Mascota temporal creada:", mascotaTemp)
-    }
-    // Para clientes regulares, verificar que se haya seleccionado una mascota
-    else if (!mascotaSeleccionada) {
-      setErrorMascota("Por favor, seleccione una mascota para este servicio")
+  const handleAddProduct = () => {
+    if (!formData.productoSeleccionado) {
       toast.error(
         <div>
           <strong>Error</strong>
-          <p>Por favor, seleccione una mascota para este servicio.</p>
+          <p>Por favor, seleccione un producto o servicio.</p>
         </div>,
         {
           position: "top-right",
@@ -561,9 +528,6 @@ const RegistrarVenta = () => {
       )
       return
     }
-  }
-
-
 
     // Validar que se haya seleccionado una mascota si es un servicio
     if (tipoItem === "servicio") {
@@ -591,8 +555,8 @@ const RegistrarVenta = () => {
 
         // Crear mascota temporal para Consumidor Final
         const mascotaTemp = {
-          id: null, // Usar null en lugar de ID negativo
-          IdMascota: null,
+          id: 1, // Usar ID 1 para mascota genérica
+          IdMascota: 1, // Usar ID 1 para mascota genérica
           nombre: mascotaTemporal,
           Nombre: mascotaTemporal,
           tipo: tipoMascotaTemporal,
@@ -817,52 +781,52 @@ const RegistrarVenta = () => {
 
     // Asegurarse de que cada servicio tenga un IdServicio y un IdMascota válidos
     const detallesServicios = formData.productosAgregados
-   .filter((item) => item.tipo === "servicio")
-   .map((item) => {
-     // Obtener el ID del servicio del objeto original si está disponible
-     const original = item.original || {}
-     const idServicio = item.id || original.IdServicio || original.idServicio || original.id
- 
-     // Obtener el ID de la mascota
-     const mascota = item.mascota || {}
- 
-     // Determinar el ID de mascota según el tipo de cliente
-     let idMascota = null
-     let nombreMascotaTemporal = null
-     let tipoMascotaTemporal = null
- 
-     // Para clientes regulares con mascotas registradas
-     if (!esConsumidorFinal(formData.cliente) && mascota.id > 0) {
-       idMascota = mascota.id || mascota.IdMascota
-       // También guardar el nombre de la mascota registrada para mostrar en la factura
-       nombreMascotaTemporal = mascota.nombre || mascota.Nombre || ""
-       tipoMascotaTemporal = mascota.tipo || mascota.Tipo || "Canino"
-     }
-     // Para Consumidor Final, guardar información de la mascota temporal
-     else if (esConsumidorFinal(formData.cliente) && mascota) {
-       nombreMascotaTemporal = mascota.nombre || mascota.Nombre || mascota._nombreMascota || ""
-       tipoMascotaTemporal = mascota.tipo || mascota.Tipo || mascota._tipoMascota || "Canino"
-     }
- 
-     console.log("Detalle de servicio a enviar:", {
-       IdServicio: idServicio,
-       IdMascota: idMascota,
-       NombreMascotaTemporal: nombreMascotaTemporal,
-       TipoMascotaTemporal: tipoMascotaTemporal,
-       Cantidad: item.cantidad,
-       PrecioUnitario: item.precioUnitario,
-     })
- 
-     return {
-       IdServicio: idServicio,
-       IdMascota: idMascota,
-       Cantidad: item.cantidad,
-       PrecioUnitario: item.precioUnitario,
-       // Enviar los campos directamente en lugar de un objeto MascotaTemporal
-       NombreMascotaTemporal: nombreMascotaTemporal,
-       TipoMascotaTemporal: tipoMascotaTemporal,
-     }
-   })
+      .filter((item) => item.tipo === "servicio")
+      .map((item) => {
+        // Obtener el ID del servicio del objeto original si está disponible
+        const original = item.original || {}
+        const idServicio = item.id || original.IdServicio || original.idServicio || original.id
+
+        // Obtener la información de la mascota
+        const mascota = item.mascota || {}
+
+        // Determinar el ID de mascota según el tipo de cliente
+        let idMascota = null
+        let nombreMascotaTemporal = null
+        let tipoMascotaTemporal = null
+
+        // Para clientes regulares con mascotas registradas
+        if (!esConsumidorFinal(formData.cliente) && mascota.IdMascota) {
+          idMascota = mascota.IdMascota || mascota.id
+          // También guardar el nombre de la mascota registrada para mostrar en la factura
+          nombreMascotaTemporal = mascota.nombre || mascota.Nombre || ""
+          tipoMascotaTemporal = mascota.tipo || mascota.Tipo || "Canino"
+        }
+        // Para Consumidor Final, guardar información de la mascota temporal
+        else if (esConsumidorFinal(formData.cliente) && mascota) {
+          nombreMascotaTemporal = mascota.nombre || mascota.Nombre || mascota._nombreMascota || ""
+          tipoMascotaTemporal = mascota.tipo || mascota.Tipo || mascota._tipoMascota || "Canino"
+        }
+
+        console.log("Detalle de servicio a enviar:", {
+          IdServicio: idServicio,
+          IdMascota: idMascota,
+          NombreMascotaTemporal: nombreMascotaTemporal,
+          TipoMascotaTemporal: tipoMascotaTemporal,
+          Cantidad: item.cantidad,
+          PrecioUnitario: item.precioUnitario,
+        })
+
+        return {
+          IdServicio: idServicio,
+          IdMascota: idMascota,
+          Cantidad: item.cantidad,
+          PrecioUnitario: item.precioUnitario,
+          // Enviar los campos directamente en lugar de un objeto MascotaTemporal
+          NombreMascotaTemporal: nombreMascotaTemporal,
+          TipoMascotaTemporal: tipoMascotaTemporal,
+        }
+      })
 
     // Verificar que todos los servicios tengan un ID válido
     const serviciosSinId = detallesServicios.filter((servicio) => !servicio.IdServicio)
@@ -888,7 +852,7 @@ const RegistrarVenta = () => {
     const ventaData = {
       venta: {
         IdCliente: formData.cliente ? formData.cliente.idCliente || formData.cliente.IdCliente || 3 : 3,
-        IdUsuario: formData.idUsuario.id,
+        IdUsuario: formData.idUsuario ? formData.idUsuario.id : currentUser ? currentUser.id : 1,
         FechaVenta: formData.fechaVenta,
         NotasAdicionales: formData.notasAdicionales,
         ComprobantePago: formData.comprobantePago,
@@ -984,17 +948,17 @@ const RegistrarVenta = () => {
     },
     // Columna para mostrar la mascota (solo para servicios)
     // Columna para mostrar la mascota (solo para servicios)
-{
-  field: "mascota",
-  header: "Mascota",
-  render: (row) => {
-    if (row.tipo !== "servicio" || !row.mascota) return "-"
-    // Asegurarse de mostrar el nombre de la mascota temporal o registrada
-    const nombreMascota = row.mascota._nombreMascota || row.mascota.nombre || row.mascota.Nombre || "Sin nombre"
-    const tipoMascota = row.mascota._tipoMascota || row.mascota.tipo || row.mascota.Tipo || "No especificado"
-    return `${nombreMascota} (${tipoMascota})`
-  },
-},
+    {
+      field: "mascota",
+      header: "Mascota",
+      render: (row) => {
+        if (row.tipo !== "servicio" || !row.mascota) return "-"
+        // Asegurarse de mostrar el nombre de la mascota temporal o registrada
+        const nombreMascota = row.mascota._nombreMascota || row.mascota.nombre || row.mascota.Nombre || "Sin nombre"
+        const tipoMascota = row.mascota._tipoMascota || row.mascota.tipo || row.mascota.Tipo || "No especificado"
+        return `${nombreMascota} (${tipoMascota})`
+      },
+    },
     { field: "cantidad", header: "Cantidad" },
     {
       field: "precioUnitario",

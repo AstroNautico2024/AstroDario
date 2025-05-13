@@ -546,12 +546,77 @@ const VentasService = {
     try {
       console.log("VentasService: Intentando crear venta con datos:", JSON.stringify(ventaData, null, 2))
 
+      // Intentar obtener el usuario logueado del localStorage
+      let usuarioLogueado = null
+      try {
+        const userData = localStorage.getItem("userData")
+        if (userData) {
+          usuarioLogueado = JSON.parse(userData)
+          console.log("Usuario logueado encontrado:", usuarioLogueado)
+        }
+      } catch (userError) {
+        console.warn("Error al obtener usuario logueado:", userError)
+      }
+
+      // SOLUCIÓN MEJORADA: Verificar si hay servicios y si es cliente Consumidor Final
+      if (ventaData.detallesServicios && ventaData.detallesServicios.length > 0) {
+        // Verificar si es un cliente Consumidor Final
+        const esConsumidorFinal =
+          ventaData.venta?.IdCliente === 3 ||
+          ventaData.venta?.IdCliente === 0 ||
+          ventaData.IdCliente === 3 ||
+          ventaData.IdCliente === 0
+
+        // Si es Consumidor Final, asignar ID de mascota genérica (ID 1) a todos los servicios
+        if (esConsumidorFinal) {
+          console.log("Cliente es Consumidor Final, asignando mascota genérica (ID 1) a todos los servicios")
+          ventaData.detallesServicios = ventaData.detallesServicios.map((servicio) => ({
+            ...servicio,
+            IdMascota: 1, // Usar ID 1 para mascota genérica
+          }))
+        } else {
+          // Para clientes regulares, verificar que cada servicio tenga un IdMascota
+          ventaData.detallesServicios = ventaData.detallesServicios.map((servicio) => {
+            if (!servicio.IdMascota && servicio.IdMascota !== 0) {
+              console.warn("Servicio sin IdMascota para cliente regular, asignando mascota genérica (ID 1):", servicio)
+              return {
+                ...servicio,
+                IdMascota: 1, // Usar ID 1 como fallback para evitar errores
+              }
+            }
+            return servicio
+          })
+        }
+      }
+
+      // SOLUCIÓN MEJORADA: Si los servicios vienen en productosAgregados, procesarlos adecuadamente
+      if (ventaData.productosAgregados && ventaData.productosAgregados.length > 0) {
+        const servicios = ventaData.productosAgregados.filter((item) => item.tipo === "servicio")
+
+        if (servicios.length > 0) {
+          // Verificar si es un cliente Consumidor Final
+          const esConsumidorFinal =
+            ventaData.venta?.IdCliente === 3 ||
+            ventaData.venta?.IdCliente === 0 ||
+            ventaData.IdCliente === 3 ||
+            ventaData.IdCliente === 0
+
+          if (esConsumidorFinal) {
+            console.log("Cliente es Consumidor Final, asignando mascota genérica (ID 1) a todos los servicios")
+            // La lógica para asignar IdMascota: 1 se implementará más adelante en el código
+          }
+        }
+      }
+
       // CORRECCIÓN 1: Asegurarse que los campos estén correctamente formateados
       const datosNormalizados = {
         venta: {
           // Datos de la venta
           IdCliente: ventaData.IdCliente || ventaData.venta?.IdCliente || 3,
-          IdUsuario: ventaData.IdUsuario || ventaData.venta?.IdUsuario || 1,
+          // Usar el ID del usuario logueado si está disponible
+          IdUsuario: usuarioLogueado
+            ? usuarioLogueado.IdUsuario || usuarioLogueado.id
+            : ventaData.IdUsuario || ventaData.venta?.IdUsuario || 1,
           FechaVenta: ventaData.FechaVenta || ventaData.venta?.FechaVenta || new Date().toISOString().split("T")[0],
           Estado: ventaData.Estado || ventaData.venta?.Estado || "Efectiva",
           Tipo: ventaData.Tipo || ventaData.venta?.Tipo || "Venta",
@@ -606,168 +671,92 @@ const VentasService = {
 
       // CORRECCIÓN 5: Procesar adecuadamente los detalles de servicios
       if (ventaData.DetallesServicios && ventaData.DetallesServicios.length > 0) {
-        // Obtener el ID de la mascota genérica para Consumidor Final si es necesario
-        let idMascotaGenerica = null
-        if (esConsumidorFinal) {
-          idMascotaGenerica = await VentasService.getMascotaGenericaId()
-        }
-
-        datosNormalizados.detallesServicios = await Promise.all(
-          ventaData.DetallesServicios.map(async (servicio) => {
-            // CORRECCIÓN 6: Manejar el ID de mascota correctamente
-            let idMascota = null
-            let mascotaTemporal = null
-
-            if (servicio.IdMascota !== undefined && servicio.IdMascota !== null) {
-              const parsedId = Number.parseInt(servicio.IdMascota, 10)
-              if (!isNaN(parsedId) && parsedId > 0) {
-                // Solo usar IDs positivos para mascotas registradas
-                idMascota = parsedId
-              } else if (servicio.MascotaTemporal) {
-                // Si hay información de mascota temporal, usarla
-                mascotaTemporal = servicio.MascotaTemporal
-                // Para Consumidor Final, usar la mascota genérica
-                if (esConsumidorFinal) {
-                  idMascota = idMascotaGenerica
-                }
-              }
-            } else if (esConsumidorFinal) {
-              // Para Consumidor Final sin ID de mascota, usar la mascota genérica
-              idMascota = idMascotaGenerica
-            }
-
+        datosNormalizados.detallesServicios = ventaData.DetallesServicios.map((servicio) => {
+          // SOLUCIÓN MEJORADA: Siempre asignar IdMascota: 1 para todos los servicios si es Consumidor Final
+          if (esConsumidorFinal) {
             return {
               IdServicio: Number.parseInt(servicio.IdServicio, 10),
-              IdMascota: idMascota,
-              MascotaTemporal: mascotaTemporal || null,
+              IdMascota: 1, // Usar ID 1 para mascota genérica
               Cantidad: Number.parseInt(servicio.Cantidad, 10) || 1,
               PrecioUnitario: Number.parseFloat(servicio.PrecioUnitario) || 0,
+              // Mantener información temporal si existe
+              NombreMascotaTemporal: servicio.NombreMascotaTemporal || "Mascota Genérica",
+              TipoMascotaTemporal: servicio.TipoMascotaTemporal || "Genérica",
             }
-          }),
-        )
+          }
+
+          // Para clientes regulares, usar el ID de mascota proporcionado o 1 como fallback
+          return {
+            IdServicio: Number.parseInt(servicio.IdServicio, 10),
+            IdMascota: Number.parseInt(servicio.IdMascota, 10) || 1, // Usar 1 como fallback
+            Cantidad: Number.parseInt(servicio.Cantidad, 10) || 1,
+            PrecioUnitario: Number.parseFloat(servicio.PrecioUnitario) || 0,
+          }
+        })
       } else if (ventaData.detallesServicios && ventaData.detallesServicios.length > 0) {
-        // Obtener el ID de la mascota genérica para Consumidor Final si es necesario
-        let idMascotaGenerica = null
-        if (esConsumidorFinal) {
-          idMascotaGenerica = await VentasService.getMascotaGenericaId()
-        }
-
-        datosNormalizados.detallesServicios = await Promise.all(
-          ventaData.detallesServicios.map(async (servicio) => {
-            // CORRECCIÓN 6: Manejar el ID de mascota correctamente
-            let idMascota = null
-            let mascotaTemporal = null
-
-            if (servicio.IdMascota !== undefined && servicio.IdMascota !== null) {
-              const parsedId = Number.parseInt(servicio.IdMascota, 10)
-              if (!isNaN(parsedId) && parsedId > 0) {
-                // Solo usar IDs positivos para mascotas registradas
-                idMascota = parsedId
-              } else if (servicio.MascotaTemporal) {
-                // Si hay información de mascota temporal, usarla
-                mascotaTemporal = servicio.MascotaTemporal
-                // Para Consumidor Final, usar la mascota genérica
-                if (esConsumidorFinal) {
-                  idMascota = idMascotaGenerica
-                }
-              }
-            } else if (esConsumidorFinal) {
-              // Para Consumidor Final sin ID de mascota, usar la mascota genérica
-              idMascota = idMascotaGenerica
-            }
-
+        datosNormalizados.detallesServicios = ventaData.detallesServicios.map((servicio) => {
+          // SOLUCIÓN MEJORADA: Siempre asignar IdMascota: 1 para todos los servicios si es Consumidor Final
+          if (esConsumidorFinal) {
             return {
               IdServicio: Number.parseInt(servicio.IdServicio, 10),
-              IdMascota: idMascota,
-              MascotaTemporal: mascotaTemporal || null,
+              IdMascota: 1, // Usar ID 1 para mascota genérica
               Cantidad: Number.parseInt(servicio.Cantidad, 10) || 1,
               PrecioUnitario: Number.parseFloat(servicio.PrecioUnitario) || 0,
+              // Mantener información temporal si existe
+              NombreMascotaTemporal: servicio.NombreMascotaTemporal || "Mascota Genérica",
+              TipoMascotaTemporal: servicio.TipoMascotaTemporal || "Genérica",
             }
-          }),
-        )
+          }
+
+          // Para clientes regulares, usar el ID de mascota proporcionado o 1 como fallback
+          return {
+            IdServicio: Number.parseInt(servicio.IdServicio, 10),
+            IdMascota: Number.parseInt(servicio.IdMascota, 10) || 1, // Usar 1 como fallback
+            Cantidad: Number.parseInt(servicio.Cantidad, 10) || 1,
+            PrecioUnitario: Number.parseFloat(servicio.PrecioUnitario) || 0,
+          }
+        })
       } else if (ventaData.productosAgregados && ventaData.productosAgregados.length > 0) {
         // CORRECCIÓN 7: Si los servicios vienen en productosAgregados, procesarlos adecuadamente
         const servicios = ventaData.productosAgregados.filter((item) => item.tipo === "servicio")
 
         if (servicios.length > 0) {
-          // Usar directamente el ID 13 para la mascota genérica (según la imagen que compartiste)
-          const idMascotaGenerica = 13 // ID fijo de la mascota genérica que vimos en la imagen
-          console.log("Usando ID fijo para mascota genérica:", idMascotaGenerica)
-
           datosNormalizados.detallesServicios = servicios.map((servicio) => {
             // Manejar el ID del servicio
             const idServicio = Number.parseInt(servicio.id, 10)
 
-            // Manejar el ID de mascota y datos de mascota temporal
-            let idMascota = null
-            let nombreMascotaTemporal = null
-            let tipoMascotaTemporal = null
+            // SOLUCIÓN MEJORADA: Siempre asignar IdMascota: 1 para todos los servicios si es Consumidor Final
+            if (esConsumidorFinal) {
+              // Obtener información de la mascota temporal si existe
+              let nombreMascotaTemporal = "Mascota Genérica"
+              let tipoMascotaTemporal = "Genérica"
 
-            if (servicio.mascota) {
-              console.log("Procesando mascota para servicio:", servicio.mascota)
-
-              // Verificar si es una mascota temporal
-              if (
-                servicio.mascota._temporal ||
-                servicio.mascota.id === null ||
-                servicio.mascota.id <= 0 ||
-                servicio.mascota.IdMascota === null ||
-                servicio.mascota.IdMascota <= 0
-              ) {
-                // Es una mascota temporal, guardar sus datos directamente en los campos correspondientes
+              if (servicio.mascota) {
                 nombreMascotaTemporal =
-                  servicio.mascota._nombreMascota || servicio.mascota.nombre || servicio.mascota.Nombre || ""
-
+                  servicio.mascota.nombre ||
+                  servicio.mascota.Nombre ||
+                  servicio.mascota._nombreMascota ||
+                  "Mascota Genérica"
                 tipoMascotaTemporal =
-                  servicio.mascota._tipoMascota || servicio.mascota.tipo || servicio.mascota.Tipo || "Canino"
-
-                console.log("Mascota temporal detectada:", {
-                  nombre: nombreMascotaTemporal,
-                  tipo: tipoMascotaTemporal,
-                })
-
-                // Para Consumidor Final, usar la mascota genérica
-                if (esConsumidorFinal) {
-                  idMascota = idMascotaGenerica
-                }
-              } else {
-                // Es una mascota registrada, usar su ID
-                const mascotaId = Number.parseInt(servicio.mascota.id || servicio.mascota.IdMascota, 10)
-                if (!isNaN(mascotaId) && mascotaId > 0) {
-                  idMascota = mascotaId
-                  // También guardar el nombre de la mascota registrada para mostrar en la factura
-                  nombreMascotaTemporal = servicio.mascota.nombre || servicio.mascota.Nombre || ""
-                  tipoMascotaTemporal = servicio.mascota.tipo || servicio.mascota.Tipo || "Canino"
-
-                  console.log("Mascota registrada detectada:", {
-                    id: idMascota,
-                    nombre: nombreMascotaTemporal,
-                    tipo: tipoMascotaTemporal,
-                  })
-                }
+                  servicio.mascota.tipo || servicio.mascota.Tipo || servicio.mascota._tipoMascota || "Genérica"
               }
-            } else if (esConsumidorFinal) {
-              // Para Consumidor Final sin mascota, usar la mascota genérica
-              idMascota = idMascotaGenerica
-              console.log("Sin mascota para Consumidor Final, usando genérica:", idMascotaGenerica)
+
+              return {
+                IdServicio: idServicio,
+                IdMascota: 1, // Usar ID 1 para mascota genérica
+                NombreMascotaTemporal: nombreMascotaTemporal,
+                TipoMascotaTemporal: tipoMascotaTemporal,
+                Cantidad: Number.parseInt(servicio.cantidad, 10) || 1,
+                PrecioUnitario: Number.parseFloat(servicio.precioUnitario) || 0,
+              }
             }
 
-            // Asegurarse de que los campos no sean undefined
-            nombreMascotaTemporal = nombreMascotaTemporal || ""
-            tipoMascotaTemporal = tipoMascotaTemporal || "Canino"
-
-            console.log("Datos finales de mascota para servicio:", {
-              IdServicio: idServicio,
-              IdMascota: idMascota,
-              NombreMascotaTemporal: nombreMascotaTemporal,
-              TipoMascotaTemporal: tipoMascotaTemporal,
-            })
+            // Para clientes regulares, usar el ID de mascota de la mascota seleccionada o 1 como fallback
+            const mascotaId = servicio.mascota ? servicio.mascota.id || servicio.mascota.IdMascota : null
 
             return {
               IdServicio: idServicio,
-              IdMascota: idMascota,
-              NombreMascotaTemporal: nombreMascotaTemporal, // Enviar directamente los campos
-              TipoMascotaTemporal: tipoMascotaTemporal, // en lugar de un objeto MascotaTemporal
+              IdMascota: Number.parseInt(mascotaId, 10) || 1, // Usar 1 como fallback
               Cantidad: Number.parseInt(servicio.cantidad, 10) || 1,
               PrecioUnitario: Number.parseFloat(servicio.precioUnitario) || 0,
             }
@@ -784,6 +773,21 @@ const VentasService = {
         if (!ventaData.venta?.ComprobantePago && datosNormalizados.venta.MetodoPago === "efectivo") {
           datosNormalizados.venta.ComprobantePago = "Pago en efectivo"
         }
+      }
+
+      // SOLUCIÓN FINAL: Verificar que todos los servicios tengan un IdMascota válido
+      if (datosNormalizados.detallesServicios && datosNormalizados.detallesServicios.length > 0) {
+        datosNormalizados.detallesServicios = datosNormalizados.detallesServicios.map((servicio) => {
+          // Si no hay IdMascota o es null, asignar 1 (mascota genérica)
+          if (!servicio.IdMascota && servicio.IdMascota !== 0) {
+            console.log("Servicio sin IdMascota detectado, asignando mascota genérica (ID 1):", servicio)
+            return {
+              ...servicio,
+              IdMascota: 1,
+            }
+          }
+          return servicio
+        })
       }
 
       console.log("VentasService: Datos normalizados a enviar:", JSON.stringify(datosNormalizados, null, 2))
@@ -1170,6 +1174,12 @@ const VentasService = {
    */
   createDetalleServicio: async (detalleData) => {
     try {
+      // Asegurarse de que el detalle de servicio tenga un IdMascota válido
+      if (!detalleData.IdMascota && detalleData.IdMascota !== 0) {
+        console.log("Detalle de servicio sin IdMascota, asignando mascota genérica (ID 1):", detalleData)
+        detalleData.IdMascota = 1
+      }
+
       // Modificar la URL para usar la ruta correcta
       const response = await axiosInstance.post("/sales/detalles-ventas-servicios", detalleData)
       return response.data
@@ -1187,6 +1197,15 @@ const VentasService = {
    */
   updateDetalleServicio: async (id, detalleData) => {
     try {
+      // Asegurarse de que el detalle de servicio tenga un IdMascota válido
+      if (!detalleData.IdMascota && detalleData.IdMascota !== 0) {
+        console.log(
+          "Detalle de servicio sin IdMascota en actualización, asignando mascota genérica (ID 1):",
+          detalleData,
+        )
+        detalleData.IdMascota = 1
+      }
+
       // Modificar la URL para usar la ruta correcta
       const response = await axiosInstance.put(`/sales/detalles-ventas-servicios/${id}`, detalleData)
       return response.data
@@ -1219,19 +1238,34 @@ const VentasService = {
    */
   registrarDevolucion: async (devolucionData) => {
     try {
+      // Intentar obtener el usuario logueado del localStorage
+      let usuarioLogueado = null
+      try {
+        const userData = localStorage.getItem("userData")
+        if (userData) {
+          usuarioLogueado = JSON.parse(userData)
+          console.log("Usuario logueado encontrado para devolución:", usuarioLogueado)
+        }
+      } catch (userError) {
+        console.warn("Error al obtener usuario logueado para devolución:", userError)
+      }
+
       // Asegurarse de que todos los valores numéricos sean realmente números
       // y que la estructura sea exactamente igual a la que funciona en Postman
       const datosFormateados = {
         venta: {
           IdCliente: Number(devolucionData.venta.IdCliente),
-          IdUsuario: Number(devolucionData.venta.IdUsuario),
+          // Usar el ID del usuario logueado si está disponible
+          IdUsuario: usuarioLogueado
+            ? Number(usuarioLogueado.IdUsuario || usuarioLogueado.id)
+            : Number(devolucionData.venta.IdUsuario),
           FechaVenta: devolucionData.venta.FechaVenta,
           Subtotal: Number(devolucionData.venta.Subtotal),
           TotalIva: Number(devolucionData.venta.TotalIva || 0),
           TotalMonto: Number(devolucionData.venta.TotalMonto),
           NotasAdicionales: devolucionData.venta.NotasAdicionales,
           // Usar el estado seleccionado por el usuario
-          Estado: devolucionData.venta.Estado || "Pendiente",
+          Estado: "Devuelta",
           Tipo: "Devolucion",
           IdVentaOriginal: Number(devolucionData.venta.IdVentaOriginal),
           // Asegurar que siempre se envíe el método de pago
