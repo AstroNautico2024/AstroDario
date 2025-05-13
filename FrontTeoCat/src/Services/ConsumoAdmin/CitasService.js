@@ -13,7 +13,33 @@ const CitasService = {
     try {
       const response = await axiosInstance.get("/appointments/citas")
       console.log("Respuesta de obtenerCitas:", response.data)
-      return response.data
+      
+      // Procesar las citas para asegurar que tengan el precio total calculado
+      const citasConPrecio = await Promise.all(response.data.map(async (cita) => {
+        // Si la cita ya tiene servicios con precios, calcular el total
+        if (cita.servicios && cita.servicios.length > 0) {
+          const precioTotal = cita.servicios.reduce((total, servicio) => 
+            total + (parseFloat(servicio.Precio) || 0), 0);
+          return { ...cita, PrecioTotal: precioTotal };
+        }
+        
+        // Si no tiene servicios en la respuesta, intentar obtenerlos
+        try {
+          const serviciosResponse = await axiosInstance.get(`/appointments/citas/${cita.IdCita}/servicios`);
+          if (serviciosResponse.data && serviciosResponse.data.length > 0) {
+            const precioTotal = serviciosResponse.data.reduce((total, servicio) => 
+              total + (parseFloat(servicio.Precio) || 0), 0);
+            return { ...cita, PrecioTotal: precioTotal, servicios: serviciosResponse.data };
+          }
+        } catch (err) {
+          console.error(`Error al obtener servicios para la cita ${cita.IdCita}:`, err);
+        }
+        
+        // Si no se pudo calcular el precio, usar el que viene del backend o 0
+        return { ...cita, PrecioTotal: cita.PrecioTotal || 0 };
+      }));
+      
+      return citasConPrecio;
     } catch (error) {
       console.error("Error al obtener citas:", error)
       throw error
@@ -45,21 +71,36 @@ const CitasService = {
       
       const fechaHora = `${fecha} ${hora}:00`; // Formato: YYYY-MM-DD HH:MM:SS
       
+      // Calcular el precio total de los servicios
+      const precioTotal = citaData.servicios ? citaData.servicios.reduce((total, servicio) => 
+        total + (parseFloat(servicio.precio) || 0), 0) : 0;
+      
       const datosFormateados = {
         cita: {
           IdCliente: citaData.IdCliente,
           IdMascota: citaData.IdMascota,
           Fecha: fechaHora,
           NotasAdicionales: citaData.NotasAdicionales || "",
-          Estado: citaData.Estado || "Programada"
+          Estado: citaData.Estado || "Programada",
+          PrecioTotal: precioTotal // Añadir el precio total calculado
         },
         servicios: citaData.servicios ? citaData.servicios.map(servicio => ({
-          IdServicio: servicio.IdServicio || servicio.id
+          IdServicio: servicio.IdServicio || servicio.id,
+          Precio: servicio.precio || servicio.Precio // Asegurarse de enviar el precio
         })) : []
       };
       
       console.log("Datos enviados al crear cita:", datosFormateados);
       const response = await axiosInstance.post("/appointments/citas", datosFormateados);
+      
+      // Asegurarse de que la respuesta tenga el precio total
+      if (response.data && response.data.cita) {
+        if (!response.data.cita.PrecioTotal && response.data.servicios && response.data.servicios.length > 0) {
+          response.data.cita.PrecioTotal = response.data.servicios.reduce((total, servicio) => 
+            total + (parseFloat(servicio.Precio) || 0), 0);
+        }
+      }
+      
       console.log("Respuesta al crear cita:", response.data);
       return response.data;
     } catch (error) {
@@ -95,21 +136,36 @@ const CitasService = {
       
       const fechaHora = `${fecha} ${hora}:00`; // Formato: YYYY-MM-DD HH:MM:SS
       
+      // Calcular el precio total de los servicios
+      const precioTotal = citaData.servicios ? citaData.servicios.reduce((total, servicio) => 
+        total + (parseFloat(servicio.precio) || 0), 0) : 0;
+      
       const datosFormateados = {
         cita: {
           IdCliente: citaData.IdCliente,
           IdMascota: citaData.IdMascota,
           Fecha: fechaHora,
           NotasAdicionales: citaData.NotasAdicionales || "",
-          Estado: citaData.Estado || "Programada"
+          Estado: citaData.Estado || "Programada",
+          PrecioTotal: precioTotal // Añadir el precio total calculado
         },
         servicios: citaData.servicios ? citaData.servicios.map(servicio => ({
-          IdServicio: servicio.IdServicio || servicio.id
+          IdServicio: servicio.IdServicio || servicio.id,
+          Precio: servicio.precio || servicio.Precio // Asegurarse de enviar el precio
         })) : []
       };
       
       console.log(`Actualizando cita ID ${id} con datos:`, datosFormateados);
       const response = await axiosInstance.put(`/appointments/citas/${id}`, datosFormateados);
+      
+      // Asegurarse de que la respuesta tenga el precio total
+      if (response.data && response.data.cita) {
+        if (!response.data.cita.PrecioTotal && response.data.servicios && response.data.servicios.length > 0) {
+          response.data.cita.PrecioTotal = response.data.servicios.reduce((total, servicio) => 
+            total + (parseFloat(servicio.Precio) || 0), 0);
+        }
+      }
+      
       console.log("Respuesta al actualizar cita:", response.data);
       return response.data;
     } catch (error) {
@@ -131,6 +187,7 @@ const CitasService = {
   cambiarEstadoCita: async (id, estado) => {
     try {
       console.log(`Cambiando estado de cita ID ${id} a ${estado}`);
+      // Corregir la ruta para que coincida con la definida en appointment.routes.js
       const response = await axiosInstance.patch(`/appointments/citas/${id}/status`, { Estado: estado });
       console.log("Respuesta al cambiar estado:", response.data);
       return response.data;
@@ -241,6 +298,40 @@ const CitasService = {
         console.error("Estado HTTP:", error.response.status);
       }
       throw error;
+    }
+  },
+  
+  /**
+   * Obtiene los servicios asociados a una cita específica
+   * @param {number} idCita - ID de la cita
+   * @returns {Promise} Promesa con los datos de los servicios de la cita
+   */
+  obtenerServiciosPorCita: async (idCita) => {
+    try {
+      const response = await axiosInstance.get(`/appointments/citas/${idCita}/servicios`);
+      console.log(`Servicios de la cita ${idCita}:`, response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error al obtener servicios de la cita ${idCita}:`, error);
+      return [];
+    }
+  },
+  
+  /**
+   * Calcula el precio total de una cita basado en sus servicios
+   * @param {number} idCita - ID de la cita
+   * @returns {Promise<number>} Promesa con el precio total calculado
+   */
+  calcularPrecioTotal: async (idCita) => {
+    try {
+      const servicios = await CitasService.obtenerServiciosPorCita(idCita);
+      const precioTotal = servicios.reduce((total, servicio) => 
+        total + (parseFloat(servicio.Precio) || 0), 0);
+      console.log(`Precio total calculado para cita ${idCita}: $${precioTotal}`);
+      return precioTotal;
+    } catch (error) {
+      console.error(`Error al calcular precio total de la cita ${idCita}:`, error);
+      return 0;
     }
   }
 };

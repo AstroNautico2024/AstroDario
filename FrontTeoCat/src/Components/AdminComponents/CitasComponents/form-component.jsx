@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Calendar, Clock, X } from "lucide-react"
+import { Calendar, Clock, X } from 'lucide-react'
 
 export const FormComponent = ({
   formData,
@@ -88,9 +88,18 @@ export const FormComponent = ({
     }
   }, [selectedMascota, selectedMascotas, requiresMultipleMascotas])
 
-  // Función para formatear números con separadores de miles
+  // Función para formatear números con separadores de miles sin ceros iniciales
   const formatNumber = (number) => {
-    return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+    if (number === null || number === undefined) return '0';
+    
+    // Convertir a número si es string
+    let num = typeof number === 'string' ? parseFloat(number) : number;
+    
+    // Asegurarse de que sea un número válido
+    if (isNaN(num)) return '0';
+    
+    // Formatear el número con separadores de miles
+    return num.toLocaleString('es-CO');
   }
 
   // Función para formatear duración
@@ -436,4 +445,3 @@ export const FormComponent = ({
     </div>
   )
 }
-

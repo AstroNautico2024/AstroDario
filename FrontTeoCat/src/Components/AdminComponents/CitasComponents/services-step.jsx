@@ -1,6 +1,6 @@
 "use client"
 
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft } from 'lucide-react'
 import { Button, Card } from "react-bootstrap"
 
 export const ServicesStep = ({ servicios, selectedServicios, onServiciosChange, formErrors, onNext, onPrev }) => {
@@ -21,9 +21,25 @@ export const ServicesStep = ({ servicios, selectedServicios, onServiciosChange, 
     onServiciosChange(nuevosServicios)
   }
 
-  // Formatear precio
+  // Formatear precio sin ceros iniciales
   const formatPrice = (price) => {
-    return price.toLocaleString("es-CO")
+    if (price === null || price === undefined) return '0';
+    
+    // Convertir a número si es string
+    if (typeof price === 'string') {
+      // Eliminar el símbolo $ y cualquier otro carácter no numérico
+      const precioLimpio = price.replace(/[^\d.,]/g, '');
+      price = parseFloat(precioLimpio.replace(/\./g, '').replace(',', '.'));
+    }
+    
+    // Asegurarse de que sea un número válido
+    if (isNaN(price)) return '0';
+    
+    // Formatear el número con separadores de miles
+    return price.toLocaleString('es-CO', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
   }
 
   return (
@@ -37,6 +53,12 @@ export const ServicesStep = ({ servicios, selectedServicios, onServiciosChange, 
         <div className="servicios-grid">
           {servicios.map((servicio) => {
             const isSelected = selectedServicios.some((s) => s.id === servicio.id)
+            
+            // Procesar el precio para asegurarse de que sea un número
+            let precio = servicio.precio;
+            if (typeof precio === 'string') {
+              precio = parseFloat(precio.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.'));
+            }
 
             return (
               <Card
@@ -52,7 +74,7 @@ export const ServicesStep = ({ servicios, selectedServicios, onServiciosChange, 
                   <p className="servicio-descripcion">{servicio.descripcion}</p>
                   <div className="servicio-details">
                     <span className="servicio-duracion">{servicio.duracion} min</span>
-                    <span className="servicio-precio">${formatPrice(servicio.precio)}</span>
+                    <span className="servicio-precio">${formatPrice(precio)}</span>
                   </div>
                 </div>
                 <Button variant={isSelected ? "success" : "outline-primary"} size="sm">

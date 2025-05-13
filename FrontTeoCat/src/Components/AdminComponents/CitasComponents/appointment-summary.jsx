@@ -1,15 +1,37 @@
-import { Calendar, Clock } from "lucide-react"
+import { Calendar, Clock } from 'lucide-react'
 
 export const AppointmentSummary = ({ formData, selectedDate }) => {
   // Calcular duración total
   const duracionTotal = formData.servicios.reduce((total, servicio) => total + servicio.duracion, 0)
 
   // Calcular precio total
-  const precioTotal = formData.servicios.reduce((total, servicio) => total + servicio.precio, 0)
+  const precioTotal = formData.servicios.reduce((total, servicio) => {
+    let precio = servicio.precio;
+    if (typeof precio === 'string') {
+      precio = parseFloat(precio.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.'));
+    }
+    return total + (isNaN(precio) ? 0 : precio);
+  }, 0)
 
-  // Formatear precio
+  // Formatear precio sin ceros iniciales
   const formatPrice = (price) => {
-    return price.toLocaleString("es-CO")
+    if (price === null || price === undefined) return '$0';
+    
+    // Convertir a número si es string
+    if (typeof price === 'string') {
+      // Eliminar el símbolo $ y cualquier otro carácter no numérico
+      const precioLimpio = price.replace(/[^\d.,]/g, '');
+      price = parseFloat(precioLimpio.replace(/\./g, '').replace(',', '.'));
+    }
+    
+    // Asegurarse de que sea un número válido
+    if (isNaN(price)) return '$0';
+    
+    // Formatear el número con separadores de miles
+    return price.toLocaleString('es-CO', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
   }
 
   return (
@@ -38,15 +60,23 @@ export const AppointmentSummary = ({ formData, selectedDate }) => {
         {formData.servicios.length === 0 ? (
           <p className="text-muted">No has seleccionado servicios aún.</p>
         ) : (
-          formData.servicios.map((servicio) => (
-            <div key={servicio.id} className="resumen-servicio">
-              <div className="d-flex justify-content-between">
-                <span>{servicio.nombre}</span>
-                <span className="text-success">${formatPrice(servicio.precio)}</span>
+          formData.servicios.map((servicio) => {
+            // Procesar el precio para asegurarse de que sea un número
+            let precio = servicio.precio;
+            if (typeof precio === 'string') {
+              precio = parseFloat(precio.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.'));
+            }
+            
+            return (
+              <div key={servicio.id} className="resumen-servicio">
+                <div className="d-flex justify-content-between">
+                  <span>{servicio.nombre}</span>
+                  <span className="text-success">${formatPrice(precio)}</span>
+                </div>
+                <div className="text-muted small">{servicio.duracion} min</div>
               </div>
-              <div className="text-muted small">{servicio.duracion} min</div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 

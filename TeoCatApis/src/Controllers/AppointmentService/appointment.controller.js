@@ -42,170 +42,168 @@ export const citasController = {
   },
 
   // Crear una nueva cita
-create: async (req, res) => {
-  try {
-    // Verificar si req.body existe y tiene la estructura esperada
-    if (!req.body) {
-      return res.status(400).json({ 
-        message: 'El cuerpo de la solicitud está vacío',
-        error: 'Se requiere un objeto con propiedades "cita" y "servicios"'
-      });
-    }
-    
-    // Verificar si la propiedad cita existe
-    const { cita, servicios } = req.body || {};
-    
-    if (!cita) {
-      return res.status(400).json({ 
-        message: 'Datos de cita no proporcionados',
-        error: 'Se requiere un objeto "cita" con la información de la cita'
-      });
-    }
-    
-    // Verificar campos obligatorios en el objeto cita
-    if (!cita.IdCliente || !cita.IdMascota || !cita.Fecha) {
-      return res.status(400).json({ 
-        message: 'Datos de cita incompletos',
-        error: 'Se requieren los campos IdCliente, IdMascota y Fecha'
-      });
-    }
-    
-    // Verificar si el cliente existe
-    const cliente = await clientesModel.getById(cita.IdCliente);
-    if (!cliente) {
-      return res.status(404).json({ message: 'Cliente no encontrado' });
-    }
-    
-    // Verificar si la mascota existe
-    const mascota = await mascotasModel.getById(cita.IdMascota);
-    if (!mascota) {
-      return res.status(404).json({ message: 'Mascota no encontrada' });
-    }
-    
-    // Verificar que la mascota pertenezca al cliente
-    if (mascota.IdCliente !== cita.IdCliente) {
-      return res.status(400).json({ 
-        message: 'La mascota no pertenece al cliente seleccionado'
-      });
-    }
-    
-    // Verificar formato de fecha
-    if (!cita.Fecha.includes(' ')) {
-      return res.status(400).json({ 
-        message: 'Formato de fecha incorrecto',
-        error: 'El formato debe ser "YYYY-MM-DD HH:MM:SS"'
-      });
-    }
-    
-    // Extraer fecha y hora de la solicitud
-    const fechaPartes = cita.Fecha.split(' ');
-    const fecha = fechaPartes[0]; // YYYY-MM-DD
-    const hora = fechaPartes[1].substring(0, 5); // HH:MM
-    
-    // Calcular duración total de los servicios o usar 60 minutos por defecto
-    let duracionTotal = 60;
-    if (servicios && servicios.length > 0) {
-      duracionTotal = 0;
-      for (const servicio of servicios) {
-        const servicioInfo = await serviciosModel.getById(servicio.IdServicio);
-        if (servicioInfo) {
-          duracionTotal += servicioInfo.Duracion || 60;
-        }
-      }
-    }
-    
-   // Verificar disponibilidad de horario con la duración calculada
-const disponible = await citasModel.checkDisponibilidad(
-  fecha, 
-  hora, 
-  duracionTotal
-);
-
-if (!disponible) {
-  return res.status(400).json({ 
-    message: 'El horario seleccionado no está disponible debido a un conflicto con otra cita'
-  });
-}
-
-res.status(200).json({ disponible });
-    
-    // Crear la cita
-    const nuevaCita = await citasModel.create(cita);
-    
-    // Agregar servicios a la cita
-    const serviciosAgregados = [];
-    if (servicios && servicios.length > 0) {
-      for (const servicio of servicios) {
-        // Verificar si el servicio existe
-        const servicioInfo = await serviciosModel.getById(servicio.IdServicio);
-        if (!servicioInfo) {
-          return res.status(404).json({ message: `Servicio con ID ${servicio.IdServicio} no encontrado` });
-        }
-        
-        // Crear registro en Cita_Servicio
-        const citaServicio = await citaServicioModel.create({
-          IdCita: nuevaCita.id,
-          IdServicio: servicio.IdServicio
-        });
-        
-        serviciosAgregados.push({
-          ...citaServicio,
-          NombreServicio: servicioInfo.Nombre,
-          Precio: servicioInfo.Precio,
-          Duracion: servicioInfo.Duracion
+  create: async (req, res) => {
+    try {
+      // Verificar si req.body existe y tiene la estructura esperada
+      if (!req.body) {
+        return res.status(400).json({ 
+          message: 'El cuerpo de la solicitud está vacío',
+          error: 'Se requiere un objeto con propiedades "cita" y "servicios"'
         });
       }
-    }
-    
-    // AGREGAR: Crear notificación de nueva cita
-    try {
-      await notificacionesModel.create({
-        TipoNotificacion: "Cita",
-        Titulo: "Nueva cita agendada",
-        Mensaje: `Se ha agendado una nueva cita para ${mascota.Nombre} el ${fecha} a las ${hora}`,
-        TablaReferencia: "AgendamientoDeCitas",
-        IdReferencia: nuevaCita.id,
-        Prioridad: "Media",
-        IdUsuario: cita.IdCliente, // Notificar al cliente
-        ParaAdmins: true, // También notificar a los administradores
-        EnviarCorreo: true,
+      
+      // Verificar si la propiedad cita existe
+      const { cita, servicios } = req.body || {};
+      
+      if (!cita) {
+        return res.status(400).json({ 
+          message: 'Datos de cita no proporcionados',
+          error: 'Se requiere un objeto "cita" con la información de la cita'
+        });
+      }
+      
+      // Verificar campos obligatorios en el objeto cita
+      if (!cita.IdCliente || !cita.IdMascota || !cita.Fecha) {
+        return res.status(400).json({ 
+          message: 'Datos de cita incompletos',
+          error: 'Se requieren los campos IdCliente, IdMascota y Fecha'
+        });
+      }
+      
+      // Verificar si el cliente existe
+      const cliente = await clientesModel.getById(cita.IdCliente);
+      if (!cliente) {
+        return res.status(404).json({ message: 'Cliente no encontrado' });
+      }
+      
+      // Verificar si la mascota existe
+      const mascota = await mascotasModel.getById(cita.IdMascota);
+      if (!mascota) {
+        return res.status(404).json({ message: 'Mascota no encontrada' });
+      }
+      
+      // Verificar que la mascota pertenezca al cliente
+      if (mascota.IdCliente !== cita.IdCliente) {
+        return res.status(400).json({ 
+          message: 'La mascota no pertenece al cliente seleccionado'
+        });
+      }
+      
+      // Verificar formato de fecha
+      if (!cita.Fecha.includes(' ')) {
+        return res.status(400).json({ 
+          message: 'Formato de fecha incorrecto',
+          error: 'El formato debe ser "YYYY-MM-DD HH:MM:SS"'
+        });
+      }
+      
+      // Extraer fecha y hora de la solicitud
+      const fechaPartes = cita.Fecha.split(' ');
+      const fecha = fechaPartes[0]; // YYYY-MM-DD
+      const hora = fechaPartes[1].substring(0, 5); // HH:MM
+      
+      // Calcular duración total de los servicios o usar 60 minutos por defecto
+      let duracionTotal = 60;
+      if (servicios && servicios.length > 0) {
+        duracionTotal = 0;
+        for (const servicio of servicios) {
+          const servicioInfo = await serviciosModel.getById(servicio.IdServicio);
+          if (servicioInfo) {
+            duracionTotal += servicioInfo.Duracion || 60;
+          }
+        }
+      }
+      
+      // Verificar disponibilidad de horario con la duración calculada
+      const disponible = await citasModel.checkDisponibilidad(
+        fecha, 
+        hora, 
+        duracionTotal
+      );
+
+      if (!disponible) {
+        return res.status(400).json({ 
+          message: 'El horario seleccionado no está disponible debido a un conflicto con otra cita'
+        });
+      }
+      
+      // Crear la cita
+      const nuevaCita = await citasModel.create(cita);
+      
+      // Agregar servicios a la cita
+      const serviciosAgregados = [];
+      if (servicios && servicios.length > 0) {
+        for (const servicio of servicios) {
+          // Verificar si el servicio existe
+          const servicioInfo = await serviciosModel.getById(servicio.IdServicio);
+          if (!servicioInfo) {
+            return res.status(404).json({ message: `Servicio con ID ${servicio.IdServicio} no encontrado` });
+          }
+          
+          // Crear registro en Cita_Servicio
+          const citaServicio = await citaServicioModel.create({
+            IdCita: nuevaCita.id,
+            IdServicio: servicio.IdServicio
+          });
+          
+          serviciosAgregados.push({
+            ...citaServicio,
+            NombreServicio: servicioInfo.Nombre,
+            Precio: servicioInfo.Precio,
+            Duracion: servicioInfo.Duracion
+          });
+        }
+      }
+      
+      // AGREGAR: Crear notificación de nueva cita
+      try {
+        await notificacionesModel.create({
+          TipoNotificacion: "Cita",
+          Titulo: "Nueva cita agendada",
+          Mensaje: `Se ha agendado una nueva cita para ${mascota.Nombre} el ${fecha} a las ${hora}`,
+          TablaReferencia: "AgendamientoDeCitas",
+          IdReferencia: nuevaCita.id,
+          Prioridad: "Media",
+          IdUsuario: cita.IdCliente, // Notificar al cliente
+          ParaAdmins: true, // También notificar a los administradores
+          EnviarCorreo: true,
+        });
+      } catch (notifError) {
+        console.error("Error al crear notificación de cita:", notifError);
+        // No interrumpir el flujo si falla la creación de la notificación
+      }
+      
+      // Enviar correo de confirmación
+      try {
+        await sendEmail({
+          to: cliente.Correo,
+          subject: 'Confirmación de Cita - TeoCat',
+          text: `Hola ${cliente.Nombre},\n\nTu cita para ${mascota.Nombre} ha sido programada para el ${fecha} a las ${hora}.\n\nGracias por confiar en TeoCat.`,
+          html: `
+            <h2>Confirmación de Cita - TeoCat</h2>
+            <p>Hola ${cliente.Nombre},</p>
+            <p>Tu cita para <strong>${mascota.Nombre}</strong> ha sido programada para el <strong>${fecha}</strong> a las <strong>${hora}</strong>.</p>
+            <p>Servicios:</p>
+            <ul>
+              ${serviciosAgregados.map(s => `<li>${s.NombreServicio}</li>`).join('')}
+            </ul>
+            <p>Gracias por confiar en TeoCat.</p>
+          `
+        });
+      } catch (emailError) {
+        console.error('Error al enviar correo de confirmación:', emailError);
+        // No interrumpir el flujo si falla el envío de correo
+      }
+      
+      res.status(201).json({
+        cita: nuevaCita,
+        servicios: serviciosAgregados
       });
-    } catch (notifError) {
-      console.error("Error al crear notificación de cita:", notifError);
-      // No interrumpir el flujo si falla la creación de la notificación
+    } catch (error) {
+      console.error('Error al crear cita:', error);
+      res.status(500).json({ message: 'Error en el servidor', error: error.message });
     }
-    
-    // Enviar correo de confirmación
-    try {
-      await sendEmail({
-        to: cliente.Correo,
-        subject: 'Confirmación de Cita - TeoCat',
-        text: `Hola ${cliente.Nombre},\n\nTu cita para ${mascota.Nombre} ha sido programada para el ${fecha} a las ${hora}.\n\nGracias por confiar en TeoCat.`,
-        html: `
-          <h2>Confirmación de Cita - TeoCat</h2>
-          <p>Hola ${cliente.Nombre},</p>
-          <p>Tu cita para <strong>${mascota.Nombre}</strong> ha sido programada para el <strong>${fecha}</strong> a las <strong>${hora}</strong>.</p>
-          <p>Servicios:</p>
-          <ul>
-            ${serviciosAgregados.map(s => `<li>${s.NombreServicio}</li>`).join('')}
-          </ul>
-          <p>Gracias por confiar en TeoCat.</p>
-        `
-      });
-    } catch (emailError) {
-      console.error('Error al enviar correo de confirmación:', emailError);
-      // No interrumpir el flujo si falla el envío de correo
-    }
-    
-    res.status(201).json({
-      cita: nuevaCita,
-      servicios: serviciosAgregados
-    });
-  } catch (error) {
-    console.error('Error al crear cita:', error);
-    res.status(500).json({ message: 'Error en el servidor', error: error.message });
-  }
-},
+  },
 
   // Actualizar una cita
   update: async (req, res) => {
@@ -263,13 +261,13 @@ res.status(200).json({ disponible });
         }
         
         // Verificar disponibilidad de horario (excluyendo la cita actual)
-const disponible = await citasModel.checkDisponibilidad(fecha, hora, duracionTotal);
+        const disponible = await citasModel.checkDisponibilidad(fecha, hora, duracionTotal);
 
-if (!disponible) {
-  return res.status(400).json({ 
-    message: 'El horario seleccionado no está disponible debido a un conflicto con otra cita'
-  });
-}
+        if (!disponible) {
+          return res.status(400).json({ 
+            message: 'El horario seleccionado no está disponible debido a un conflicto con otra cita'
+          });
+        }
       }
       
       // Actualizar la cita
@@ -512,7 +510,6 @@ if (!disponible) {
       // Eliminar la cita
       await citasModel.delete(id);
       
-      // CORREGIDO: res.statusus(200) a res.status(200)
       res.status(200).json({ message: 'Cita eliminada correctamente' });
     } catch (error) {
       console.error('Error al eliminar cita:', error);
@@ -888,6 +885,7 @@ export const citaServicioController = {
   }
 };
 
+// Exportación por defecto
 export default {
   citas: citasController,
   citaServicio: citaServicioController

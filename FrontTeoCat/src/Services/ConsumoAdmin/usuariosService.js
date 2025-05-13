@@ -422,6 +422,46 @@ const usuariosService = {
       throw error
     }
   },
+
+  /**
+   * Obtiene usuarios por rol
+   * @param {number} idRol - ID del rol
+   * @returns {Promise} Promesa con la respuesta
+   */
+  getByRol: async (idRol) => {
+    try {
+      const response = await api.get(`/auth/roles/${idRol}/usuarios`)
+
+      // Asegurar que cada usuario tenga la estructura correcta
+      const processedUsers = response.data.map((user) => {
+        // Crear un objeto de usuario con la estructura correcta
+        return {
+          IdUsuario: user.IdUsuario,
+          Nombre: user.Nombre || "",
+          Apellido: user.Apellido || "",
+          Correo: user.Correo || "",
+          Telefono: user.Telefono || "",
+          Direccion: user.Direccion || "",
+          FechaCreacion: user.FechaCreacion,
+          Estado: user.Estado,
+          Foto: user.Foto || null,
+          // Asegurar que el documento esté presente
+          Documento: user.Documento || "",
+          // Asegurar que el rol esté correctamente formateado
+          Rol: {
+            IdRol: user.Rol?.IdRol || user.IdRol || 0,
+            NombreRol: user.Rol?.NombreRol || user.NombreRol || "Sin rol",
+          },
+        }
+      })
+
+      console.log("Usuarios por rol procesados:", processedUsers)
+      return processedUsers
+    } catch (error) {
+      console.error(`Error al obtener usuarios con rol ${idRol}:`, error)
+      return []
+    }
+  },
 }
 
 export default usuariosService

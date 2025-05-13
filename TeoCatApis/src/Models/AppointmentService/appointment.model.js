@@ -4,15 +4,28 @@ import { query } from '../../Config/Database.js';
 export const citasModel = {
   // Obtener todas las citas
   getAll: async () => {
-    return await query(
-      `SELECT c.*, 
+    try {
+      // Modificamos la consulta para incluir la suma de precios de los servicios
+      const sql = `SELECT c.*, 
       cl.Nombre AS NombreCliente, cl.Apellido AS ApellidoCliente,
-      m.Nombre AS NombreMascota, m.Especie, m.Raza
+      m.Nombre AS NombreMascota, e.NombreEspecie AS Especie, m.Raza,
+      COALESCE(SUM(s.Precio), 0) AS PrecioTotal
       FROM AgendamientoDeCitas c
       JOIN Clientes cl ON c.IdCliente = cl.IdCliente
       JOIN Mascotas m ON c.IdMascota = m.IdMascota
-      ORDER BY c.Fecha DESC`
-    );
+      JOIN Especies e ON m.IdEspecie = e.IdEspecie
+      LEFT JOIN Cita_Servicio cs ON c.IdCita = cs.IdCita
+      LEFT JOIN Servicios s ON cs.IdServicio = s.IdServicio
+      GROUP BY c.IdCita, c.Fecha, c.Estado, c.IdCliente, c.IdMascota, c.NotasAdicionales,
+      cl.Nombre, cl.Apellido, m.Nombre, e.NombreEspecie, m.Raza
+      ORDER BY c.Fecha DESC`;
+      
+      const result = await query(sql);
+      return result;
+    } catch (error) {
+      console.error('Error en la consulta SQL:', error);
+      throw error;
+    }
   },
 
   // Obtener una cita por ID
@@ -20,11 +33,17 @@ export const citasModel = {
     const citas = await query(
       `SELECT c.*, 
       cl.Nombre AS NombreCliente, cl.Apellido AS ApellidoCliente,
-      m.Nombre AS NombreMascota, m.Especie, m.Raza
+      m.Nombre AS NombreMascota, e.NombreEspecie AS Especie, m.Raza,
+      COALESCE(SUM(s.Precio), 0) AS PrecioTotal
       FROM AgendamientoDeCitas c
       JOIN Clientes cl ON c.IdCliente = cl.IdCliente
       JOIN Mascotas m ON c.IdMascota = m.IdMascota
-      WHERE c.IdCita = ?`,
+      JOIN Especies e ON m.IdEspecie = e.IdEspecie
+      LEFT JOIN Cita_Servicio cs ON c.IdCita = cs.IdCita
+      LEFT JOIN Servicios s ON cs.IdServicio = s.IdServicio
+      WHERE c.IdCita = ?
+      GROUP BY c.IdCita, c.Fecha, c.Estado, c.IdCliente, c.IdMascota, c.NotasAdicionales,
+      cl.Nombre, cl.Apellido, m.Nombre, e.NombreEspecie, m.Raza`,
       [id]
     );
     return citas[0];
@@ -121,11 +140,17 @@ export const citasModel = {
     return await query(
       `SELECT c.*, 
       cl.Nombre AS NombreCliente, cl.Apellido AS ApellidoCliente,
-      m.Nombre AS NombreMascota, m.Especie, m.Raza
+      m.Nombre AS NombreMascota, e.NombreEspecie AS Especie, m.Raza,
+      COALESCE(SUM(s.Precio), 0) AS PrecioTotal
       FROM AgendamientoDeCitas c
       JOIN Clientes cl ON c.IdCliente = cl.IdCliente
       JOIN Mascotas m ON c.IdMascota = m.IdMascota
+      JOIN Especies e ON m.IdEspecie = e.IdEspecie
+      LEFT JOIN Cita_Servicio cs ON c.IdCita = cs.IdCita
+      LEFT JOIN Servicios s ON cs.IdServicio = s.IdServicio
       WHERE c.IdCliente = ?
+      GROUP BY c.IdCita, c.Fecha, c.Estado, c.IdCliente, c.IdMascota, c.NotasAdicionales,
+      cl.Nombre, cl.Apellido, m.Nombre, e.NombreEspecie, m.Raza
       ORDER BY c.Fecha DESC`,
       [idCliente]
     );
@@ -136,11 +161,17 @@ export const citasModel = {
     return await query(
       `SELECT c.*, 
       cl.Nombre AS NombreCliente, cl.Apellido AS ApellidoCliente,
-      m.Nombre AS NombreMascota, m.Especie, m.Raza
+      m.Nombre AS NombreMascota, e.NombreEspecie AS Especie, m.Raza,
+      COALESCE(SUM(s.Precio), 0) AS PrecioTotal
       FROM AgendamientoDeCitas c
       JOIN Clientes cl ON c.IdCliente = cl.IdCliente
       JOIN Mascotas m ON c.IdMascota = m.IdMascota
+      JOIN Especies e ON m.IdEspecie = e.IdEspecie
+      LEFT JOIN Cita_Servicio cs ON c.IdCita = cs.IdCita
+      LEFT JOIN Servicios s ON cs.IdServicio = s.IdServicio
       WHERE c.IdMascota = ?
+      GROUP BY c.IdCita, c.Fecha, c.Estado, c.IdCliente, c.IdMascota, c.NotasAdicionales,
+      cl.Nombre, cl.Apellido, m.Nombre, e.NombreEspecie, m.Raza
       ORDER BY c.Fecha DESC`,
       [idMascota]
     );
@@ -151,11 +182,17 @@ export const citasModel = {
     return await query(
       `SELECT c.*, 
       cl.Nombre AS NombreCliente, cl.Apellido AS ApellidoCliente,
-      m.Nombre AS NombreMascota, m.Especie, m.Raza
+      m.Nombre AS NombreMascota, e.NombreEspecie AS Especie, m.Raza,
+      COALESCE(SUM(s.Precio), 0) AS PrecioTotal
       FROM AgendamientoDeCitas c
       JOIN Clientes cl ON c.IdCliente = cl.IdCliente
       JOIN Mascotas m ON c.IdMascota = m.IdMascota
+      JOIN Especies e ON m.IdEspecie = e.IdEspecie
+      LEFT JOIN Cita_Servicio cs ON c.IdCita = cs.IdCita
+      LEFT JOIN Servicios s ON cs.IdServicio = s.IdServicio
       WHERE DATE(c.Fecha) = ?
+      GROUP BY c.IdCita, c.Fecha, c.Estado, c.IdCliente, c.IdMascota, c.NotasAdicionales,
+      cl.Nombre, cl.Apellido, m.Nombre, e.NombreEspecie, m.Raza
       ORDER BY c.Fecha ASC`,
       [fecha]
     );
@@ -166,11 +203,17 @@ export const citasModel = {
     return await query(
       `SELECT c.*, 
       cl.Nombre AS NombreCliente, cl.Apellido AS ApellidoCliente,
-      m.Nombre AS NombreMascota, m.Especie, m.Raza
+      m.Nombre AS NombreMascota, e.NombreEspecie AS Especie, m.Raza,
+      COALESCE(SUM(s.Precio), 0) AS PrecioTotal
       FROM AgendamientoDeCitas c
       JOIN Clientes cl ON c.IdCliente = cl.IdCliente
       JOIN Mascotas m ON c.IdMascota = m.IdMascota
+      JOIN Especies e ON m.IdEspecie = e.IdEspecie
+      LEFT JOIN Cita_Servicio cs ON c.IdCita = cs.IdCita
+      LEFT JOIN Servicios s ON cs.IdServicio = s.IdServicio
       WHERE DATE(c.Fecha) BETWEEN ? AND ?
+      GROUP BY c.IdCita, c.Fecha, c.Estado, c.IdCliente, c.IdMascota, c.NotasAdicionales,
+      cl.Nombre, cl.Apellido, m.Nombre, e.NombreEspecie, m.Raza
       ORDER BY c.Fecha ASC`,
       [fechaInicio, fechaFin]
     );
@@ -181,57 +224,63 @@ export const citasModel = {
     return await query(
       `SELECT c.*, 
       cl.Nombre AS NombreCliente, cl.Apellido AS ApellidoCliente,
-      m.Nombre AS NombreMascota, m.Especie, m.Raza
+      m.Nombre AS NombreMascota, e.NombreEspecie AS Especie, m.Raza,
+      COALESCE(SUM(s.Precio), 0) AS PrecioTotal
       FROM AgendamientoDeCitas c
       JOIN Clientes cl ON c.IdCliente = cl.IdCliente
       JOIN Mascotas m ON c.IdMascota = m.IdMascota
+      JOIN Especies e ON m.IdEspecie = e.IdEspecie
+      LEFT JOIN Cita_Servicio cs ON c.IdCita = cs.IdCita
+      LEFT JOIN Servicios s ON cs.IdServicio = s.IdServicio
       WHERE c.Estado = ?
+      GROUP BY c.IdCita, c.Fecha, c.Estado, c.IdCliente, c.IdMascota, c.NotasAdicionales,
+      cl.Nombre, cl.Apellido, m.Nombre, e.NombreEspecie, m.Raza
       ORDER BY c.Fecha ASC`,
       [estado]
     );
   },
 
   // MEJORADO: Verificar disponibilidad de horario considerando la duración real de los servicios
-checkDisponibilidad: async (fecha, hora, duracion) => {
-  // Crear un objeto de fecha completo combinando fecha y hora
-  const fechaHora = `${fecha} ${hora}:00`;
-  
-  // Calcular la fecha de fin sumando la duración en minutos
-  const fechaInicio = new Date(fechaHora);
-  const fechaFin = new Date(fechaInicio.getTime() + duracion * 60000);
-  
-  // Formatear las fechas para la consulta
-  const fechaInicioStr = fechaInicio.toISOString().slice(0, 19).replace('T', ' ');
-  const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
-  
-  // Obtener todas las citas para ese día con sus servicios
-  const citas = await query(
-    `SELECT c.IdCita, c.Fecha, c.Estado, 
-     COALESCE(SUM(s.Duracion), 60) as DuracionTotal
-     FROM AgendamientoDeCitas c
-     LEFT JOIN Cita_Servicio cs ON c.IdCita = cs.IdCita
-     LEFT JOIN Servicios s ON cs.IdServicio = s.IdServicio
-     WHERE DATE(c.Fecha) = DATE(?) AND c.Estado != 'Cancelada'
-     GROUP BY c.IdCita, c.Fecha, c.Estado`,
-    [fechaHora]
-  );
-  
-  // Verificar si hay conflictos
-  for (const cita of citas) {
-    const citaInicio = new Date(cita.Fecha);
-    // Usar la duración real de los servicios o 60 minutos por defecto
-    const citaFin = new Date(citaInicio.getTime() + (cita.DuracionTotal || 60) * 60000);
+  checkDisponibilidad: async (fecha, hora, duracion) => {
+    // Crear un objeto de fecha completo combinando fecha y hora
+    const fechaHora = `${fecha} ${hora}:00`;
     
-    // Verificar si hay solapamiento
-    if ((fechaInicio >= citaInicio && fechaInicio < citaFin) || 
-        (fechaFin > citaInicio && fechaFin <= citaFin) ||
-        (fechaInicio <= citaInicio && fechaFin >= citaFin)) {
-      return false; // Hay conflicto
+    // Calcular la fecha de fin sumando la duración en minutos
+    const fechaInicio = new Date(fechaHora);
+    const fechaFin = new Date(fechaInicio.getTime() + duracion * 60000);
+    
+    // Formatear las fechas para la consulta
+    const fechaInicioStr = fechaInicio.toISOString().slice(0, 19).replace('T', ' ');
+    const fechaFinStr = fechaFin.toISOString().slice(0, 19).replace('T', ' ');
+    
+    // Obtener todas las citas para ese día con sus servicios
+    const citas = await query(
+      `SELECT c.IdCita, c.Fecha, c.Estado, 
+       COALESCE(SUM(s.Duracion), 60) as DuracionTotal
+       FROM AgendamientoDeCitas c
+       LEFT JOIN Cita_Servicio cs ON c.IdCita = cs.IdCita
+       LEFT JOIN Servicios s ON cs.IdServicio = s.IdServicio
+       WHERE DATE(c.Fecha) = DATE(?) AND c.Estado != 'Cancelada'
+       GROUP BY c.IdCita, c.Fecha, c.Estado`,
+      [fechaHora]
+    );
+    
+    // Verificar si hay conflictos
+    for (const cita of citas) {
+      const citaInicio = new Date(cita.Fecha);
+      // Usar la duración real de los servicios o 60 minutos por defecto
+      const citaFin = new Date(citaInicio.getTime() + (cita.DuracionTotal || 60) * 60000);
+      
+      // Verificar si hay solapamiento
+      if ((fechaInicio >= citaInicio && fechaInicio < citaFin) || 
+          (fechaFin > citaInicio && fechaFin <= citaFin) ||
+          (fechaInicio <= citaInicio && fechaFin >= citaFin)) {
+        return false; // Hay conflicto
+      }
     }
+    
+    return true; // No hay conflicto y está dentro del horario de atención
   }
-  
-  return true; // No hay conflicto y está dentro del horario de atención
-}
 };
 
 // Modelo para la tabla Cita_Servicio
@@ -252,11 +301,12 @@ export const citaServicioModel = {
     return await query(
       `SELECT cs.*, c.Fecha, c.Estado,
       cl.Nombre AS NombreCliente, cl.Apellido AS ApellidoCliente,
-      m.Nombre AS NombreMascota
+      m.Nombre AS NombreMascota, s.Precio
       FROM Cita_Servicio cs
       JOIN AgendamientoDeCitas c ON cs.IdCita = c.IdCita
       JOIN Clientes cl ON c.IdCliente = cl.IdCliente
       JOIN Mascotas m ON c.IdMascota = m.IdMascota
+      JOIN Servicios s ON cs.IdServicio = s.IdServicio
       WHERE cs.IdServicio = ?
       ORDER BY c.Fecha DESC`,
       [idServicio]

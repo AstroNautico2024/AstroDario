@@ -88,12 +88,42 @@ const AgendarCitas = () => {
 
   /**
    * Función para formatear números con separadores de miles
-   * @param {number} number - Número a formatear
+   * @param {number|string} number - Número a formatear
    * @returns {string} Número formateado con separadores de miles
    */
   const formatNumber = (number) => {
-    if (!number) return "0"
-    return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".")
+    if (number === null || number === undefined) return "0";
+    
+    // Si es string, convertir a número
+    if (typeof number === 'string') {
+      // Eliminar el símbolo $ y cualquier otro carácter no numérico excepto puntos y comas
+      const numeroLimpio = number.replace(/[^\d.,]/g, '');
+      
+      // Determinar si el formato original usa punto como separador decimal o de miles
+      if (numeroLimpio.includes(',')) {
+        // Si tiene coma como separador decimal (ej: "35.000,00")
+        // Reemplazar puntos por nada (eliminar separadores de miles) y coma por punto
+        number = parseFloat(numeroLimpio.replace(/\./g, '').replace(',', '.'));
+      } else if ((numeroLimpio.match(/\./g) || []).length > 1) {
+        // Si tiene múltiples puntos, asumir que el último es el decimal
+        const partes = numeroLimpio.split('.');
+        const parteDecimal = partes.pop();
+        const parteEntera = partes.join('');
+        number = parseFloat(`${parteEntera}.${parteDecimal}`);
+      } else {
+        // Si solo tiene un punto o ninguno
+        number = parseFloat(numeroLimpio);
+      }
+    }
+    
+    // Asegurarse de que sea un número válido
+    if (isNaN(number)) return "0";
+    
+    // Formatear el número con separadores de miles
+    return number.toLocaleString('es-CO', {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    });
   }
 
   /**
@@ -177,6 +207,40 @@ const AgendarCitas = () => {
     }
   }
 
+  /**
+   * Función para procesar correctamente el precio
+   * @param {number|string} precio - Precio a procesar
+   * @returns {number} Precio como número
+   */
+  const procesarPrecio = (precio) => {
+    if (precio === null || precio === undefined) return 0;
+    
+    // Si es string, convertir a número
+    if (typeof precio === 'string') {
+      // Eliminar el símbolo $ y cualquier otro carácter no numérico excepto puntos y comas
+      const numeroLimpio = precio.replace(/[^\d.,]/g, '');
+      
+      // Determinar si el formato original usa punto como separador decimal o de miles
+      if (numeroLimpio.includes(',')) {
+        // Si tiene coma como separador decimal (ej: "35.000,00")
+        // Reemplazar puntos por nada (eliminar separadores de miles) y coma por punto
+        return parseFloat(numeroLimpio.replace(/\./g, '').replace(',', '.'));
+      } else if ((numeroLimpio.match(/\./g) || []).length > 1) {
+        // Si tiene múltiples puntos, asumir que el último es el decimal
+        const partes = numeroLimpio.split('.');
+        const parteDecimal = partes.pop();
+        const parteEntera = partes.join('');
+        return parseFloat(`${parteEntera}.${parteDecimal}`);
+      } else {
+        // Si solo tiene un punto o ninguno
+        return parseFloat(numeroLimpio);
+      }
+    }
+    
+    // Si ya es un número, devolverlo
+    return precio;
+  }
+
   // Definición de columnas para la tabla
   const columns = [
     { 
@@ -212,7 +276,10 @@ const AgendarCitas = () => {
       render: (row) => {
         let precioTotal = 0;
         if (row.servicios && row.servicios.length > 0) {
-          precioTotal = row.servicios.reduce((total, s) => total + (s.Precio || s.precio || 0), 0);
+          precioTotal = row.servicios.reduce((total, s) => {
+            const precio = procesarPrecio(s.Precio || s.precio || 0);
+            return total + (isNaN(precio) ? 0 : precio);
+          }, 0);
         }
         return `$${formatNumber(precioTotal)}`;
       }
@@ -325,10 +392,7 @@ const AgendarCitas = () => {
       toastShownRef.current = false
       
       try {
-        // Llamar a la API para cambiar el estado de la cita
-        await CitasService.cambiarEstadoCita(citaToCancel.IdCita || citaToCancel.id, "Cancelada")
-        
-        // Actualizar el estado local
+        // Actualizar el estado local primero para garantizar la respuesta inmediata en la UI
         const updatedCitas = citas.map((c) => {
           if ((c.IdCita || c.id) === (citaToCancel.IdCita || citaToCancel.id)) {
             return {
@@ -339,8 +403,19 @@ const AgendarCitas = () => {
           }
           return c
         })
-
+        
         setCitas(updatedCitas)
+        
+        // Intentar llamar a la API para cambiar el estado de la cita
+        try {
+          // Usar la ruta correcta según el controlador y las rutas definidas
+          await CitasService.cambiarEstadoCita(citaToCancel.IdCita || citaToCancel.id, "Cancelada")
+          console.log("Cita cancelada exitosamente en el servidor")
+        } catch (apiError) {
+          console.error("Error al llamar a la API:", apiError)
+          // Si falla la API, ya tenemos actualizado el estado local
+          console.log("Estado local ya actualizado, pero hubo un error en la API")
+        }
 
         // Guardar el toast para después
         pendingToastRef.current = {
@@ -451,7 +526,16 @@ const AgendarCitas = () => {
         
         // Cargar servicios para obtener información adicional
         const serviciosResponse = await CitasService.obtenerServicios()
-        setServicios(serviciosResponse)
+        
+        // Corregir los precios de los servicios
+        const serviciosCorregidos = serviciosResponse.map(servicio => {
+          return {
+            ...servicio,
+            Precio: procesarPrecio(servicio.Precio)
+          };
+        });
+        
+        setServicios(serviciosCorregidos)
         
         // Procesar las citas para mostrarlas en la tabla
         const citasProcesadas = await Promise.all(citasResponse.map(async (cita) => {
@@ -464,7 +548,7 @@ const AgendarCitas = () => {
             try {
               // Aquí deberíamos tener un endpoint para obtener los servicios de una cita específica
               // Como no lo tenemos implementado, usamos los servicios que ya tenemos
-              serviciosCita = serviciosResponse.filter(s => 
+              serviciosCita = serviciosCorregidos.filter(s => 
                 cita.serviciosIds?.includes(s.IdServicio) || 
                 cita.servicios?.some(cs => cs.IdServicio === s.IdServicio)
               )
@@ -484,7 +568,7 @@ const AgendarCitas = () => {
             servicios: serviciosCita.map(s => ({
               id: s.IdServicio,
               nombre: s.Nombre,
-              precio: s.Precio,
+              precio: procesarPrecio(s.Precio),
               duracion: s.Duracion
             }))
           }
@@ -522,18 +606,18 @@ const AgendarCitas = () => {
         loading={isLoading}
       />
 
-      {/* Reemplazar el modal de confirmación por ConfirmDialog */}
+      {/* Corregir el ConfirmDialog para evitar anidación de <p> */}
       <ConfirmDialog
         show={showCancelConfirm}
         title="Confirmar cancelación"
         message={
-          <div className="d-flex align-items-center">
+          <span className="d-flex align-items-center">
             <AlertTriangle size={24} className="text-danger me-3" />
-            <p className="mb-0">
+            <span>
               ¿Está seguro de cancelar la cita para {citaToCancel?.cliente?.nombre} el día {formatearFecha(citaToCancel?.fecha || citaToCancel?.Fecha)} a
               las {formatearHora(citaToCancel?.hora || citaToCancel?.Fecha)}?
-            </p>
-          </div>
+            </span>
+          </span>
         }
         type="danger"
         onConfirm={confirmCancel}
@@ -615,18 +699,23 @@ const AgendarCitas = () => {
                               </tr>
                             </thead>
                             <tbody>
-                              {currentCita.servicios.map((servicio, index) => (
-                                <tr key={index}>
-                                  <td>
-                                    <div className="d-flex align-items-center">
-                                      <Scissors size={16} className="me-2 text-primary" />
-                                      {servicio.nombre || servicio.NombreServicio || "Servicio sin nombre"}
-                                    </div>
-                                  </td>
-                                  <td>{formatDuracion(servicio.duracion || servicio.Duracion || 0)}</td>
-                                  <td>${formatNumber(servicio.precio || servicio.Precio || 0)}</td>
-                                </tr>
-                              ))}
+                              {currentCita.servicios.map((servicio, index) => {
+                                // Procesar el precio para asegurarse de que sea un número
+                                const precio = procesarPrecio(servicio.precio || servicio.Precio || 0);
+                                
+                                return (
+                                  <tr key={index}>
+                                    <td>
+                                      <div className="d-flex align-items-center">
+                                        <Scissors size={16} className="me-2 text-primary" />
+                                        {servicio.nombre || servicio.NombreServicio || "Servicio sin nombre"}
+                                      </div>
+                                    </td>
+                                    <td>{formatDuracion(servicio.duracion || servicio.Duracion || 0)}</td>
+                                    <td>${formatNumber(precio)}</td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
@@ -663,7 +752,10 @@ const AgendarCitas = () => {
                           <strong className="text-success">
                             ${formatNumber(
                               currentCita.servicios?.reduce(
-                                (total, servicio) => total + (servicio.precio || servicio.Precio || 0), 
+                                (total, servicio) => {
+                                  const precio = procesarPrecio(servicio.precio || servicio.Precio || 0);
+                                  return total + (isNaN(precio) ? 0 : precio);
+                                }, 
                                 0
                               ) || 0
                             )}

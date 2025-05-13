@@ -67,6 +67,7 @@ const RegistrarVenta = () => {
 
   // Estado para el método de pago y monto recibido
   const [metodoPago, setMetodoPago] = useState("efectivo")
+  // Cambiar la inicialización del estado montoRecibido de cadena vacía a 0
   const [montoRecibido, setMontoRecibido] = useState(0)
 
   // Referencias para las notificaciones
@@ -212,18 +213,30 @@ const RegistrarVenta = () => {
   // Cargar clientes desde la API usando ClientesService
   const cargarClientes = async () => {
     try {
-      const data = await ClientesService.getAll()
-      console.log("Respuesta de clientes:", data)
+      // Cargar clientes regulares
+      const clientesData = await ClientesService.getAll()
+      console.log("Respuesta de clientes:", clientesData)
 
       // Verificar que data sea un array
-      if (!Array.isArray(data)) {
-        console.error("La respuesta de clientes no es un array:", data)
+      if (!Array.isArray(clientesData)) {
+        console.error("La respuesta de clientes no es un array:", clientesData)
         setClientes([])
         return
       }
 
+      // Crear un mapa para rastrear clientes por documento e identificar duplicados
+      const clientesPorDocumento = new Map()
+
+      // Primero, agregar todos los clientes regulares al mapa
+      clientesData.forEach((cliente) => {
+        const documento = cliente.documento || cliente.Documento || ""
+        if (documento) {
+          clientesPorDocumento.set(documento, cliente)
+        }
+      })
+
       // Buscar el cliente "Consumidor Final" en los datos recibidos
-      const clienteConsumidorFinal = data.find(
+      const clienteConsumidorFinal = clientesData.find(
         (cliente) =>
           cliente.documento === "0000000000" ||
           cliente.Documento === "0000000000" ||
@@ -233,7 +246,15 @@ const RegistrarVenta = () => {
 
       console.log("Cliente Consumidor Final encontrado:", clienteConsumidorFinal)
 
-      if (!clienteConsumidorFinal) {
+      // Preparar la lista final de clientes
+      let listaFinalClientes = []
+
+      // Agregar Consumidor Final al principio si existe
+      if (clienteConsumidorFinal) {
+        listaFinalClientes.push(clienteConsumidorFinal)
+        // Remover Consumidor Final del mapa para evitar duplicados
+        clientesPorDocumento.delete(clienteConsumidorFinal.documento || clienteConsumidorFinal.Documento)
+      } else {
         // Si no existe, crear un cliente "Consumidor Final" por defecto
         const clienteDefault = {
           idCliente: 3,
@@ -253,20 +274,16 @@ const RegistrarVenta = () => {
           estado: true,
           Estado: true,
         }
-
-        // Asegurarse de que "Consumidor Final" aparezca primero en la lista
-        setClientes([clienteDefault, ...data])
+        listaFinalClientes.push(clienteDefault)
         console.log("Cliente Consumidor Final creado:", clienteDefault)
-      } else {
-        // Si ya existe, asegurarse de que aparezca primero en la lista
-        // Filtrar para evitar duplicados y asegurar que Consumidor Final esté primero
-        const clientesFiltrados = data.filter((c) => !esConsumidorFinal(c) || c === clienteConsumidorFinal)
-        setClientes([clienteConsumidorFinal, ...clientesFiltrados.filter((c) => c !== clienteConsumidorFinal)])
-        console.log("Cliente Consumidor Final establecido en la lista:", clienteConsumidorFinal)
       }
 
-      // IMPORTANTE: NO establecer ningún cliente por defecto
-      console.log("NO se ha establecido ningún cliente por defecto")
+      // Agregar el resto de clientes regulares
+      listaFinalClientes = [...listaFinalClientes, ...Array.from(clientesPorDocumento.values())]
+
+      // Establecer la lista final de clientes
+      setClientes(listaFinalClientes)
+      console.log("Lista final de clientes:", listaFinalClientes)
     } catch (error) {
       console.error("Error al cargar los clientes:", error)
       // Asegurar que al menos exista el cliente "Consumidor Final"
@@ -480,9 +497,14 @@ const RegistrarVenta = () => {
     }
   }
 
-  // Manejador para cambiar el monto recibido
+  // Modificar la función handleMontoRecibidoChange para seleccionar todo el contenido al hacer focus
   const handleMontoRecibidoChange = (e) => {
     setMontoRecibido(Number.parseFloat(e.target.value) || 0)
+  }
+
+  // Añadir una función para seleccionar todo el contenido del campo al hacer focus
+  const handleMontoRecibidoFocus = (e) => {
+    e.target.select()
   }
 
   // Calcular totales
@@ -502,10 +524,11 @@ const RegistrarVenta = () => {
     }
   }
 
-  // Calcular cambio
+  // Modificar la función calcularCambio para manejar correctamente cuando montoRecibido es una cadena vacía
   const calcularCambio = () => {
     const total = calcularTotales().total
-    return montoRecibido > total ? montoRecibido - total : 0
+    const montoNumerico = montoRecibido === "" ? 0 : Number(montoRecibido)
+    return montoNumerico > total ? montoNumerico - total : 0
   }
 
   // Manejador para agregar un producto o servicio a la lista
@@ -749,7 +772,11 @@ const RegistrarVenta = () => {
       return
     }
 
-    if (metodoPago === "efectivo" && montoRecibido < calcularTotales().total) {
+    // Modificar la validación en handleSaveVenta para manejar correctamente cuando montoRecibido es una cadena vacía
+    // En la validación dentro de handleSaveVenta, reemplazar:
+    // if (metodoPago === "efectivo" && montoRecibido < calcularTotales().total) {
+    // con:
+    if (metodoPago === "efectivo" && (montoRecibido === "" || Number(montoRecibido) < calcularTotales().total)) {
       toast.error(
         <div>
           <strong>Error</strong>
@@ -1389,6 +1416,7 @@ const RegistrarVenta = () => {
                                 id="montoRecibido"
                                 value={montoRecibido}
                                 onChange={handleMontoRecibidoChange}
+                                onFocus={handleMontoRecibidoFocus}
                                 min={calcularTotales().total}
                               />
                             </div>
