@@ -5,7 +5,6 @@ const BasicInfoSection = ({ formData, formErrors, categorias, handleInputChange 
     <div className="mb-4">
       <h5 className="card-title mb-3">Información Básica</h5>
       <div className="row g-3">
-        {/* Nombre del producto */}
         <div className="col-md-6">
           <label htmlFor="NombreProducto" className="form-label">
             Nombre del Producto <span className="text-danger">*</span>
@@ -24,7 +23,6 @@ const BasicInfoSection = ({ formData, formErrors, categorias, handleInputChange 
           <div className="form-text">Máximo 100 caracteres.</div>
         </div>
 
-        {/* Categoría */}
         <div className="col-md-6">
           <label htmlFor="IdCategoriaDeProducto" className="form-label">
             Categoría <span className="text-danger">*</span>
@@ -39,7 +37,7 @@ const BasicInfoSection = ({ formData, formErrors, categorias, handleInputChange 
           >
             <option value="">Seleccione una categoría</option>
             {categorias.map((cat) => (
-              <option key={cat.IdCategoriaDeProductos} value={cat.IdCategoriaDeProductos}>
+              <option key={cat.IdCategoriaDeProductos} value={cat.IdCategoriaDeProductos.toString()}>
                 {cat.NombreCategoria}
               </option>
             ))}
@@ -49,7 +47,6 @@ const BasicInfoSection = ({ formData, formErrors, categorias, handleInputChange 
           )}
         </div>
 
-        {/* Descripción */}
         <div className="col-12">
           <label htmlFor="Descripcion" className="form-label">
             Descripción
@@ -58,9 +55,9 @@ const BasicInfoSection = ({ formData, formErrors, categorias, handleInputChange 
             className={`form-control ${formErrors.Descripcion ? "is-invalid" : ""}`}
             id="Descripcion"
             name="Descripcion"
-            rows="3"
             value={formData.Descripcion}
             onChange={handleInputChange}
+            rows={4}
             maxLength={500}
           ></textarea>
           {formErrors.Descripcion && <div className="invalid-feedback">{formErrors.Descripcion}</div>}

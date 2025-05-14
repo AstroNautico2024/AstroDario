@@ -1,17 +1,18 @@
 "use client"
-import { X, Upload } from "lucide-react"
+
+import { Upload, X } from "lucide-react"
 
 const ImagesSection = ({ imagenesPreview, onImageUpload, onRemoveImage }) => {
   return (
     <div className="mb-4">
-      <h5 className="card-title mb-3">Fotos del Producto (Máximo 4)</h5>
-      <div className="row g-2">
+      <h5 className="card-title mb-3">Imágenes del Producto</h5>
+      <div className="row g-3">
         {Array(4)
           .fill(null)
           .map((_, index) => (
-            <div key={index} className="col-6 col-sm-3">
+            <div key={index} className="col-md-3 col-6">
               <div
-                className="image-upload-container border rounded d-flex flex-column justify-content-center align-items-center position-relative"
+                className="border rounded position-relative d-flex flex-column justify-content-center align-items-center"
                 style={{ height: "150px", overflow: "hidden" }}
               >
                 {imagenesPreview[index] ? (
@@ -26,21 +27,20 @@ const ImagesSection = ({ imagenesPreview, onImageUpload, onRemoveImage }) => {
                       type="button"
                       className="btn btn-sm btn-danger position-absolute top-0 end-0 m-1"
                       onClick={() => onRemoveImage(index)}
-                      title="Eliminar imagen"
                     >
-                      <X size={14} />
+                      <X size={16} />
                     </button>
                   </>
                 ) : (
                   <>
-                    <Upload size={24} className="text-muted mb-2" />
-                    <small className="text-muted text-center">Imagen {index + 1}</small>
+                    <Upload className="text-muted mb-2" size={24} />
+                    <span className="text-muted small">Imagen {index + 1}</span>
                     <input
                       type="file"
-                      className="position-absolute top-0 start-0 w-100 h-100 opacity-0"
+                      className="position-absolute inset-0 opacity-0 cursor-pointer"
+                      style={{ cursor: "pointer", width: "100%", height: "100%" }}
                       accept="image/*"
                       onChange={(e) => onImageUpload(e, index)}
-                      style={{ cursor: "pointer" }}
                     />
                   </>
                 )}

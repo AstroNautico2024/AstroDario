@@ -9,6 +9,8 @@ import "../../../Styles/AdminStyles/ToastStyles.css"
 import EspecieForm from "../../../Components/AdminComponents/EspeciesConmponents/EspecieForm.jsx"
 import ConfirmDialog from "../../../Components/AdminComponents/ConfirmDialog"
 import especiesService from "../../../Services/ConsumoAdmin/EspeciesService.js"
+import axiosInstance from "../../../Services/ConsumoAdmin/axios.js"
+import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay"
 
 /**
  * Componente para la gestión de especies
@@ -41,6 +43,10 @@ const Especies = () => {
   // Referencias para las notificaciones
   const pendingToastRef = useRef(null)
   const toastShownRef = useRef(false)
+
+  // Estado para el LoadingOverlay
+  const [isProcessing, setIsProcessing] = useState(false)
+  const [processingMessage, setProcessingMessage] = useState("")
 
   // Función para mostrar toast
   const showPendingToast = () => {
@@ -209,6 +215,9 @@ const Especies = () => {
    */
   const handleView = (especie) => {
     try {
+      setIsProcessing(true)
+      setProcessingMessage("Cargando detalles de la especie...")
+
       setCurrentEspecie(especie)
       setModalTitle("Ver Detalles de la Especie")
 
@@ -227,6 +236,8 @@ const Especies = () => {
         type: "error",
         message: "Error al cargar los detalles de la especie",
       }
+    } finally {
+      setIsProcessing(false)
       showPendingToast()
     }
   }
@@ -245,6 +256,8 @@ const Especies = () => {
   const confirmEdit = async () => {
     try {
       setShowEditConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage("Preparando edición de la especie...")
 
       const especie = especieToEdit
       setCurrentEspecie(especie)
@@ -265,6 +278,8 @@ const Especies = () => {
         type: "error",
         message: "Error al cargar los datos para editar la especie",
       }
+    } finally {
+      setIsProcessing(false)
       showPendingToast()
     }
   }
@@ -285,6 +300,8 @@ const Especies = () => {
 
     try {
       setShowStatusConfirm(false)
+      setIsProcessing(true)
+      setProcessingMessage("Cambiando estado de la especie...")
 
       // Limpiar cualquier notificación pendiente anterior
       pendingToastRef.current = null
@@ -294,6 +311,9 @@ const Especies = () => {
       if (!especieToToggle.IdEspecie) {
         throw new Error("Error: Especie sin ID válido")
       }
+
+      // Guardar el ID de la especie para referencia
+      const especieId = especieToToggle.IdEspecie
 
       // Asegurar que el estado actual sea un string
       let estadoActual = especieToToggle.Estado
@@ -313,7 +333,7 @@ const Especies = () => {
       // Actualizar primero en el estado local para mejorar la experiencia de usuario
       setEspecies((prevEspecies) =>
         prevEspecies.map((e) => {
-          if (e.IdEspecie === especieToToggle.IdEspecie) {
+          if (e.IdEspecie === especieId) {
             return {
               ...e,
               Estado: nuevoEstado,
@@ -323,13 +343,16 @@ const Especies = () => {
         }),
       )
 
-      // Actualizar en el servidor usando el servicio
-      await especiesService.updateStatus(especieToToggle.IdEspecie, nuevoEstado)
-
       // Guardar el estado en localStorage para persistencia
       const especiesEstados = JSON.parse(localStorage.getItem("especiesEstados") || "{}")
-      especiesEstados[especieToToggle.IdEspecie] = nuevoEstado
+      especiesEstados[especieId] = nuevoEstado
       localStorage.setItem("especiesEstados", JSON.stringify(especiesEstados))
+
+      // Convertir a formato numérico para la API
+      const estadoNumerico = nuevoEstado === "Activo" ? 1 : 0
+
+      // Llamar directamente al endpoint con solo el campo Estado
+      await axiosInstance.put(`/customers/especies/${especieId}`, { Estado: estadoNumerico })
 
       // Guardar el toast para después
       const newStatus = estadoActual === "Activo" ? "inactiva" : "activa"
@@ -337,7 +360,6 @@ const Especies = () => {
         type: "success",
         message: `La especie "${especieToToggle.NombreEspecie}" ahora está ${newStatus}.`,
       }
-      showPendingToast()
     } catch (error) {
       console.error("Error al cambiar estado:", error)
 
@@ -346,11 +368,37 @@ const Especies = () => {
         type: "error",
         message: "Error al cambiar el estado de la especie",
       }
-      showPendingToast()
-    }
 
-    // Cerrar el modal de confirmación
-    setEspecieToToggle(null)
+      // Revertir el cambio en el estado local si hubo error
+      if (especieToToggle && especieToToggle.IdEspecie) {
+        setEspecies((prevEspecies) =>
+          prevEspecies.map((e) => {
+            if (e.IdEspecie === especieToToggle.IdEspecie) {
+              // Revertir al estado original
+              return {
+                ...e,
+                Estado: especieToToggle.Estado,
+              }
+            }
+            return e
+          }),
+        )
+
+        // También revertir en localStorage
+        try {
+          const especiesEstados = JSON.parse(localStorage.getItem("especiesEstados") || "{}")
+          especiesEstados[especieToToggle.IdEspecie] = especieToToggle.Estado
+          localStorage.setItem("especiesEstados", JSON.stringify(especiesEstados))
+        } catch (e) {
+          console.error("Error al revertir estado en localStorage:", e)
+        }
+      }
+    } finally {
+      setIsProcessing(false)
+      showPendingToast()
+      // Cerrar el modal de confirmación
+      setEspecieToToggle(null)
+    }
   }
 
   /**
@@ -366,6 +414,9 @@ const Especies = () => {
    */
   const handleConfirmDelete = async (especie) => {
     try {
+      setIsProcessing(true)
+      setProcessingMessage("Verificando dependencias...")
+
       // Verificar si la especie tiene mascotas asociadas
       const tieneMascotas = await especiesService.checkDependencies(especie.IdEspecie)
 
@@ -374,6 +425,7 @@ const Especies = () => {
           type: "error",
           message: "No se puede eliminar la especie porque tiene mascotas asociadas.",
         }
+        setIsProcessing(false)
         showPendingToast()
         return
       }
@@ -381,13 +433,16 @@ const Especies = () => {
       // Si no tiene dependencias, mostrar el modal de confirmación
       setEspecieToDelete(especie)
       setShowDeleteConfirm(true)
+      setIsProcessing(false)
     } catch (error) {
       console.error("Error al verificar dependencias de la especie:", error)
 
-      // Si hay un error al verificar, mostrar el modal de todas formas
-      // El servidor validará nuevamente al intentar eliminar
-      setEspecieToDelete(especie)
-      setShowDeleteConfirm(true)
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al verificar dependencias de la especie.",
+      }
+      setIsProcessing(false)
+      showPendingToast()
     }
   }
 
@@ -398,6 +453,8 @@ const Especies = () => {
     if (especieToDelete) {
       try {
         setShowDeleteConfirm(false)
+        setIsProcessing(true)
+        setProcessingMessage("Eliminando especie...")
 
         // Limpiar notificaciones existentes
         pendingToastRef.current = null
@@ -409,18 +466,55 @@ const Especies = () => {
         }
 
         // Eliminar en el servidor
-        await especiesService.delete(especieToDelete.IdEspecie)
+        try {
+          // Verificar nuevamente si la especie tiene mascotas asociadas
+          const tieneMascotas = await especiesService.checkDependencies(especieToDelete.IdEspecie)
+          if (tieneMascotas) {
+            throw new Error("No se puede eliminar la especie porque tiene mascotas asociadas.")
+          }
 
-        // Actualizar estado local
-        const updatedEspecies = especies.filter((e) => e.IdEspecie !== especieToDelete.IdEspecie)
-        setEspecies(updatedEspecies)
+          // Intentar eliminar directamente con axiosInstance
+          await axiosInstance.delete(`/customers/especies/${especieToDelete.IdEspecie}`)
 
-        // Guardar el toast para después
-        pendingToastRef.current = {
-          type: "info",
-          message: `La especie "${especieToDelete.NombreEspecie}" ha sido eliminada correctamente.`,
+          // Si llegamos aquí, la eliminación fue exitosa
+          // Actualizar estado local
+          const updatedEspecies = especies.filter((e) => e.IdEspecie !== especieToDelete.IdEspecie)
+          setEspecies(updatedEspecies)
+
+          // Eliminar de localStorage
+          try {
+            const especiesGuardadas = JSON.parse(localStorage.getItem("especiesData") || "{}")
+            delete especiesGuardadas[especieToDelete.IdEspecie]
+            localStorage.setItem("especiesData", JSON.stringify(especiesGuardadas))
+
+            const especiesEstados = JSON.parse(localStorage.getItem("especiesEstados") || "{}")
+            delete especiesEstados[especieToDelete.IdEspecie]
+            localStorage.setItem("especiesEstados", JSON.stringify(especiesEstados))
+          } catch (e) {
+            console.error("Error al eliminar de localStorage:", e)
+          }
+
+          // Guardar el toast para después
+          pendingToastRef.current = {
+            type: "info",
+            message: `La especie "${especieToDelete.NombreEspecie}" ha sido eliminada correctamente.`,
+          }
+        } catch (error) {
+          console.error("Error al eliminar especie:", error)
+
+          // Verificar si el error es por dependencias con mascotas
+          if (error.message && error.message.toLowerCase().includes("mascotas")) {
+            pendingToastRef.current = {
+              type: "error",
+              message: "No se puede eliminar la especie porque tiene mascotas asociadas.",
+            }
+          } else {
+            pendingToastRef.current = {
+              type: "error",
+              message: "Error al eliminar la especie. Por favor, intente nuevamente.",
+            }
+          }
         }
-        showPendingToast()
       } catch (error) {
         console.error("Error al eliminar especie:", error)
 
@@ -436,9 +530,11 @@ const Especies = () => {
             message: "Error al eliminar la especie. Por favor, intente nuevamente.",
           }
         }
+      } finally {
+        setIsProcessing(false)
         showPendingToast()
+        setEspecieToDelete(null)
       }
-      setEspecieToDelete(null)
     }
   }
 
@@ -500,6 +596,9 @@ const Especies = () => {
     }
 
     try {
+      setIsProcessing(true)
+      setProcessingMessage(currentEspecie ? "Actualizando especie..." : "Creando especie...")
+
       // Limpiar cualquier notificación pendiente anterior
       pendingToastRef.current = null
       toastShownRef.current = false
@@ -558,7 +657,6 @@ const Especies = () => {
 
       // Cerrar el modal
       setShowModal(false)
-      showPendingToast()
     } catch (error) {
       console.error("Error al guardar especie:", error)
 
@@ -566,6 +664,8 @@ const Especies = () => {
         type: "error",
         message: "Error al guardar la especie. Por favor, intente nuevamente.",
       }
+    } finally {
+      setIsProcessing(false)
       showPendingToast()
     }
   }
@@ -670,6 +770,14 @@ const Especies = () => {
         type="danger"
         onConfirm={confirmDelete}
         onCancel={cancelDelete}
+      />
+
+      {/* LoadingOverlay para mostrar estado de procesamiento */}
+      <LoadingOverlay
+        isLoading={isProcessing}
+        message={processingMessage}
+        variant="primary"
+        onHide={showPendingToast}
       />
 
       <ToastContainer

@@ -430,7 +430,26 @@ const MascotasService = {
    */
   updateStatus: async (id, estado) => {
     try {
-      // Guardar el estado en localStorage para persistencia local inmediatamente
+      // Validar parámetros
+      if (!id) {
+        throw new Error("ID de mascota no válido")
+      }
+
+      if (typeof estado !== "string" || !["Activo", "Inactivo"].includes(estado)) {
+        throw new Error("Estado no válido. Debe ser 'Activo' o 'Inactivo'")
+      }
+
+      console.log(`Actualizando estado de mascota ${id} a ${estado}`)
+
+      // Convertir estado a formato numérico para la API
+      const estadoNumerico = estado === "Activo" ? 1 : 0
+
+      // Crear objeto con solo el campo Estado
+      const mascotaData = {
+        Estado: estadoNumerico,
+      }
+
+      // Guardar el estado en localStorage para persistencia local
       try {
         const mascotasEstados = JSON.parse(localStorage.getItem("mascotasEstados") || "{}")
         mascotasEstados[id] = estado
@@ -440,53 +459,39 @@ const MascotasService = {
         console.error("Error al guardar estado en localStorage:", e)
       }
 
-      // Convertir estado a formato numérico para la API
-      const estadoNumerico = estado === "Activo" ? 1 : 0
-      console.log(`Actualizando estado de mascota ${id} a ${estado} (${estadoNumerico})`)
+      // Realizar la petición al servidor
+      const response = await axiosInstance.put(`/customers/mascotas/${id}`, mascotaData, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
 
-      // Enviar solo el estado para actualizar
-      const mascotaActualizada = {
-        Estado: estadoNumerico,
-      }
+      console.log("Respuesta del servidor:", response.data)
 
-      // Intentar actualizar en el servidor
-      try {
-        const response = await axiosInstance.put(`/customers/mascotas/${id}`, mascotaActualizada, {
-          timeout: 5000, // Reducir el timeout para evitar esperas largas
-        })
-
-        console.log("Actualización de estado exitosa:", response.data)
-
-        // Devolver respuesta con estado actualizado
-        const mascotaRespuesta = response.data || { IdMascota: id }
-        if (typeof mascotaRespuesta.Estado === "number") {
-          mascotaRespuesta.Estado = mascotaRespuesta.Estado === 1 ? "Activo" : "Inactivo"
-        } else {
-          mascotaRespuesta.Estado = estado
-        }
-
-        return mascotaRespuesta
-      } catch (error) {
-        console.error("Error en actualización:", error)
-
-        // Si falla, devolver un objeto simulado
-        return {
-          id: id,
-          IdMascota: id,
-          Estado: estado,
-          mensaje: "Actualización de estado simulada debido a error en el servidor",
-        }
-      }
-    } catch (error) {
-      console.error(`Error general al actualizar estado de mascota ${id}:`, error)
-
-      // Devolver un objeto simulado para que la UI no se rompa
+      // Devolver un objeto con el formato esperado por el componente
       return {
-        id: id,
         IdMascota: id,
         Estado: estado,
-        mensaje: "Actualización de estado simulada debido a error en el servidor",
+        ...response.data,
       }
+    } catch (error) {
+      console.error(`Error al actualizar estado de mascota ${id}:`, error)
+
+      // Registrar detalles adicionales del error para depuración
+      if (error.response) {
+        console.error("Detalles de la respuesta:", {
+          status: error.response.status,
+          data: error.response.data,
+          headers: error.response.headers,
+        })
+      } else if (error.request) {
+        console.error("No se recibió respuesta del servidor:", error.request)
+      } else {
+        console.error("Error de configuración:", error.message)
+      }
+
+      // Propagar el error para que pueda ser manejado por el componente
+      throw error
     }
   },
 

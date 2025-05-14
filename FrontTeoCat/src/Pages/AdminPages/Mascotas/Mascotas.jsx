@@ -13,6 +13,7 @@ import LoadingOverlay from "../../../Components/AdminComponents/LoadingOverlay" 
 import { uploadImageToCloudinary } from "../../../Services/uploadImageToCloudinary"
 import mascotasService from "../../../Services/ConsumoAdmin/MascotasService.js"
 import clientesService from "../../../Services/ConsumoAdmin/ClientesService.js"
+import axiosInstance from "../../../Services/ConsumoAdmin/axios.js"
 
 // Importar los estilos SCSS
 import "../../../Components/AdminComponents/MascotasComponents/MascotaForm.scss"
@@ -61,7 +62,7 @@ const Mascotas = () => {
   const pendingToastRef = useRef(null)
   const toastShownRef = useRef(false)
   const toastIds = useRef({})
-  
+
   // NUEVOS ESTADOS PARA EL LOADINGOVERLAY
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingMessage, setProcessingMessage] = useState("")
@@ -260,7 +261,7 @@ const Mascotas = () => {
     try {
       setIsProcessing(true) // Mostrar LoadingOverlay
       setProcessingMessage("Cargando detalles de la mascota...") // Mensaje para el LoadingOverlay
-      
+
       setCurrentMascota(mascota)
       setModalTitle("Ver Detalles de la Mascota")
 
@@ -393,10 +394,13 @@ const Mascotas = () => {
 
       const nuevoEstado = estadoActual === "Activo" ? "Inactivo" : "Activo"
 
+      // Guardar el ID de la mascota para referencia
+      const mascotaId = mascotaToToggle.IdMascota
+
       // Actualizar primero en el estado local para mejorar la experiencia de usuario
       setMascotas((prevMascotas) =>
         prevMascotas.map((m) => {
-          if (m.IdMascota === mascotaToToggle.IdMascota) {
+          if (m.IdMascota === mascotaId) {
             return {
               ...m,
               Estado: nuevoEstado,
@@ -406,13 +410,16 @@ const Mascotas = () => {
         }),
       )
 
-      // Actualizar en el servidor usando el servicio
-      await mascotasService.updateStatus(mascotaToToggle.IdMascota, nuevoEstado)
-
       // Guardar el estado en localStorage para persistencia
       const mascotasEstados = JSON.parse(localStorage.getItem("mascotasEstados") || "{}")
-      mascotasEstados[mascotaToToggle.IdMascota] = nuevoEstado
+      mascotasEstados[mascotaId] = nuevoEstado
       localStorage.setItem("mascotasEstados", JSON.stringify(mascotasEstados))
+
+      // Convertir a formato numérico para la API
+      const estadoNumerico = nuevoEstado === "Activo" ? 1 : 0
+
+      // Llamar directamente al endpoint con solo el campo Estado
+      await axiosInstance.put(`/customers/mascotas/${mascotaId}`, { Estado: estadoNumerico })
 
       // Guardar el toast para después
       const newStatus = estadoActual === "Activo" ? "inactiva" : "activa"
@@ -428,13 +435,37 @@ const Mascotas = () => {
         type: "error",
         message: "Error al cambiar el estado de la mascota",
       }
+
+      // Revertir el cambio en el estado local si hubo error
+      if (mascotaToToggle && mascotaToToggle.IdMascota) {
+        setMascotas((prevMascotas) =>
+          prevMascotas.map((m) => {
+            if (m.IdMascota === mascotaToToggle.IdMascota) {
+              // Revertir al estado original
+              return {
+                ...m,
+                Estado: mascotaToToggle.Estado,
+              }
+            }
+            return m
+          }),
+        )
+
+        // También revertir en localStorage
+        try {
+          const mascotasEstados = JSON.parse(localStorage.getItem("mascotasEstados") || "{}")
+          mascotasEstados[mascotaToToggle.IdMascota] = mascotaToToggle.Estado
+          localStorage.setItem("mascotasEstados", JSON.stringify(mascotasEstados))
+        } catch (e) {
+          console.error("Error al revertir estado en localStorage:", e)
+        }
+      }
     } finally {
       setIsProcessing(false) // Ocultar LoadingOverlay
       showPendingToast() // Mostrar cualquier notificación pendiente
+      // Cerrar el modal de confirmación
+      setMascotaToToggle(null)
     }
-
-    // Cerrar el modal de confirmación
-    setMascotaToToggle(null)
   }
 
   /**
@@ -701,7 +732,7 @@ const Mascotas = () => {
     try {
       setIsProcessing(true) // Mostrar LoadingOverlay
       setProcessingMessage(currentMascota ? "Actualizando mascota..." : "Creando mascota...") // Mensaje para el LoadingOverlay
-      
+
       // Limpiar cualquier notificación pendiente anterior
       pendingToastRef.current = null
       toastShownRef.current = false
@@ -709,7 +740,7 @@ const Mascotas = () => {
       // Preparar datos para enviar al servidor
       const mascotaData = {
         // CORRECCIÓN: Convertir IdCliente a número
-        IdCliente: parseInt(formData.cliente),
+        IdCliente: Number.parseInt(formData.cliente),
         Nombre: formData.nombre,
         Especie: formData.especie,
         Raza: formData.raza,

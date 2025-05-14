@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { Save, ArrowLeft, X } from "lucide-react"
+import { Save, ArrowLeft, X, Info, Plus } from "lucide-react"
 import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/ToastStyles.css"
@@ -12,6 +12,8 @@ import SpecificationsSection from "../../../Components/AdminComponents/Productos
 import ImagesSection from "../../../Components/AdminComponents/ProductosComponents/ImagesSection"
 import PricingSection from "../../../Components/AdminComponents/ProductosComponents/PricingSection"
 import AdditionalInfoSection from "../../../Components/AdminComponents/ProductosComponents/AdditionalInfoSection"
+import VariantsSection from "../../../Components/AdminComponents/ProductosComponents/VariantsSection"
+import VariantForm from "../../../Components/AdminComponents/ProductosComponents/VariantForm"
 import { uploadImageToCloudinary } from "../../../Services/uploadImageToCloudinary"
 import ProductosService from "../../../Services/ConsumoAdmin/ProductosService.js"
 import CategoriasService from "../../../Services/ConsumoAdmin/CategoriasService.js"
@@ -25,6 +27,9 @@ const RegistrarProducto = () => {
   const params = new URLSearchParams(location.search)
   const productId = params.get("id")
   const isEditing = !!productId
+
+  // Estado para controlar la pestaña activa
+  const [activeTab, setActiveTab] = useState("info-basica")
 
   // Estado para el formulario
   const [formData, setFormData] = useState({
@@ -42,6 +47,7 @@ const RegistrarProducto = () => {
     NoVence: false,
     Caracteristicas: [],
     Especificaciones: [],
+    Variantes: [],
   })
 
   // Estado para errores de validación
@@ -75,8 +81,11 @@ const RegistrarProducto = () => {
   // Estado para productos existentes (para validación de duplicados)
   const [productosExistentes, setProductosExistentes] = useState([])
 
-  // Referencias para las notificaciones
-  const toastIds = useRef({})
+  // Estado para controlar si el producto es existente (para deshabilitar el stock)
+  const [isExistingProduct, setIsExistingProduct] = useState(false)
+
+  // Estado para controlar si estamos creando una variante
+  const [creatingVariant, setCreatingVariant] = useState(false)
 
   // Hook para navegación
   const navigate = useNavigate()
@@ -147,6 +156,7 @@ const RegistrarProducto = () => {
                       return { nombre, valor }
                     })
                 : [],
+              Variantes: productoData.Variantes || [],
             })
 
             // Cargar imágenes si el producto tiene fotos
@@ -251,6 +261,22 @@ const RegistrarProducto = () => {
       ...formErrors,
       [name]: "",
     })
+  }
+
+  /**
+   * Manejador para el cambio del checkbox de producto existente
+   */
+  const handleExistingProductChange = (e) => {
+    const checked = e.target.checked
+    setIsExistingProduct(checked)
+
+    // Si es un producto existente, establecer el stock a 0
+    if (checked) {
+      setFormData({
+        ...formData,
+        Stock: "0",
+      })
+    }
   }
 
   /**
@@ -483,6 +509,48 @@ const RegistrarProducto = () => {
   }
 
   /**
+   * Manejador para guardar una variante
+   */
+  const handleSaveVariant = (variantData) => {
+    // Agregar la variante al producto base
+    const updatedVariantes = [
+      ...formData.Variantes,
+      {
+        id: Date.now(), // Generamos un ID único temporal
+        ...variantData,
+      },
+    ]
+
+    setFormData({
+      ...formData,
+      Variantes: updatedVariantes,
+    })
+
+    // Salir del modo de creación de variante
+    setCreatingVariant(false)
+
+    // Mostrar mensaje de éxito
+    toast.success("Variante creada correctamente")
+
+    // Cambiar a la pestaña de variantes
+    setActiveTab("variantes")
+  }
+
+  /**
+   * Manejador para eliminar una variante
+   */
+  const handleDeleteVariant = (variantId) => {
+    const updatedVariantes = formData.Variantes.filter((v) => v.id !== variantId)
+
+    setFormData({
+      ...formData,
+      Variantes: updatedVariantes,
+    })
+
+    toast.success("Variante eliminada correctamente")
+  }
+
+  /**
    * Validar el formulario completo
    * @returns {boolean} - True si el formulario es válido, false en caso contrario
    */
@@ -531,21 +599,23 @@ const RegistrarProducto = () => {
       isValid = false
     }
 
-    // Validar stock (requerido y numérico)
-    if (formData.Stock === "") {
-      errors.Stock = "El stock es obligatorio"
-      isValid = false
-    } else {
-      const stockNum = Number(formData.Stock)
-      if (isNaN(stockNum) || stockNum < 0) {
-        errors.Stock = "El stock debe ser un número positivo"
+    // Validar stock solo si no es un producto existente
+    if (!isExistingProduct) {
+      if (formData.Stock === "") {
+        errors.Stock = "El stock es obligatorio"
         isValid = false
-      } else if (!Number.isInteger(stockNum)) {
-        errors.Stock = "El stock debe ser un número entero"
-        isValid = false
-      } else if (stockNum > 9999) {
-        errors.Stock = "El stock no puede ser mayor a 9999"
-        isValid = false
+      } else {
+        const stockNum = Number(formData.Stock)
+        if (isNaN(stockNum) || stockNum < 0) {
+          errors.Stock = "El stock debe ser un número positivo"
+          isValid = false
+        } else if (!Number.isInteger(stockNum)) {
+          errors.Stock = "El stock debe ser un número entero"
+          isValid = false
+        } else if (stockNum > 9999) {
+          errors.Stock = "El stock no puede ser mayor a 9999"
+          isValid = false
+        }
       }
     }
 
@@ -680,6 +750,7 @@ const RegistrarProducto = () => {
         Caracteristicas: formData.Caracteristicas?.join(", ") || "", // Convertir array a string separado por comas
         Especificaciones: formData.Especificaciones?.map((item) => `${item.nombre}: ${item.valor}`)?.join(", ") || "", // Convertir a string
         Estado: true, // Asegurarse de que el producto se cree como activo
+        Variantes: formData.Variantes || [], // Incluir las variantes
       }
 
       console.log("Datos del producto a guardar:", productoData)
@@ -755,6 +826,11 @@ const RegistrarProducto = () => {
     navigate("/inventario/productos")
   }
 
+  // Si estamos creando una variante, mostrar el formulario de variante
+  if (creatingVariant) {
+    return <VariantForm baseProduct={formData} onSave={handleSaveVariant} onCancel={() => setCreatingVariant(false)} />
+  }
+
   return (
     <div className="container-fluid py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -763,6 +839,31 @@ const RegistrarProducto = () => {
           <ArrowLeft size={18} className="me-1" />
           Volver a Productos
         </button>
+      </div>
+
+      {/* Checkbox para producto existente */}
+      <div className="card mb-4">
+        <div className="card-body py-3">
+          <div className="form-check">
+            <input
+              type="checkbox"
+              className="form-check-input"
+              id="isExistingProduct"
+              checked={isExistingProduct}
+              onChange={handleExistingProductChange}
+            />
+            <label className="form-check-label d-flex align-items-center" htmlFor="isExistingProduct">
+              Producto existente (sin ingreso de stock)
+              <span
+                className="ms-2 text-muted"
+                style={{ cursor: "help" }}
+                title="Marque esta opción si el producto ya existe en su inventario y no desea ingresar stock inicial. El stock se mantendrá en 0 y deberá actualizarlo posteriormente."
+              >
+                <Info size={16} />
+              </span>
+            </label>
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -775,32 +876,109 @@ const RegistrarProducto = () => {
       ) : (
         <div className="card">
           <div className="card-body">
+            {/* Pestañas de navegación */}
+            <ul className="nav nav-tabs mb-4" id="productTabs" role="tablist">
+              <li className="nav-item" role="presentation">
+                <button
+                  className={`nav-link ${activeTab === "info-basica" ? "active" : ""}`}
+                  onClick={() => setActiveTab("info-basica")}
+                  type="button"
+                >
+                  Información Básica
+                </button>
+              </li>
+              <li className="nav-item" role="presentation">
+                <button
+                  className={`nav-link ${activeTab === "caracteristicas" ? "active" : ""}`}
+                  onClick={() => setActiveTab("caracteristicas")}
+                  type="button"
+                >
+                  Características
+                </button>
+              </li>
+              <li className="nav-item" role="presentation">
+                <button
+                  className={`nav-link ${activeTab === "especificaciones" ? "active" : ""}`}
+                  onClick={() => setActiveTab("especificaciones")}
+                  type="button"
+                >
+                  Especificaciones
+                </button>
+              </li>
+              <li className="nav-item" role="presentation">
+                <button
+                  className={`nav-link ${activeTab === "imagenes" ? "active" : ""}`}
+                  onClick={() => setActiveTab("imagenes")}
+                  type="button"
+                >
+                  Imágenes
+                </button>
+              </li>
+              <li className="nav-item" role="presentation">
+                <button
+                  className={`nav-link ${activeTab === "precios" ? "active" : ""}`}
+                  onClick={() => setActiveTab("precios")}
+                  type="button"
+                >
+                  Precios y Stock
+                </button>
+              </li>
+              <li className="nav-item" role="presentation">
+                <button
+                  className={`nav-link ${activeTab === "adicional" ? "active" : ""}`}
+                  onClick={() => setActiveTab("adicional")}
+                  type="button"
+                >
+                  Información Adicional
+                </button>
+              </li>
+              <li className="nav-item" role="presentation">
+                <button
+                  className={`nav-link ${activeTab === "variantes" ? "active" : ""}`}
+                  onClick={() => setActiveTab("variantes")}
+                  type="button"
+                >
+                  Variantes
+                  {formData.Variantes.length > 0 && (
+                    <span className="badge bg-primary rounded-pill ms-2">{formData.Variantes.length}</span>
+                  )}
+                </button>
+              </li>
+            </ul>
+
             <form className="product-form">
-              {/* Sección de información básica */}
-              <BasicInfoSection
-                formData={formData}
-                formErrors={formErrors}
-                categorias={categorias}
-                handleInputChange={handleInputChange}
-              />
+              {/* Contenido de las pestañas */}
+              <div className="tab-content" id="productTabsContent">
+                {/* Pestaña de Información Básica */}
+                <div className={`tab-pane fade ${activeTab === "info-basica" ? "show active" : ""}`}>
+                  <BasicInfoSection
+                    formData={formData}
+                    formErrors={formErrors}
+                    categorias={categorias}
+                    handleInputChange={handleInputChange}
+                  />
+                </div>
 
-              {/* Sección de características */}
-              <CharacteristicsSection
-                caracteristicas={formData.Caracteristicas}
-                onAddCaracteristica={handleAddCaracteristica}
-                onRemoveCaracteristica={handleRemoveCaracteristica}
-              />
+                {/* Pestaña de Características */}
+                <div className={`tab-pane fade ${activeTab === "caracteristicas" ? "show active" : ""}`}>
+                  <CharacteristicsSection
+                    caracteristicas={formData.Caracteristicas}
+                    onAddCaracteristica={handleAddCaracteristica}
+                    onRemoveCaracteristica={handleRemoveCaracteristica}
+                  />
+                </div>
 
-              {/* Sección de especificaciones */}
-              <SpecificationsSection
-                especificaciones={formData.Especificaciones}
-                onAddEspecificacion={handleAddEspecificacion}
-                onRemoveEspecificacion={handleRemoveEspecificacion}
-              />
+                {/* Pestaña de Especificaciones */}
+                <div className={`tab-pane fade ${activeTab === "especificaciones" ? "show active" : ""}`}>
+                  <SpecificationsSection
+                    especificaciones={formData.Especificaciones}
+                    onAddEspecificacion={handleAddEspecificacion}
+                    onRemoveEspecificacion={handleRemoveEspecificacion}
+                  />
+                </div>
 
-              <div className="row mb-3">
-                {/* Sección de imágenes */}
-                <div className="col-md-6">
+                {/* Pestaña de Imágenes */}
+                <div className={`tab-pane fade ${activeTab === "imagenes" ? "show active" : ""}`}>
                   <ImagesSection
                     imagenesPreview={imagenesPreview}
                     onImageUpload={handleImageUpload}
@@ -814,17 +992,20 @@ const RegistrarProducto = () => {
                   )}
                 </div>
 
-                <div className="col-md-6">
-                  {/* Sección de precios y stock */}
+                {/* Pestaña de Precios y Stock */}
+                <div className={`tab-pane fade ${activeTab === "precios" ? "show active" : ""}`}>
                   <PricingSection
                     formData={formData}
                     formErrors={formErrors}
                     precioConIva={precioConIva}
                     formatNumber={formatNumber}
                     handleInputChange={handleInputChange}
+                    isExistingProduct={isExistingProduct}
                   />
+                </div>
 
-                  {/* Sección de información adicional */}
+                {/* Pestaña de Información Adicional */}
+                <div className={`tab-pane fade ${activeTab === "adicional" ? "show active" : ""}`}>
                   <AdditionalInfoSection
                     formData={formData}
                     formErrors={formErrors}
@@ -832,20 +1013,27 @@ const RegistrarProducto = () => {
                     handleScanBarcode={handleScanBarcode}
                   />
                 </div>
-              </div>
 
-              <div className="card bg-light">
-                <div className="card-body py-2">
-                  <div className="row">
-                    <div className="col-md-6">
-                      <small className="text-muted">Valor del IVA:</small>
-                      <div className="fw-bold">${formatNumber(precioConIva.valorIva)}</div>
-                    </div>
-                    <div className="col-md-6">
-                      <small className="text-muted">Precio Final:</small>
-                      <div className="fw-bold">${formatNumber(precioConIva.precioFinal)}</div>
-                    </div>
+                {/* Pestaña de Variantes */}
+                <div className={`tab-pane fade ${activeTab === "variantes" ? "show active" : ""}`}>
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <h5 className="card-title mb-0">Variantes del Producto</h5>
+                    <button
+                      type="button"
+                      className="btn btn-primary d-flex align-items-center"
+                      onClick={() => setCreatingVariant(true)}
+                    >
+                      <Plus size={18} className="me-1" />
+                      Crear Variante
+                    </button>
                   </div>
+
+                  <VariantsSection
+                    formData={formData}
+                    setFormData={setFormData}
+                    setCreatingVariant={setCreatingVariant}
+                    onDeleteVariant={handleDeleteVariant}
+                  />
                 </div>
               </div>
 

@@ -1,10 +1,8 @@
 "use client"
+
 import { Scan } from "lucide-react"
 
 const AdditionalInfoSection = ({ formData, formErrors, handleInputChange, handleScanBarcode }) => {
-  // Obtener la fecha actual en formato YYYY-MM-DD para el atributo min del input date
-  const today = new Date().toISOString().split("T")[0]
-
   return (
     <div className="mb-4">
       <h5 className="card-title mb-3">Información Adicional</h5>
@@ -28,7 +26,7 @@ const AdditionalInfoSection = ({ formData, formErrors, handleInputChange, handle
               className="btn btn-outline-secondary"
               type="button"
               onClick={handleScanBarcode}
-              title="Escanear código de barras"
+              title="Generar código de barras aleatorio"
             >
               <Scan size={18} />
             </button>
@@ -55,20 +53,22 @@ const AdditionalInfoSection = ({ formData, formErrors, handleInputChange, handle
           <div className="form-text">Código o referencia interna del producto.</div>
         </div>
 
-        {/* Fecha de Vencimiento - Agregado atributo min para evitar fechas pasadas */}
+        {/* Fecha de Vencimiento */}
         <div className="col-md-6">
           <label htmlFor="FechaVencimiento" className="form-label">
             Fecha de Vencimiento
           </label>
           <input
             type="date"
-            className={`form-control ${formErrors.FechaVencimiento ? "is-invalid" : ""}`}
+            className={`form-control ${formErrors.FechaVencimiento ? "is-invalid" : ""} ${
+              formData.NoVence ? "bg-light" : ""
+            }`}
             id="FechaVencimiento"
             name="FechaVencimiento"
             value={formData.FechaVencimiento}
             onChange={handleInputChange}
+            min={new Date().toISOString().split("T")[0]}
             disabled={formData.NoVence}
-            min={today}
           />
           {formErrors.FechaVencimiento && <div className="invalid-feedback">{formErrors.FechaVencimiento}</div>}
         </div>

@@ -1,30 +1,34 @@
 "use client"
 
-const PricingSection = ({ formData, formErrors, precioConIva, formatNumber, handleInputChange }) => {
-  // Obtener la fecha actual en formato YYYY-MM-DD para el atributo min del input date
-
+const PricingSection = ({ formData, formErrors, precioConIva, formatNumber, handleInputChange, isExistingProduct }) => {
   return (
     <div className="mb-4">
       <h5 className="card-title mb-3">Precios y Stock</h5>
       <div className="row g-3">
         {/* Stock */}
         <div className="col-md-6">
-          <label htmlFor="Stock" className="form-label">
-            Stock <span className="text-danger">*</span>
+          <label htmlFor="Stock" className="form-label d-flex align-items-center">
+            Stock {!isExistingProduct && <span className="text-danger ms-1">*</span>}
+            {isExistingProduct && <span className="badge bg-light text-dark ms-2">Deshabilitado</span>}
           </label>
           <input
             type="number"
-            className={`form-control ${formErrors.Stock ? "is-invalid" : ""}`}
+            className={`form-control ${formErrors.Stock ? "is-invalid" : ""} ${isExistingProduct ? "bg-light" : ""}`}
             id="Stock"
             name="Stock"
             value={formData.Stock}
             onChange={handleInputChange}
             min="0"
             max="9999"
-            required
+            required={!isExistingProduct}
+            disabled={isExistingProduct}
           />
           {formErrors.Stock && <div className="invalid-feedback">{formErrors.Stock}</div>}
-          <div className="form-text">Cantidad actual: {formatNumber(Number(formData.Stock))}</div>
+          <div className="form-text">
+            {isExistingProduct
+              ? "El stock se mantendrá en 0 para productos existentes."
+              : `Cantidad actual: ${formatNumber(Number(formData.Stock))}`}
+          </div>
         </div>
 
         {/* Precio */}

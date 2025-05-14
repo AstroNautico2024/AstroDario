@@ -755,35 +755,173 @@ export const especiesController = {
     }
   },
 
-  // Eliminar una especie
-  delete: async (req, res) => {
-    try {
-      const { id } = req.params
+ // Eliminar una especie - MEJORADO PARA CONSISTENCIA
+delete: async (req, res) => {
+  try {
+    const { id } = req.params
 
-      // Verificar si la especie existe
-      const especie = await especiesModel.getById(id)
-      if (!especie) {
-        return res.status(404).json({ message: "Especie no encontrada" })
-      }
-
-      // Verificar si hay mascotas asociadas
-      const [mascotas] = await query(`SELECT COUNT(*) as count FROM Mascotas WHERE IdEspecie = ?`, [id])
-      if (mascotas[0].count > 0) {
-        return res.status(400).json({
-          message: "No se puede eliminar la especie porque tiene mascotas asociadas",
-          count: mascotas[0].count
-        })
-      }
-
-      // Eliminar especie
-      await especiesModel.delete(id)
-
-      res.status(200).json({ message: "Especie eliminada correctamente" })
-    } catch (error) {
-      console.error("Error al eliminar especie:", error)
-      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    // Validar que el ID sea un número válido
+    const especieId = Number(id);
+    if (isNaN(especieId) || especieId <= 0) {
+      return res.status(400).json({ message: "ID de especie no válido" });
     }
-  },
+
+    // Verificar si la especie existe
+    const especie = await especiesModel.getById(especieId)
+    if (!especie) {
+      return res.status(404).json({ message: "Especie no encontrada" })
+    }
+
+    // Verificar si hay mascotas asociadas - MEJORADO
+    let tieneMascotas = false;
+    let mascotasCount = 0;
+
+    try {
+      // Consulta directa para verificar mascotas asociadas
+      const result = await query(`SELECT COUNT(*) as count FROM Mascotas WHERE IdEspecie = ?`, [especieId])
+      
+      // Verificar si el resultado es válido y obtener el conteo de manera segura
+      mascotasCount = result && result[0] && typeof result[0].count !== 'undefined' ? 
+                      parseInt(result[0].count, 10) : 0;
+      
+      tieneMascotas = mascotasCount > 0;
+    } catch (queryError) {
+      console.error("Error en la primera verificación de mascotas asociadas:", queryError);
+      
+      // Segundo intento con consulta alternativa
+      try {
+        const mascotas = await query(`SELECT IdMascota FROM Mascotas WHERE IdEspecie = ? LIMIT 1`, [especieId]);
+        tieneMascotas = Array.isArray(mascotas) && mascotas.length > 0;
+        mascotasCount = tieneMascotas ? 1 : 0; // Al menos sabemos que hay una
+      } catch (secondQueryError) {
+        console.error("Error en la segunda verificación de mascotas:", secondQueryError);
+        
+        // Tercer intento usando el modelo
+        try {
+          const todasLasMascotas = await mascotasModel.getAll();
+          const mascotasAsociadas = todasLasMascotas.filter(
+            m => m.IdEspecie === especieId || String(m.IdEspecie) === String(especieId)
+          );
+          tieneMascotas = mascotasAsociadas.length > 0;
+          mascotasCount = mascotasAsociadas.length;
+        } catch (modelError) {
+          console.error("Error en la tercera verificación de mascotas:", modelError);
+          // Si todos los intentos fallan, asumimos que podría haber dependencias
+          // y rechazamos la eliminación por seguridad
+          return res.status(500).json({ 
+            message: "No se pudo verificar si la especie tiene mascotas asociadas. Por seguridad, no se eliminará.",
+            error: "Error en la verificación de dependencias"
+          });
+        }
+      }
+    }
+    
+    // Si tiene mascotas asociadas, no permitir la eliminación
+    if (tieneMascotas) {
+      return res.status(400).json({
+        message: "No se puede eliminar la especie porque tiene mascotas asociadas",
+        count: mascotasCount
+      });
+    }
+
+    // Eliminar especie
+    await especiesModel.delete(especieId);
+
+    res.status(200).json({ message: "Especie eliminada correctamente" });
+  } catch (error) {
+    console.error("Error al eliminar especie:", error);
+    res.status(500).json({ 
+      message: "Error en el servidor al eliminar la especie", 
+      error: error.message 
+    });
+  }
+},
+
+  // Verificar si una especie tiene mascotas asociadas - MEJORADO
+checkDependencies: async (id) => {
+  // Validar que el ID sea un número válido
+  const especieId = Number(id);
+  if (isNaN(especieId) || especieId <= 0) {
+    throw new Error("ID de especie no válido");
+  }
+  
+  // Múltiples métodos de verificación para garantizar consistencia
+  const resultados = {
+    metodo1: null,
+    metodo2: null,
+    metodo3: null,
+    conclusion: false
+  };
+  
+  // Método 1: COUNT
+  try {
+    const result = await query(`SELECT COUNT(*) as count FROM Mascotas WHERE IdEspecie = ?`, [especieId]);
+    const count = result && result[0] && typeof result[0].count !== 'undefined' ? 
+                  parseInt(result[0].count, 10) : null;
+    
+    resultados.metodo1 = count !== null ? count > 0 : null;
+  } catch (error) {
+    console.error("Error en método 1 (COUNT):", error);
+    resultados.metodo1 = null;
+  }
+  
+  // Método 2: SELECT con LIMIT
+  try {
+    const mascotas = await query(`SELECT IdMascota FROM Mascotas WHERE IdEspecie = ? LIMIT 1`, [especieId]);
+    resultados.metodo2 = Array.isArray(mascotas) && mascotas.length > 0;
+  } catch (error) {
+    console.error("Error en método 2 (SELECT LIMIT):", error);
+    resultados.metodo2 = null;
+  }
+  
+  // Método 3: JOIN
+  try {
+    const joinQuery = `
+      SELECT m.IdMascota 
+      FROM Especies e 
+      JOIN Mascotas m ON e.IdEspecie = m.IdEspecie 
+      WHERE e.IdEspecie = ? 
+      LIMIT 1
+    `;
+    const relacionadas = await query(joinQuery, [especieId]);
+    resultados.metodo3 = Array.isArray(relacionadas) && relacionadas.length > 0;
+  } catch (error) {
+    console.error("Error en método 3 (JOIN):", error);
+    resultados.metodo3 = null;
+  }
+  
+  // Determinar la conclusión basada en los resultados disponibles
+  const resultadosValidos = [
+    resultados.metodo1, 
+    resultados.metodo2, 
+    resultados.metodo3
+  ].filter(r => r !== null);
+  
+  if (resultadosValidos.length > 0) {
+    // Si al menos un método funcionó, usamos el resultado más común
+    // o el peor caso (true) si hay empate
+    const trueCount = resultadosValidos.filter(r => r === true).length;
+    const falseCount = resultadosValidos.filter(r => r === false).length;
+    
+    resultados.conclusion = trueCount >= falseCount;
+  } else {
+    // Si todos los métodos fallaron, hacemos una última verificación
+    try {
+      const todasLasMascotas = await mascotasModel.getAll();
+      const tieneMascotas = todasLasMascotas.some(
+        m => m.IdEspecie === especieId || String(m.IdEspecie) === String(especieId)
+      );
+      resultados.conclusion = tieneMascotas;
+    } catch (error) {
+      console.error("Error en verificación final:", error);
+      // Si todo falla, asumimos que podría haber dependencias por seguridad
+      resultados.conclusion = true;
+    }
+  }
+  
+  console.log("Resultados de verificación de dependencias:", resultados);
+  return resultados.conclusion;
+}
 }
 
 export default {
