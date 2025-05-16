@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, X } from "lucide-react"
+import { Plus, X } from 'lucide-react'
 
 const SpecificationsSection = ({ especificaciones, onAddEspecificacion, onRemoveEspecificacion }) => {
   const [nuevaEspecificacion, setNuevaEspecificacion] = useState({
