@@ -16,6 +16,9 @@ import ProfileAppointments from "../../Components/ClienteComponents/MiPerfilComp
 import ProfilePassword from "../../Components/ClienteComponents/MiPerfilComponents/ProfilePassword"
 import ProfileReviews from "../../Components/ClienteComponents/MiPerfilComponents/ProfileReviews"
 
+// Service para consumir el perfil real
+import PerfilClienteService from "../../Services/ConsumoCliente/PerfilClienteService"
+
 // Estilos
 import "./perfil-page.scss"
 
@@ -23,23 +26,10 @@ const PerfilPage = () => {
   const [searchParams] = useSearchParams()
   const tabParam = searchParams.get("tab")
 
-  // Estado para la información del usuario
-  const [user, setUser] = useState({
-    id: 1,
-    documento: "12345678",
-    nombre: "Juan",
-    apellido: "Pérez",
-    correo: "juan.perez@example.com",
-    telefonos: [
-      { id: 1, numero: "(604) 123-4567", principal: true },
-      { id: 2, numero: "300 123 4567", principal: false },
-    ],
-    direcciones: [
-      { id: 1, direccion: "Calle 123 #45-67, Medellín", principal: true },
-      { id: 2, direccion: "Carrera 50 #30-15, Envigado", principal: false },
-    ],
-    profileImage: "https://randomuser.me/api/portraits/men/32.jpg",
-  })
+  // Estado para la información del usuario (inicialmente null)
+  const [user, setUser] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
   // Estado para las mascotas del usuario
   const [pets, setPets] = useState([
@@ -152,6 +142,41 @@ const PerfilPage = () => {
     }
   }, [tabParam])
 
+  // Cargar datos reales del usuario al montar el componente
+  useEffect(() => {
+    const fetchPerfil = async () => {
+      try {
+        const data = await PerfilClienteService.getPerfil()
+        setUser(data)
+      } catch (err) {
+        setError(err.message || "Error al cargar perfil")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchPerfil()
+  }, [])
+
+  // Normalizar datos del usuario para los componentes hijos
+const userNormalized = user && {
+  id: user.IdUsuario ?? user.id,
+  nombre: user.Nombre ?? user.nombre,
+  apellido: user.Apellido ?? user.apellido,
+  correo: user.Correo ?? user.correo,
+  documento: user.Documento ?? user.documento ?? user.Doc,
+  direccion: user.Direccion ?? user.direccion,
+  telefono: user.Telefono ?? user.telefono,
+  foto: user.FotoURL ?? user.Foto ?? user.foto ?? user.fotoURL,
+  // Normaliza direcciones y teléfonos como arrays para los componentes
+  direcciones: user.Direccion
+    ? [{ id: 1, direccion: user.Direccion, principal: true }]
+    : [],
+  telefonos: user.Telefono
+    ? [{ id: 1, numero: user.Telefono, principal: true }]
+    : [],
+  ...user
+}
+
   // Actualizar usuario
   const updateUser = (updatedUser) => {
     setUser(updatedUser)
@@ -167,15 +192,20 @@ const PerfilPage = () => {
     setReviews(updatedReviews)
   }
 
+  // Renderizado condicional por carga/error
+  if (loading) return <div>Cargando perfil...</div>
+  if (error) return <div>Error: {error}</div>
+  if (!user) return <div>No se encontró información del usuario.</div>
+
   // Renderizar el contenido según la pestaña activa
   const renderContent = () => {
     switch (activeTab) {
       case "profile":
         return (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-            <ProfileInfo user={user} updateUser={updateUser} />
-            <ProfileAddresses user={user} updateUser={updateUser} />
-            <ProfilePhones user={user} updateUser={updateUser} />
+            <ProfileInfo user={userNormalized} updateUser={updateUser} />
+            <ProfileAddresses user={userNormalized} updateUser={updateUser} />
+            <ProfilePhones user={userNormalized} updateUser={updateUser} />
           </motion.div>
         )
       case "pets":
@@ -211,9 +241,9 @@ const PerfilPage = () => {
       default:
         return (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
-            <ProfileInfo user={user} updateUser={updateUser} />
-            <ProfileAddresses user={user} updateUser={updateUser} />
-            <ProfilePhones user={user} updateUser={updateUser} />
+            <ProfileInfo user={userNormalized} updateUser={updateUser} />
+            <ProfileAddresses user={userNormalized} updateUser={updateUser} />
+            <ProfilePhones user={userNormalized} updateUser={updateUser} />
           </motion.div>
         )
     }
@@ -225,7 +255,7 @@ const PerfilPage = () => {
         <Row>
           {/* Sidebar de navegación */}
           <Col lg={3} className="mb-4">
-            <ProfileSidebar user={user} activeTab={activeTab} setActiveTab={setActiveTab} />
+            <ProfileSidebar user={userNormalized} activeTab={activeTab} setActiveTab={setActiveTab} />
           </Col>
 
           {/* Contenido principal */}
@@ -237,4 +267,3 @@ const PerfilPage = () => {
 }
 
 export default PerfilPage
-

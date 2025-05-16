@@ -124,8 +124,12 @@ const ProfileAddresses = ({ user, updateUser }) => {
           </div>
         </Card.Header>
         <Card.Body>
+
+
+
+
           <ListGroup variant="flush">
-            {user.direcciones.map((direccion) => (
+            {(user.direcciones || []).map((direccion) => (
               <ListGroup.Item key={direccion.id} className="tc-address-item">
                 <div className="d-flex justify-content-between align-items-center">
                   <div>
@@ -160,6 +164,11 @@ const ProfileAddresses = ({ user, updateUser }) => {
               </ListGroup.Item>
             ))}
           </ListGroup>
+
+
+
+
+
         </Card.Body>
       </Card>
 

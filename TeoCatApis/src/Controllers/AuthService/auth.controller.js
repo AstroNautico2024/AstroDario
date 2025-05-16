@@ -727,6 +727,36 @@ create: async (req, res) => {
     }
   },
 
+
+  updateFoto: async (req, res) => {
+  try {
+    const { id } = req.params;
+    let fotoUrl = null;
+
+    // Si se envía como archivo (form-data)
+    if (req.file) {
+      const result = await uploadToCloudinary(req.file.path, "usuarios");
+      fotoUrl = result.secure_url;
+    }
+    // Si se envía como base64 (JSON)
+    else if (req.body.foto) {
+      fotoUrl = req.body.foto;
+    } else {
+      return res.status(400).json({ message: "No se envió ninguna foto" });
+    }
+
+    await usuariosModel.update(id, { Foto: fotoUrl });
+
+    res.status(200).json({ message: "Foto actualizada correctamente", foto: fotoUrl });
+  } catch (error) {
+    console.error("Error al actualizar foto:", error);
+    res.status(500).json({ message: "Error al actualizar la foto", error: error.message });
+  }
+},
+
+
+
+
   // Cambiar contraseña
   changePassword: async (req, res) => {
     try {

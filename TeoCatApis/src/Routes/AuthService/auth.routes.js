@@ -50,6 +50,10 @@ router.post("/roles/:idRol/permisos",authMiddleware,validatePermission("Modifica
 router.get("/usuarios", authMiddleware, validatePermission("Visualizar Usuarios"), usuariosController.getAll)
 router.get("/usuarios/:id", authMiddleware, validatePermission("Visualizar Usuarios"), usuariosController.getById)
 router.post("/usuarios",authMiddleware,validatePermission("Crear Usuarios"),uploadMiddleware.single("foto"),usuariosController.create,)
+
+
+router.put("/usuarios/:id/foto", authMiddleware, validatePermission("Modificar Usuarios"), uploadMiddleware.single("foto"), usuariosController.updateFoto)
+
 router.put("/usuarios/:id",authMiddleware,validatePermission("Modificar Usuarios"),uploadMiddleware.single("foto"),usuariosController.update,)
 router.patch("/usuarios/:id/password", authMiddleware, usuariosController.changePassword)
 router.patch("/usuarios/:id/status",authMiddleware,validatePermission("Modificar Usuarios"),usuariosController.changeStatus,)

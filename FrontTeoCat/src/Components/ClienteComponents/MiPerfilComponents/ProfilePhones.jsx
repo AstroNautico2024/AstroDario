@@ -141,7 +141,7 @@ const ProfilePhones = ({ user, updateUser }) => {
         </Card.Header>
         <Card.Body>
           <ListGroup variant="flush">
-            {user.telefonos.map((telefono) => (
+            {(user.telefonos ||[]).map((telefono) => (
               <ListGroup.Item key={telefono.id} className="tc-phone-item">
                 <div className="d-flex justify-content-between align-items-center">
                   <div>

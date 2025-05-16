@@ -1,19 +1,58 @@
 "use client"
 
+import { useRef } from "react"
 import { Link } from "react-router-dom"
 import { Card, Nav } from "react-bootstrap"
+import { toast } from "react-toastify"
+import PerfilClienteService from "../../../Services/ConsumoCliente/PerfilClienteService"
 import "../MiPerfilComponents/ProfileSidebar.scss"
 
-const ProfileSidebar = ({ user, activeTab, setActiveTab }) => {
+const ProfileSidebar = ({ user, activeTab, setActiveTab, updateUser }) => {
+  const fileInputRef = useRef(null)
+
+  const handleFotoChange = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onloadend = async () => {
+      try {
+        const fotoBase64 = reader.result
+        const updated = await PerfilClienteService.updateFoto(user.id, { foto: fotoBase64 })
+        if (updateUser) {
+          updateUser({ ...user, foto: updated.foto || fotoBase64 })
+        }
+        toast.success("Foto actualizada correctamente")
+      } catch (err) {
+        toast.error("Error al actualizar la foto")
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
   return (
     <Card className="tc-profile-sidebar border-0 shadow">
       <Card.Body className="p-0">
         <div className="tc-profile-header">
-          <div className="tc-profile-image-container">
-            <img src={user.profileImage || "/placeholder.svg"} alt={user.nombre} className="tc-profile-image" />
+          <div
+            className="tc-profile-image-container"
+            style={{ cursor: "pointer" }}
+            onClick={() => fileInputRef.current && fileInputRef.current.click()}
+          >
+            <img
+              src={user.foto || user.profileImage || "/placeholder.svg"}
+              alt={user.nombre}
+              className="tc-profile-image"
+            />
             <div className="tc-profile-image-overlay">
               <i className="bi bi-camera"></i>
             </div>
+            <input
+              type="file"
+              accept="image/*"
+              style={{ display: "none" }}
+              ref={fileInputRef}
+              onChange={handleFotoChange}
+            />
           </div>
           <h4 className="tc-profile-name">
             {user.nombre} {user.apellido}
