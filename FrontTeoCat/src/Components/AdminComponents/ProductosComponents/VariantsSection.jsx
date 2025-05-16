@@ -1,92 +1,112 @@
 "use client"
-import { Edit, Trash2 } from "lucide-react"
 
-const VariantsSection = ({ formData, setFormData, setCreatingVariant, onDeleteVariant }) => {
-  // Función para formatear números con separadores de miles
-  const formatNumber = (number) => {
-    const num = typeof number === "string" ? Number.parseFloat(number) : number
-    if (isNaN(num)) return "0"
-    return num.toLocaleString("es-CO", {
+import { useState } from "react"
+import { Plus, Edit, ChevronDown, ChevronRight } from "lucide-react"
+import { Link } from "react-router-dom"
+
+const VariantsSection = ({ productId, variants }) => {
+  const [showVariants, setShowVariants] = useState(true)
+  const [loading] = useState(false)
+
+  // Función para formatear números como moneda
+  const formatCurrency = (value) => {
+    if (!value && value !== 0) return "-"
+    return new Intl.NumberFormat("es-CO", {
+      style: "currency",
+      currency: "COP",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    })
+    }).format(value)
   }
 
-  // Manejador para eliminar una variante
-  const handleDeleteVariant = (variantId) => {
-    if (onDeleteVariant) {
-      onDeleteVariant(variantId)
-    } else {
-      const updatedVariantes = formData.Variantes.filter((v) => v.id !== variantId)
-      setFormData({
-        ...formData,
-        Variantes: updatedVariantes,
+  // Función para obtener una representación de texto de los atributos de una variante
+  const getVariantAttributesText = (variant) => {
+    if (!variant.atributos || variant.atributos.length === 0) return "Sin atributos"
+
+    return variant.atributos
+      .map((attr) => {
+        return `${attr.NombreAtributo}: ${attr.Valor}`
       })
-    }
+      .join(", ")
   }
 
   return (
-    <div>
-      {formData.Variantes.length > 0 ? (
-        <div className="table-responsive">
-          <table className="table table-striped table-hover">
-            <thead className="table-light">
-              <tr>
-                <th>Nombre</th>
-                <th>Atributos</th>
-                <th>Precio</th>
-                <th>Stock</th>
-                <th className="text-end">Acciones</th>
-              </tr>
-            </thead>
-            <tbody>
-              {formData.Variantes.map((variant) => (
-                <tr key={variant.id}>
-                  <td className="align-middle">{variant.NombreVariante}</td>
-                  <td className="align-middle">
-                    <div className="d-flex flex-wrap gap-1">
-                      {variant.Atributos?.map((attr, index) => (
-                        <span key={index} className="badge bg-light text-dark border">
-                          {attr.nombre}: {attr.valor}
+    <div className="mb-4">
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <h5 className="card-title mb-0">Variantes del Producto</h5>
+        <button
+          type="button"
+          className="btn btn-link p-0 text-decoration-none"
+          onClick={() => setShowVariants(!showVariants)}
+        >
+          {showVariants ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+        </button>
+      </div>
+
+      {showVariants && (
+        <>
+          {productId ? (
+            <div className="mb-3">
+              <Link to={`/admin/productos/variante/nueva/${productId}`} className="btn btn-primary">
+                <Plus size={18} className="me-1" />
+                Agregar Variante
+              </Link>
+            </div>
+          ) : (
+            <div className="alert alert-info">Guarde el producto primero para poder agregar variantes.</div>
+          )}
+
+          {loading ? (
+            <div className="d-flex justify-content-center my-4">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Cargando...</span>
+              </div>
+            </div>
+          ) : variants && variants.length > 0 ? (
+            <div className="table-responsive">
+              <table className="table table-hover">
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Atributos</th>
+                    <th>Precio</th>
+                    <th>Stock</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {variants.map((variant) => (
+                    <tr key={variant.IdProducto}>
+                      <td>{variant.NombreProducto}</td>
+                      <td>{getVariantAttributesText(variant)}</td>
+                      <td>{formatCurrency(variant.Precio)}</td>
+                      <td>{variant.Stock}</td>
+                      <td>
+                        <span className={`badge ${variant.Activo ? "bg-success" : "bg-danger"}`}>
+                          {variant.Activo ? "Activo" : "Inactivo"}
                         </span>
-                      ))}
-                    </div>
-                  </td>
-                  <td className="align-middle">${formatNumber(variant.Precio)}</td>
-                  <td className="align-middle">{formatNumber(variant.Stock)}</td>
-                  <td className="text-end align-middle">
-                    <div className="btn-group">
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-primary"
-                        onClick={() => {
-                          // Implementar edición de variante
-                          console.log("Editar variante", variant.id)
-                        }}
-                      >
-                        <Edit size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm btn-outline-danger"
-                        onClick={() => handleDeleteVariant(variant.id)}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <div className="text-center py-5 bg-light rounded">
-          <p className="text-muted mb-3">No hay variantes para este producto</p>
-          <button type="button" className="btn btn-outline-primary" onClick={() => setCreatingVariant(true)}>
-            Crear primera variante
-          </button>
-        </div>
+                      </td>
+                      <td>
+                        <div className="btn-group">
+                          <Link
+                            to={`/admin/productos/variante/editar/${variant.IdProducto}`}
+                            className="btn btn-sm btn-outline-primary"
+                            title="Editar variante"
+                          >
+                            <Edit size={16} />
+                          </Link>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="alert alert-light text-center">No hay variantes para este producto.</div>
+          )}
+        </>
       )}
     </div>
   )

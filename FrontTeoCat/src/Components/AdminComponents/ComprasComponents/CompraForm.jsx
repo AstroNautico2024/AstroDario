@@ -1,7 +1,9 @@
 "use client"
 
-import { Plus, AlertTriangle } from "lucide-react"
+import { useState } from "react"
+import { Plus, AlertTriangle, Search } from "lucide-react"
 import Select from "react-select"
+import CatalogoModal from "../ProveedoresComponents/CatalogoModal"
 
 /**
  * Componente para el formulario de información básica de la compra
@@ -10,12 +12,13 @@ const CompraForm = ({
   formData,
   formErrors,
   proveedoresOptions,
-  productosOptions,
   handleInputChange,
   handleSelectProveedor,
   handleSelectProduct,
   handleAddProduct,
 }) => {
+  const [showCatalogo, setShowCatalogo] = useState(false)
+
   // Estilos personalizados para react-select
   const customSelectStyles = {
     control: (provided, state) => ({
@@ -31,6 +34,21 @@ const CompraForm = ({
       backgroundColor: state.isSelected ? "#0d6efd" : state.isFocused ? "#f8f9fa" : null,
       color: state.isSelected ? "white" : "black",
     }),
+  }
+
+  const openCatalogo = () => {
+    setShowCatalogo(true)
+  }
+
+  const closeCatalogo = () => {
+    setShowCatalogo(false)
+  }
+
+  const handleProductSelect = (producto) => {
+    handleSelectProduct({
+      value: producto,
+    })
+    closeCatalogo()
   }
 
   return (
@@ -84,28 +102,37 @@ const CompraForm = ({
 
       <div className="row mb-3">
         <div className="col-md-6">
-          <label htmlFor="producto" className="form-label">
+          <label className="form-label">
             Producto <span className="text-danger">*</span>
           </label>
-          <Select
-            id="producto"
-            name="producto"
-            options={productosOptions}
-            value={
-              formData.productoSeleccionado
-                ? productosOptions.find(
-                    (option) => option.value.IdProducto === formData.productoSeleccionado.IdProducto,
-                  )
-                : null
-            }
-            onChange={handleSelectProduct}
-            placeholder="Seleccione un producto..."
-            styles={customSelectStyles}
-            isClearable
-            isSearchable
-            noOptionsMessage={() => "No se encontraron productos"}
-            className={formErrors.productoSeleccionado ? "is-invalid" : ""}
-          />
+          <div className="d-flex">
+            {formData.productoSeleccionado ? (
+              <div className="selected-product-info form-control d-flex align-items-center">
+                <span className="text-truncate">
+                  {formData.productoSeleccionado.NombreProducto} - {formData.productoSeleccionado.CodigoBarras}
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-outline-primary d-flex align-items-center"
+                onClick={openCatalogo}
+              >
+                <Search size={18} className="me-2" />
+                Buscar en Catálogo
+              </button>
+            )}
+            {formData.productoSeleccionado && (
+              <button
+                type="button"
+                className="btn btn-outline-secondary ms-2"
+                onClick={() => handleSelectProduct(null)}
+                title="Cambiar producto"
+              >
+                Cambiar
+              </button>
+            )}
+          </div>
           {formErrors.productoSeleccionado && (
             <div className="invalid-feedback d-block">{formErrors.productoSeleccionado}</div>
           )}
@@ -147,6 +174,9 @@ const CompraForm = ({
           {formErrors.productosAgregados}
         </div>
       )}
+
+      {/* Modal del Catálogo */}
+      <CatalogoModal show={showCatalogo} onHide={closeCatalogo} onSelectProduct={handleProductSelect} />
     </>
   )
 }

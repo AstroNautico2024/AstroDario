@@ -27,8 +27,10 @@ const AdditionalInfoSection = ({ formData, formErrors, handleInputChange, handle
               type="button"
               onClick={handleScanBarcode}
               title="Generar código de barras aleatorio"
+              aria-label="Generar código de barras aleatorio"
             >
               <Scan size={18} />
+              <span className="visually-hidden">Generar código</span>
             </button>
             {formErrors.CodigoBarras && <div className="invalid-feedback">{formErrors.CodigoBarras}</div>}
           </div>
