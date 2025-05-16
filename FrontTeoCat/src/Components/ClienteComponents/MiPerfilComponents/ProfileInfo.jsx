@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { Card, Button, Form, Row, Col } from "react-bootstrap"
 import { toast } from "react-toastify"
+import PerfilClienteService from "../../../Services/ConsumoCliente/PerfilClienteService" // Importa el service
 import "../MiPerfilComponents/ProfileInfo.scss"
 
 const ProfileInfo = ({ user, updateUser }) => {
@@ -22,11 +23,27 @@ const ProfileInfo = ({ user, updateUser }) => {
   }
 
   // Guardar cambios del perfil
-  const handleSaveProfile = (e) => {
+  const handleSaveProfile = async (e) => {
     e.preventDefault()
-    updateUser(formData)
-    setIsEditing(false)
-    toast.success("Perfil actualizado correctamente")
+    try {
+      // Normaliza los nombres de los campos para el backend
+      const updatedData = {
+        Nombre: formData.nombre,
+        Apellido: formData.apellido,
+        Correo: formData.correo,
+        Documento: formData.documento,
+        // Agrega otros campos si los tienes en el formulario
+      }
+      // Llama al service para actualizar en el backend
+      await PerfilClienteService.updatePerfil(user.id, updatedData)
+      // Refresca el usuario desde el backend
+      const refreshed = await PerfilClienteService.getPerfil()
+      updateUser(refreshed)
+      setIsEditing(false)
+      toast.success("Perfil actualizado correctamente")
+    } catch (error) {
+      toast.error(error.message || "Error al actualizar perfil")
+    }
   }
 
   return (
