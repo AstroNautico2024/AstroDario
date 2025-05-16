@@ -36,7 +36,10 @@ const UserProfileService = {
     }
   },
 
-  // Método para emitir evento de cambio de foto de perfil
+  // Modificar el método emitProfilePhotoChange para mejorar la emisión del evento
+  // y asegurar que el avatar superior lo pueda capturar
+
+  // Reemplazar el método emitProfilePhotoChange actual con esta versión mejorada:
   emitProfilePhotoChange: (photoUrl) => {
     try {
       // Guardar en localStorage para persistencia
@@ -48,12 +51,31 @@ const UserProfileService = {
       localStorage.setItem("userData", JSON.stringify(userData))
 
       // Emitir evento personalizado para notificar a otros componentes
+      // Usamos diferentes tipos de eventos para mayor compatibilidad
+
+      // Evento principal para componentes que escuchan en window
       const event = new CustomEvent("profilePhotoChange", {
         detail: { photoUrl },
+        bubbles: true,
+        cancelable: true,
       })
       window.dispatchEvent(event)
 
-      console.log("Evento de cambio de foto emitido:", photoUrl)
+      // Evento adicional para componentes que escuchan en document
+      document.dispatchEvent(
+        new CustomEvent("userAvatarUpdate", {
+          detail: { photoUrl },
+          bubbles: true,
+          cancelable: true,
+        }),
+      )
+
+      // Evento específico para el avatar superior (si usa jQuery u otro sistema)
+      if (window.jQuery) {
+        window.jQuery(document).trigger("avatar:update", { photoUrl })
+      }
+
+      console.log("Eventos de cambio de foto emitidos:", photoUrl)
     } catch (error) {
       console.error("Error al emitir evento de cambio de foto:", error)
     }
@@ -78,21 +100,25 @@ const UserProfileService = {
         throw new Error("Formato de imagen no válido. Por favor, sube una imagen en formato JPG, PNG, GIF o WebP.")
       }
 
+      // Modificar el método updateProfileImage para emitir el evento inmediatamente después de subir la imagen
+      // Reemplazar la sección donde se emite el evento en updateProfileImage:
+
       // Usar el servicio centralizado para subir la imagen a Cloudinary
       const cloudinaryUrl = await uploadImageToCloudinary(file, "usuarios")
 
       console.log("Imagen subida exitosamente a Cloudinary:", cloudinaryUrl)
 
-      // Guardar en localStorage para persistencia local (antes de intentar actualizar el perfil)
+      // Emitir evento con la URL de Cloudinary ANTES de intentar actualizar el perfil
+      // para que la UI se actualice inmediatamente
+      UserProfileService.emitProfilePhotoChange(cloudinaryUrl)
+
+      // Guardar en localStorage para persistencia local
       localStorage.setItem("userProfilePhoto", cloudinaryUrl)
 
       // Actualizar también en userData para asegurar persistencia
       const userData = JSON.parse(localStorage.getItem("userData") || "{}")
       userData.Foto = cloudinaryUrl
       localStorage.setItem("userData", JSON.stringify(userData))
-
-      // Emitir evento con la URL de Cloudinary
-      UserProfileService.emitProfilePhotoChange(cloudinaryUrl)
 
       try {
         // Intentar actualizar el perfil del usuario con la URL de Cloudinary
