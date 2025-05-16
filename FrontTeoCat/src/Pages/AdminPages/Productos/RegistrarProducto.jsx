@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { Save, ArrowLeft, X, Info, Plus } from "lucide-react"
+import { Save, ArrowLeft, X, Info, Plus } from 'lucide-react'
 import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/ToastStyles.css"
+
+// Importar componentes actualizados
 import BasicInfoSection from "../../../Components/AdminComponents/ProductosComponents/BasicInfoSection"
 import CharacteristicsSection from "../../../Components/AdminComponents/ProductosComponents/CharacteristicsSection"
 import SpecificationsSection from "../../../Components/AdminComponents/ProductosComponents/SpecificationsSection"
@@ -14,6 +16,11 @@ import PricingSection from "../../../Components/AdminComponents/ProductosCompone
 import AdditionalInfoSection from "../../../Components/AdminComponents/ProductosComponents/AdditionalInfoSection"
 import VariantsSection from "../../../Components/AdminComponents/ProductosComponents/VariantsSection"
 import VariantForm from "../../../Components/AdminComponents/ProductosComponents/VariantForm"
+import DeleteConfirmModal from "../../../Components/AdminComponents/ProductosComponents/DeleteConfirmModal"
+import AttributesSection from "../../../Components/AdminComponents/ProductosComponents/AttributesSection"
+import VariantsTable from "../../../Components/AdminComponents/ProductosComponents/VariantsTable"
+
+// Importar servicios
 import { uploadImageToCloudinary } from "../../../Services/uploadImageToCloudinary"
 import ProductosService from "../../../Services/ConsumoAdmin/ProductosService.js"
 import CategoriasService from "../../../Services/ConsumoAdmin/CategoriasService.js"
@@ -60,6 +67,7 @@ const RegistrarProducto = () => {
     CodigoBarras: "",
     Referencia: "",
     FechaVencimiento: "",
+    attributes: "",
   })
 
   // Estado para mostrar el cálculo del IVA
@@ -86,9 +94,43 @@ const RegistrarProducto = () => {
 
   // Estado para controlar si estamos creando una variante
   const [creatingVariant, setCreatingVariant] = useState(false)
+  
+  // Estado para atributos
+  const [attributes, setAttributes] = useState([])
+  const [selectedAttributes, setSelectedAttributes] = useState([])
+  const [atributos, setAtributos] = useState([])
+  
+  // Estado para modal de confirmación
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [itemToDelete, setItemToDelete] = useState(null)
 
   // Hook para navegación
   const navigate = useNavigate()
+
+  // Calcular precio con IVA usando useMemo para optimizar rendimiento
+  const calculatedPrecioConIva = useMemo(() => {
+    if (formData.Precio && formData.AplicaIVA) {
+      const precio = Number.parseFloat(formData.Precio) || 0
+      const iva = Number.parseFloat(formData.PorcentajeIVA) || 0
+      const valorIva = precio * (iva / 100)
+      const precioFinal = precio + valorIva
+
+      return {
+        valorIva: valorIva,
+        precioFinal: precioFinal,
+      }
+    } else {
+      return {
+        valorIva: 0,
+        precioFinal: Number.parseFloat(formData.Precio) || 0,
+      }
+    }
+  }, [formData.Precio, formData.PorcentajeIVA, formData.AplicaIVA])
+
+  // Actualizar el estado de precioConIva cuando cambia el cálculo
+  useEffect(() => {
+    setPrecioConIva(calculatedPrecioConIva)
+  }, [calculatedPrecioConIva])
 
   // Cargar datos iniciales
   useEffect(() => {
@@ -108,6 +150,16 @@ const RegistrarProducto = () => {
           categoriasData = []
         }
         setCategorias(categoriasData)
+
+        // Cargar atributos disponibles
+        try {
+          const attributesData = await ProductosService.getTiposAtributos()
+          console.log("Atributos obtenidos:", attributesData)
+          setAttributes(attributesData)
+        } catch (error) {
+          console.error("Error al cargar atributos:", error)
+          toast.error(`No se pudieron cargar los atributos. ${error.response?.data?.message || error.message}`)
+        }
 
         // Cargar productos para validación
         let productosData
@@ -175,6 +227,34 @@ const RegistrarProducto = () => {
               setImagenesPreview(newImagenesPreview)
               setImagenes(newImagenes)
             }
+            
+            // Cargar atributos del producto
+            try {
+              const atributosProducto = await ProductosService.getAtributosProducto(productId)
+              if (atributosProducto && Array.isArray(atributosProducto)) {
+                setSelectedAttributes(atributosProducto.map(attr => ({
+                  attributeId: attr.IdAtributo,
+                  valueId: attr.IdValorAtributo
+                })))
+              }
+            } catch (error) {
+              console.error("Error al cargar atributos del producto:", error)
+              toast.error(`No se pudieron cargar los atributos del producto. ${error.response?.data?.message || error.message}`)
+            }
+            
+            // Cargar variantes
+            try {
+              const variantesProducto = await ProductosService.getVariantes(productId)
+              if (variantesProducto && Array.isArray(variantesProducto)) {
+                setFormData(prev => ({
+                  ...prev,
+                  Variantes: variantesProducto
+                }))
+              }
+            } catch (error) {
+              console.error("Error al cargar variantes:", error)
+              toast.error(`No se pudieron cargar las variantes. ${error.response?.data?.message || error.message}`)
+            }
           } catch (error) {
             console.error(`Error al cargar producto con ID ${productId}:`, error)
             toast.error(`No se pudo cargar el producto para edición. ${error.response?.data?.message || error.message}`)
@@ -203,29 +283,7 @@ const RegistrarProducto = () => {
       // Limpiar notificaciones
       toast.dismiss()
     }
-  }, [isEditing, productId])
-
-  /**
-   * Efecto para calcular el precio con IVA cuando cambia el precio o el IVA
-   */
-  useEffect(() => {
-    if (formData.Precio && formData.AplicaIVA) {
-      const precio = Number.parseFloat(formData.Precio) || 0
-      const iva = Number.parseFloat(formData.PorcentajeIVA) || 0
-      const valorIva = precio * (iva / 100)
-      const precioFinal = precio + valorIva
-
-      setPrecioConIva({
-        valorIva: valorIva,
-        precioFinal: precioFinal,
-      })
-    } else {
-      setPrecioConIva({
-        valorIva: 0,
-        precioFinal: Number.parseFloat(formData.Precio) || 0,
-      })
-    }
-  }, [formData.Precio, formData.PorcentajeIVA, formData.AplicaIVA])
+  }, [isEditing, productId, imagenesPreview, imagenes])
 
   /**
    * Manejador para cambios en los inputs del formulario
@@ -537,10 +595,29 @@ const RegistrarProducto = () => {
   }
 
   /**
+   * Manejador para editar una variante
+   */
+  const handleEditVariant = (variantId) => {
+    // Implementar lógica para editar variante
+    toast.info(`Editando variante con ID: ${variantId}`)
+    // Aquí se podría navegar a una página de edición o mostrar un modal
+  }
+
+  /**
+   * Manejador para confirmar eliminación de variante
+   */
+  const handleConfirmDeleteVariant = (variantId) => {
+    setItemToDelete({ id: variantId, type: 'variante' })
+    setShowDeleteModal(true)
+  }
+
+  /**
    * Manejador para eliminar una variante
    */
-  const handleDeleteVariant = (variantId) => {
-    const updatedVariantes = formData.Variantes.filter((v) => v.id !== variantId)
+  const handleDeleteVariant = () => {
+    if (!itemToDelete || itemToDelete.type !== 'variante') return
+    
+    const updatedVariantes = formData.Variantes.filter((v) => v.id !== itemToDelete.id)
 
     setFormData({
       ...formData,
@@ -548,6 +625,16 @@ const RegistrarProducto = () => {
     })
 
     toast.success("Variante eliminada correctamente")
+    setShowDeleteModal(false)
+    setItemToDelete(null)
+  }
+
+  /**
+   * Cancelar eliminación
+   */
+  const handleCancelDelete = () => {
+    setShowDeleteModal(false)
+    setItemToDelete(null)
   }
 
   /**
@@ -565,6 +652,7 @@ const RegistrarProducto = () => {
       CodigoBarras: "",
       Referencia: "",
       FechaVencimiento: "",
+      attributes: "",
     }
 
     // Validar nombre (requerido y único)
@@ -674,6 +762,17 @@ const RegistrarProducto = () => {
         isValid = false
       }
     }
+    
+    // Validar atributos
+    if (selectedAttributes.length > 0) {
+      const invalidAttributes = selectedAttributes.some(
+        attr => !attr.attributeId || !attr.valueId
+      )
+      if (invalidAttributes) {
+        errors.attributes = "Todos los atributos deben tener un tipo y un valor seleccionados"
+        isValid = false
+      }
+    }
 
     setFormErrors(errors)
     return isValid
@@ -755,9 +854,13 @@ const RegistrarProducto = () => {
 
       console.log("Datos del producto a guardar:", productoData)
 
+      let productoId
+      
       // Guardar o actualizar el producto
       if (isEditing) {
         await ProductosService.update(productId, productoData)
+        productoId = productId
+        
         toast.success(
           <div>
             <strong>Producto actualizado</strong>
@@ -774,7 +877,9 @@ const RegistrarProducto = () => {
           },
         )
       } else {
-        await ProductosService.create(productoData)
+        const nuevoProducto = await ProductosService.create(productoData)
+        productoId = nuevoProducto.IdProducto || nuevoProducto.id
+        
         toast.success(
           <div>
             <strong>Producto guardado</strong>
@@ -790,6 +895,25 @@ const RegistrarProducto = () => {
             draggable: true,
           },
         )
+      }
+      
+      // Guardar atributos si hay seleccionados
+      if (selectedAttributes.length > 0) {
+        try {
+          const atributosData = selectedAttributes
+            .filter(attr => attr.attributeId && attr.valueId)
+            .map(attr => ({
+              idTipoAtributo: attr.attributeId,
+              idValorAtributo: attr.valueId
+            }))
+
+          if (atributosData.length > 0) {
+            await ProductosService.asignarAtributosMultiples(productoId, atributosData)
+          }
+        } catch (error) {
+          console.error("Error al guardar atributos:", error)
+          toast.error("Error al guardar los atributos del producto.")
+        }
       }
 
       // Esperar a que se muestre la notificación y luego redirigir
@@ -898,6 +1022,15 @@ const RegistrarProducto = () => {
               </li>
               <li className="nav-item" role="presentation">
                 <button
+                  className={`nav-link ${activeTab === "atributos" ? "active" : ""}`}
+                  onClick={() => setActiveTab("atributos")}
+                  type="button"
+                >
+                  Atributos
+                </button>
+              </li>
+              <li className="nav-item" role="presentation">
+                <button
                   className={`nav-link ${activeTab === "especificaciones" ? "active" : ""}`}
                   onClick={() => setActiveTab("especificaciones")}
                   type="button"
@@ -962,9 +1095,19 @@ const RegistrarProducto = () => {
                 {/* Pestaña de Características */}
                 <div className={`tab-pane fade ${activeTab === "caracteristicas" ? "show active" : ""}`}>
                   <CharacteristicsSection
-                    caracteristicas={formData.Caracteristicas}
-                    onAddCaracteristica={handleAddCaracteristica}
-                    onRemoveCaracteristica={handleRemoveCaracteristica}
+                    atributos={atributos}
+                    setAtributos={setAtributos}
+                  />
+                </div>
+                
+                {/* Pestaña de Atributos */}
+                <div className={`tab-pane fade ${activeTab === "atributos" ? "show active" : ""}`}>
+                  <AttributesSection
+                    formErrors={formErrors}
+                    attributes={attributes}
+                    selectedAttributes={selectedAttributes}
+                    setSelectedAttributes={setSelectedAttributes}
+                    isVariant={false}
                   />
                 </div>
 
@@ -980,9 +1123,10 @@ const RegistrarProducto = () => {
                 {/* Pestaña de Imágenes */}
                 <div className={`tab-pane fade ${activeTab === "imagenes" ? "show active" : ""}`}>
                   <ImagesSection
-                    imagenesPreview={imagenesPreview}
-                    onImageUpload={handleImageUpload}
-                    onRemoveImage={handleRemoveImage}
+                    productId={productId}
+                    imagenes={imagenes}
+                    setImagenes={setImagenes}
+                    isEditing={isEditing}
                   />
                   {/* Indicador de carga de imágenes */}
                   {imagenesLoading.some((loading) => loading) && (
@@ -1028,12 +1172,18 @@ const RegistrarProducto = () => {
                     </button>
                   </div>
 
-                  <VariantsSection
-                    formData={formData}
-                    setFormData={setFormData}
-                    setCreatingVariant={setCreatingVariant}
-                    onDeleteVariant={handleDeleteVariant}
-                  />
+                  {formData.Variantes && formData.Variantes.length > 0 ? (
+                    <VariantsTable
+                      variants={formData.Variantes}
+                      onDelete={handleConfirmDeleteVariant}
+                      onEdit={handleEditVariant}
+                    />
+                  ) : (
+                    <div className="alert alert-info d-flex align-items-center" role="alert">
+                      <Info size={18} className="me-2" />
+                      <div>No hay variantes disponibles para este producto.</div>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -1066,6 +1216,15 @@ const RegistrarProducto = () => {
           </div>
         </div>
       )}
+      
+      {/* Modal de confirmación de eliminación */}
+      <DeleteConfirmModal 
+        show={showDeleteModal}
+        item={itemToDelete}
+        onCancel={handleCancelDelete}
+        onConfirm={handleDeleteVariant}
+        itemType={itemToDelete?.type === 'variante' ? 'variante' : 'elemento'}
+      />
 
       {/* Contenedor para las notificaciones */}
       <ToastContainer

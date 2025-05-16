@@ -9,6 +9,7 @@ import Productos from "../Pages/AdminPages/Productos/Productos"
 import RegistrarProducto from "../Pages/AdminPages/Productos/RegistrarProducto"
 import Notificaciones from "../Pages/AdminPages/Notificaciones/Notificaciones"
 import Proveedores from "../Pages/AdminPages/Proveedores/Proveedores"
+import CatalogoProveedores from "../Pages/AdminPages/Proveedores/catalogo-proveedores.jsx" // Importación del nuevo componente
 import Compras from "../Pages/AdminPages/Compras/Compras"
 import RegistrarCompra from "../Pages/AdminPages/Compras/RegistrarCompra"
 import Clientes from "../Pages/AdminPages//Clientes/Clientes"
@@ -82,6 +83,7 @@ const AppRoutes = () => {
 
         {/* Compras */}
         <Route path="compras/proveedores" element={<Proveedores />} />
+        <Route path="compras/catalogo-proveedores" element={<CatalogoProveedores />} /> {/* Nueva ruta para el catálogo de proveedores */}
         <Route path="compras/compras" element={<Compras />} />
         <Route path="compras/registrar-compra" element={<RegistrarCompra />} />
 
