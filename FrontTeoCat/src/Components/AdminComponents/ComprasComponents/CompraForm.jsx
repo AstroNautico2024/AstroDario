@@ -149,11 +149,10 @@ const CompraForm = ({
             value={formData.cantidad}
             onChange={handleInputChange}
             min="1"
-            max="1000"
             disabled={!formData.productoSeleccionado}
           />
           {formErrors.cantidad && <div className="invalid-feedback">{formErrors.cantidad}</div>}
-          <small className="form-text text-muted">Máximo 1000 unidades</small>
+          <small className="form-text text-muted">Ingrese la cantidad deseada</small>
         </div>
         <div className="col-md-4 d-flex align-items-end">
           <button

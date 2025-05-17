@@ -217,9 +217,6 @@ const RegistrarCompra = () => {
     } else if (!Number.isInteger(Number(formData.cantidad))) {
       errors.cantidad = "La cantidad debe ser un número entero"
       isValid = false
-    } else if (Number(formData.cantidad) > 1000) {
-      errors.cantidad = "La cantidad no puede ser mayor a 1000 unidades"
-      isValid = false
     }
 
     setFormErrors(errors)
@@ -249,24 +246,7 @@ const RegistrarCompra = () => {
       // Actualizar cantidad si el producto ya existe
       const nuevaCantidad = Number.parseInt(nuevosProductos[productoExistente].Cantidad) + Number.parseInt(cantidad)
 
-      // Validar que la cantidad total no exceda el límite
-      if (nuevaCantidad > 1000) {
-        toast.error(
-          <div>
-            <strong>Error</strong>
-            <p>La cantidad total para este producto no puede exceder 1000 unidades.</p>
-          </div>,
-          {
-            position: "top-right",
-            autoClose: 4000,
-            hideProgressBar: false,
-            closeOnClick: true,
-            pauseOnHover: true,
-            draggable: true,
-          },
-        )
-        return
-      }
+      // Ya no hay límite de cantidad
 
       nuevosProductos[productoExistente] = {
         ...nuevosProductos[productoExistente],

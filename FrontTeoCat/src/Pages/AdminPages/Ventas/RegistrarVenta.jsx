@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useNavigate } from "react-router-dom"
-import { Save, ArrowLeft, Trash2, Plus, FileText } from "lucide-react"
+import { Save, ArrowLeft, Trash2, Plus, FileText, Barcode, Search } from "lucide-react"
 import Select from "react-select"
 import "../../../Styles/AdminStyles/RegistrarVenta.css"
 import { ToastContainer, toast } from "react-toastify"
@@ -67,8 +67,19 @@ const RegistrarVenta = () => {
 
   // Estado para el método de pago y monto recibido
   const [metodoPago, setMetodoPago] = useState("efectivo")
-  // Cambiar la inicialización del estado montoRecibido de cadena vacía a 0
   const [montoRecibido, setMontoRecibido] = useState(0)
+
+  // Estado para el lector de código de barras
+  const [codigoBarras, setCodigoBarras] = useState("")
+  const [escaneando, setEscaneando] = useState(false)
+  const [modoEscaneo, setModoEscaneo] = useState(false)
+  const ultimoCaracterRef = useRef(0)
+  const codigoBarrasTimeoutRef = useRef(null)
+
+  // Estado para el código de barras manual
+  const [codigoBarrasManual, setCodigoBarrasManual] = useState("")
+  const [buscandoManual, setBuscandoManual] = useState(false)
+  const codigoBarrasManualRef = useRef(null)
 
   // Referencias para las notificaciones
   const toastIds = useRef({})
@@ -531,7 +542,6 @@ const RegistrarVenta = () => {
     return montoNumerico > total ? montoNumerico - total : 0
   }
 
-  // Manejador para agregar un producto o servicio a la lista
   // Manejador para agregar un producto o servicio a la lista
   const handleAddProduct = () => {
     if (!formData.productoSeleccionado) {
@@ -1054,15 +1064,428 @@ const RegistrarVenta = () => {
     }),
   }
 
+  // NUEVA FUNCIONALIDAD: Lector de código de barras
+
+  // Función para activar/desactivar el modo de escaneo
+  const toggleModoEscaneo = () => {
+    setModoEscaneo(!modoEscaneo)
+    setCodigoBarras("")
+    setCodigoBarrasManual("")
+
+    if (!modoEscaneo) {
+      toast.info(
+        <div>
+          <strong>Modo escaneo activado</strong>
+          <p>Escanee un código de barras con su lector o ingréselo manualmente.</p>
+        </div>,
+        {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        },
+      )
+
+      // Enfocar el campo de entrada manual después de activar el modo
+      setTimeout(() => {
+        if (codigoBarrasManualRef.current) {
+          codigoBarrasManualRef.current.focus()
+        }
+      }, 100)
+    } else {
+      toast.info(
+        <div>
+          <strong>Modo escaneo desactivado</strong>
+        </div>,
+        {
+          position: "top-right",
+          autoClose: 2000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        },
+      )
+    }
+  }
+
+  // Manejador para cambios en el campo de código de barras manual
+  const handleCodigoBarrasManualChange = (e) => {
+    setCodigoBarrasManual(e.target.value)
+  }
+
+  // Manejador para buscar producto por código de barras manual
+  const handleBuscarCodigoManual = async () => {
+    if (!codigoBarrasManual.trim()) {
+      toast.error(
+        <div>
+          <strong>Error</strong>
+          <p>Por favor, ingrese un código de barras.</p>
+        </div>,
+        {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        },
+      )
+      return
+    }
+
+    setBuscandoManual(true)
+    try {
+      const producto = await buscarProductoPorCodigoBarras(codigoBarrasManual.trim())
+
+      if (producto) {
+        // Seleccionar automáticamente el producto
+        setTipoItem("producto")
+        setFormData({
+          ...formData,
+          productoSeleccionado: producto,
+          cantidad: 1,
+        })
+
+        // Agregar el producto a la lista
+        const precioUnitario = producto.precioUnitario || producto.Precio
+        const iva = producto.iva || producto.PorcentajeIVA || 0
+        const subtotal = precioUnitario * 1 // Cantidad 1 por defecto
+        const totalConIVA = subtotal * (1 + iva / 100)
+
+        const nuevoProducto = {
+          id: producto.id || producto.IdProducto || producto.idProducto,
+          codigoBarras: producto.codigoBarras || producto.CodigoBarras || "",
+          nombre: producto.nombre || producto.NombreProducto || producto.Nombre || "",
+          tipo: "producto",
+          cantidad: 1,
+          precioUnitario: precioUnitario,
+          iva: iva,
+          subtotal: subtotal,
+          totalConIVA: totalConIVA,
+          original: producto,
+        }
+
+        setFormData((prevState) => ({
+          ...prevState,
+          productosAgregados: [...prevState.productosAgregados, nuevoProducto],
+          productoSeleccionado: null,
+        }))
+
+        toast.success(
+          <div>
+            <strong>Producto agregado</strong>
+            <p>{producto.nombre || producto.NombreProducto || "Producto"} agregado a la venta.</p>
+          </div>,
+          {
+            position: "top-right",
+            autoClose: 2000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          },
+        )
+
+        // Limpiar el campo después de agregar el producto
+        setCodigoBarrasManual("")
+
+        // Enfocar el campo nuevamente para el siguiente escaneo
+        if (codigoBarrasManualRef.current) {
+          codigoBarrasManualRef.current.focus()
+        }
+      } else {
+        toast.error(
+          <div>
+            <strong>Producto no encontrado</strong>
+            <p>No se encontró ningún producto con el código de barras: {codigoBarrasManual}</p>
+          </div>,
+          {
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+          },
+        )
+      }
+    } catch (error) {
+      console.error("Error al buscar producto por código de barras manual:", error)
+      toast.error(
+        <div>
+          <strong>Error</strong>
+          <p>No se pudo buscar el producto. Intente nuevamente.</p>
+        </div>,
+        {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        },
+      )
+    } finally {
+      setBuscandoManual(false)
+    }
+  }
+
+  // Manejador para la tecla Enter en el campo de código de barras manual
+  const handleCodigoBarrasManualKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      handleBuscarCodigoManual()
+    }
+  }
+
+  // Efecto para manejar eventos de teclado para el lector de código de barras
+  useEffect(() => {
+    // Solo activar el listener si el modo escaneo está activado
+    if (!modoEscaneo) return
+
+    const handleKeyDown = async (e) => {
+      // Si el foco está en el campo de entrada manual, no procesar como escaneo automático
+      if (
+        document.activeElement === codigoBarrasManualRef.current ||
+        document.activeElement.tagName === "INPUT" ||
+        document.activeElement.tagName === "TEXTAREA"
+      ) {
+        return
+      }
+
+      // Ignorar teclas de control como Shift, Alt, Ctrl
+      if (e.ctrlKey || e.altKey || e.metaKey) return
+
+      // Verificar si es una entrada rápida (típico de un lector de código de barras)
+      const ahora = Date.now()
+      const tiempoTranscurrido = ahora - ultimoCaracterRef.current
+      ultimoCaracterRef.current = ahora
+
+      // Si el tiempo entre pulsaciones es muy corto, probablemente sea un escáner
+      const esEscaneo = tiempoTranscurrido < 50 // 50ms entre caracteres
+
+      if (esEscaneo || escaneando) {
+        setEscaneando(true)
+
+        // Limpiar cualquier timeout anterior
+        if (codigoBarrasTimeoutRef.current) {
+          clearTimeout(codigoBarrasTimeoutRef.current)
+        }
+
+        // Si es Enter, procesar el código de barras
+        if (e.key === "Enter") {
+          e.preventDefault() // Prevenir el comportamiento por defecto
+
+          if (codigoBarras.length > 0) {
+            console.log("Código de barras escaneado:", codigoBarras)
+
+            // Buscar el producto por código de barras
+            try {
+              const producto = await buscarProductoPorCodigoBarras(codigoBarras)
+
+              if (producto) {
+                // Seleccionar automáticamente el producto
+                setTipoItem("producto")
+                setFormData({
+                  ...formData,
+                  productoSeleccionado: producto,
+                  cantidad: 1,
+                })
+
+                // Agregar el producto a la lista
+                const precioUnitario = producto.precioUnitario || producto.Precio
+                const iva = producto.iva || producto.PorcentajeIVA || 0
+                const subtotal = precioUnitario * 1 // Cantidad 1 por defecto
+                const totalConIVA = subtotal * (1 + iva / 100)
+
+                const nuevoProducto = {
+                  id: producto.id || producto.IdProducto || producto.idProducto,
+                  codigoBarras: producto.codigoBarras || producto.CodigoBarras || "",
+                  nombre: producto.nombre || producto.NombreProducto || producto.Nombre || "",
+                  tipo: "producto",
+                  cantidad: 1,
+                  precioUnitario: precioUnitario,
+                  iva: iva,
+                  subtotal: subtotal,
+                  totalConIVA: totalConIVA,
+                  original: producto,
+                }
+
+                setFormData((prevState) => ({
+                  ...prevState,
+                  productosAgregados: [...prevState.productosAgregados, nuevoProducto],
+                  productoSeleccionado: null,
+                }))
+
+                toast.success(
+                  <div>
+                    <strong>Producto agregado</strong>
+                    <p>{producto.nombre || producto.NombreProducto || "Producto"} agregado a la venta.</p>
+                  </div>,
+                  {
+                    position: "top-right",
+                    autoClose: 2000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                  },
+                )
+              } else {
+                toast.error(
+                  <div>
+                    <strong>Producto no encontrado</strong>
+                    <p>No se encontró ningún producto con el código de barras: {codigoBarras}</p>
+                  </div>,
+                  {
+                    position: "top-right",
+                    autoClose: 3000,
+                    hideProgressBar: false,
+                    closeOnClick: true,
+                    pauseOnHover: true,
+                    draggable: true,
+                  },
+                )
+              }
+            } catch (error) {
+              console.error("Error al buscar producto por código de barras:", error)
+              toast.error(
+                <div>
+                  <strong>Error</strong>
+                  <p>No se pudo buscar el producto. Intente nuevamente.</p>
+                </div>,
+                {
+                  position: "top-right",
+                  autoClose: 3000,
+                  hideProgressBar: false,
+                  closeOnClick: true,
+                  pauseOnHover: true,
+                  draggable: true,
+                },
+              )
+            }
+
+            // Reiniciar el estado para el próximo escaneo
+            setCodigoBarras("")
+            setEscaneando(false)
+          }
+        } else if (e.key.length === 1) {
+          // Agregar el carácter al código de barras
+          setCodigoBarras((prev) => prev + e.key)
+        }
+
+        // Configurar un timeout para finalizar el escaneo si no hay más caracteres
+        codigoBarrasTimeoutRef.current = setTimeout(() => {
+          setEscaneando(false)
+        }, 100)
+      }
+    }
+
+    // Agregar el event listener
+    window.addEventListener("keydown", handleKeyDown)
+
+    // Limpiar el event listener al desmontar
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown)
+      if (codigoBarrasTimeoutRef.current) {
+        clearTimeout(codigoBarrasTimeoutRef.current)
+      }
+    }
+  }, [modoEscaneo, escaneando, codigoBarras, formData])
+
+  // Función para buscar un producto por código de barras
+  const buscarProductoPorCodigoBarras = async (codigo) => {
+    try {
+      // Primero intentar usar el servicio específico
+      const producto = await VentasService.buscarProductoPorCodigoBarras(codigo)
+      if (producto) return producto
+
+      // Si no se encuentra, buscar en la lista de productos cargados
+      const productoLocal = productos.find(
+        (p) => (p.codigoBarras && p.codigoBarras === codigo) || (p.CodigoBarras && p.CodigoBarras === codigo),
+      )
+
+      return productoLocal || null
+    } catch (error) {
+      console.error("Error al buscar producto por código de barras:", error)
+      return null
+    }
+  }
+
   return (
     <div className="registrar-venta-container">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Registrar Venta</h2>
-        <button className="btn btn-outline-secondary d-flex align-items-center" onClick={handleCancel}>
-          <ArrowLeft size={18} className="me-1" />
-          Volver a Ventas
-        </button>
+        <div className="d-flex gap-2">
+          <button
+            className={`btn ${modoEscaneo ? "btn-success" : "btn-outline-primary"} d-flex align-items-center`}
+            onClick={toggleModoEscaneo}
+          >
+            <Barcode size={18} className="me-1" />
+            {modoEscaneo ? "Modo Escaneo Activado" : "Activar Lector de Código de Barras"}
+          </button>
+          <button className="btn btn-outline-secondary d-flex align-items-center" onClick={handleCancel}>
+            <ArrowLeft size={18} className="me-1" />
+            Volver a Ventas
+          </button>
+        </div>
       </div>
+
+      {modoEscaneo && (
+        <div className="alert alert-info mb-4">
+          <div className="d-flex align-items-center">
+            <Barcode size={24} className="me-2" />
+            <div className="flex-grow-1">
+              <strong>Modo Escaneo Activo</strong>
+              <p className="mb-2">
+                Escanee un código de barras con su lector para agregar el producto automáticamente.
+              </p>
+
+              {/* Campo para ingresar código de barras manualmente */}
+              <div className="input-group">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="O ingrese el código manualmente aquí"
+                  value={codigoBarrasManual}
+                  onChange={handleCodigoBarrasManualChange}
+                  onKeyDown={handleCodigoBarrasManualKeyDown}
+                  ref={codigoBarrasManualRef}
+                />
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={handleBuscarCodigoManual}
+                  disabled={buscandoManual || !codigoBarrasManual.trim()}
+                >
+                  {buscandoManual ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                      Buscando...
+                    </>
+                  ) : (
+                    <>
+                      <Search size={16} className="me-1" />
+                      Buscar
+                    </>
+                  )}
+                </button>
+              </div>
+
+              <small className="text-muted">Presione Enter después de ingresar el código o haga clic en Buscar.</small>
+
+              {codigoBarras && (
+                <p className="mb-0 mt-2">
+                  <strong>Código detectado:</strong> {codigoBarras}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="card">
         <div className="card-body">

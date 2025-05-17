@@ -252,31 +252,32 @@ const Clientes = () => {
    * Manejador para confirmar la edición de un cliente
    */
   const handleConfirmEdit = (cliente) => {
-    setClienteToEdit(cliente)
-    setShowEditConfirm(true)
+    // Abrir directamente el formulario de edición sin mostrar el diálogo de confirmación
+    confirmEdit(cliente)
   }
 
   /**
    * Función para confirmar la edición
    */
-  const confirmEdit = async () => {
+  const confirmEdit = async (cliente) => {
     try {
       setShowEditConfirm(false)
       setIsProcessing(true)
       setProcessingMessage("Cargando datos del cliente...")
 
-      const cliente = clienteToEdit
-      setCurrentCliente(cliente)
+      // Usar el cliente pasado como parámetro o el que está en clienteToEdit
+      const clienteToProcess = cliente || clienteToEdit
+      setCurrentCliente(clienteToProcess)
       setModalTitle("Editar Cliente")
 
       // Cargar datos del cliente en el formulario
       setFormData({
-        documento: cliente.Documento,
-        correo: cliente.Correo,
-        nombre: cliente.Nombre,
-        apellido: cliente.Apellido,
-        direccion: cliente.Direccion,
-        telefono: cliente.Telefono,
+        documento: clienteToProcess.Documento,
+        correo: clienteToProcess.Correo,
+        nombre: clienteToProcess.Nombre,
+        apellido: clienteToProcess.Apellido,
+        direccion: clienteToProcess.Direccion,
+        telefono: clienteToProcess.Telefono,
       })
 
       // Resetear errores
@@ -857,7 +858,7 @@ const Clientes = () => {
         title="Confirmar edición"
         message={`¿Está seguro de editar el cliente "${clienteToEdit?.Nombre} ${clienteToEdit?.Apellido}"?`}
         type="info"
-        onConfirm={confirmEdit}
+        onConfirm={() => confirmEdit()}
         onCancel={() => setShowEditConfirm(false)}
       />
 

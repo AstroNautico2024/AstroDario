@@ -69,5 +69,6 @@ router.patch('/productos/:id/precio-venta', authMiddleware, validatePermission('
 router.put('/productos/:id/variantes/:variantId', authMiddleware, validatePermission('Modificar Productos'), uploadMiddleware.single('imagen'), productosController.updateVariant);
 router.delete('/productos/:id/variantes/:variantId', authMiddleware, validatePermission('Eliminar Productos'), productosController.deleteVariant);
 
-
+// Añadir esta ruta junto con las demás rutas de productos
+router.get('/productos/codigo/:codigo', authMiddleware, validatePermission('Visualizar Productos'), productosController.getByBarcode);
 export default router;

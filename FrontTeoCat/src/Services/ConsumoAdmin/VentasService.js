@@ -1306,6 +1306,51 @@ const VentasService = {
       throw error
     }
   },
+
+  /**
+   * Busca un producto por su código de barras
+   * @param {string} codigoBarras - Código de barras a buscar
+   * @returns {Promise<Object|null>} Producto encontrado o null si no existe
+   */
+  buscarProductoPorCodigoBarras: async (codigoBarras) => {
+    try {
+      console.log(`Buscando producto con código de barras: ${codigoBarras}`)
+
+      // Intentar obtener el producto directamente desde el endpoint específico
+      try {
+        const response = await axiosInstance.get(`/products/productos/codigo/${codigoBarras}`)
+        if (response.data) {
+          console.log("Producto encontrado por código de barras:", response.data)
+          return response.data
+        }
+      } catch (directError) {
+        console.warn("No se encontró el producto directamente, intentando búsqueda alternativa:", directError.message)
+      }
+
+      // Si no hay un endpoint específico, buscar en todos los productos
+      const todosLosProductos = await axiosInstance.get("/products/productos")
+
+      if (Array.isArray(todosLosProductos.data)) {
+        // Buscar el producto que coincida con el código de barras
+        const productoEncontrado = todosLosProductos.data.find(
+          (producto) =>
+            (producto.codigoBarras && producto.codigoBarras === codigoBarras) ||
+            (producto.CodigoBarras && producto.CodigoBarras === codigoBarras),
+        )
+
+        if (productoEncontrado) {
+          console.log("Producto encontrado en la lista completa:", productoEncontrado)
+          return productoEncontrado
+        }
+      }
+
+      console.log("No se encontró ningún producto con el código de barras:", codigoBarras)
+      return null
+    } catch (error) {
+      console.error("Error al buscar producto por código de barras:", error)
+      return null
+    }
+  },
 }
 
 export default VentasService

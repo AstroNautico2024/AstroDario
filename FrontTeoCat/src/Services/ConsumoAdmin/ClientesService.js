@@ -172,6 +172,17 @@ const clientesService = {
         throw new Error(`ID de cliente inválido: ${id}`)
       }
 
+      // Primero obtener el cliente actual para mantener el IdUsuario
+      let clienteActual;
+      try {
+        clienteActual = await clientesService.getById(idNumerico);
+        console.log("Cliente actual obtenido para actualización:", clienteActual);
+      } catch (getError) {
+        console.error(`Error al obtener cliente actual con ID ${idNumerico}:`, getError);
+        // Si no podemos obtener el cliente, continuamos con un objeto vacío
+        clienteActual = {};
+      }
+
       // Preparar los datos en el formato que espera la API
       // Asegurarse de que todos los campos estén definidos con valores por defecto
       const clienteFormateado = {
@@ -182,7 +193,8 @@ const clientesService = {
         Direccion: clienteData.Direccion || "",
         Telefono: clienteData.Telefono || "",
         Estado: typeof clienteData.Estado === "string" ? (clienteData.Estado === "Activo" ? 1 : 0) : clienteData.Estado,
-        IdUsuario: clienteData.IdUsuario || null,
+        // Usar el IdUsuario existente o un valor por defecto (1 para evitar null)
+        IdUsuario: clienteActual.IdUsuario || 1,
       }
 
       console.log(`Actualizando cliente ID ${idNumerico} con datos:`, clienteFormateado)
@@ -401,7 +413,7 @@ const clientesService = {
           Direccion: clienteActual.Direccion,
           Telefono: clienteActual.Telefono,
           Estado: estadoNumerico, // Actualizar solo el estado
-          IdUsuario: clienteActual.IdUsuario,
+          IdUsuario: clienteActual.IdUsuario || 1, // Usar el IdUsuario existente o un valor por defecto
         }
 
         console.log(`Actualizando cliente con datos:`, clienteActualizado)

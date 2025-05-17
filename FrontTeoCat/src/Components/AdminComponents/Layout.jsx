@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Outlet, useLocation } from "react-router-dom"
 import Sidebar from "../../Components/AdminComponents/Sidebar"
 import UserProfile from "../../Components/AdminComponents/UserProfile"
@@ -21,6 +21,9 @@ const Layout = ({ footerComponent }) => {
 
   // Añadir un estado para rastrear si el usuario ha cerrado manualmente el sidebar
   const [userClosedSidebar, setUserClosedSidebar] = useState(false)
+  
+  // Estado para forzar la actualización del componente UserProfile
+  const [profileUpdateTrigger, setProfileUpdateTrigger] = useState(0)
 
   const location = useLocation()
 
@@ -37,6 +40,28 @@ const Layout = ({ footerComponent }) => {
       setUserClosedSidebar(false)
     }
   }
+
+  // Función para manejar el evento de cambio de foto de perfil
+  const handleProfilePhotoChange = useCallback(() => {
+    console.log("Layout: Evento de cambio de foto de perfil detectado")
+    // Incrementar el contador para forzar la actualización del componente UserProfile
+    setProfileUpdateTrigger(prev => prev + 1)
+  }, [])
+
+  // Escuchar eventos de cambio de foto de perfil
+  useEffect(() => {
+    // Escuchar el evento personalizado en window
+    window.addEventListener("profilePhotoChange", handleProfilePhotoChange)
+    
+    // Escuchar el evento personalizado en document
+    document.addEventListener("userAvatarUpdate", handleProfilePhotoChange)
+    
+    // Limpiar los event listeners al desmontar
+    return () => {
+      window.removeEventListener("profilePhotoChange", handleProfilePhotoChange)
+      document.removeEventListener("userAvatarUpdate", handleProfilePhotoChange)
+    }
+  }, [handleProfilePhotoChange])
 
   // Cerrar sidebar en dispositivos móviles al cambiar de ruta
   useEffect(() => {
@@ -126,7 +151,8 @@ const Layout = ({ footerComponent }) => {
               </svg>
             </motion.button>
 
-            <UserProfile />
+            {/* Pasar el trigger de actualización como prop para forzar la actualización */}
+            <UserProfile key={`user-profile-${profileUpdateTrigger}`} forceUpdate={profileUpdateTrigger} />
           </div>
         </header>
 
