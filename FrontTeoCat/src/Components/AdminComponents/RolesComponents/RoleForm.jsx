@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Save, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { Save, AlertTriangle, ChevronDown, ChevronRight } from "lucide-react"
 
 /**
  * Componente de formulario para la gestión de roles
@@ -106,12 +106,14 @@ const RoleForm = ({ formData, setFormData, modalTitle, handleCloseModal, handleS
       },
       proveedores: {
         proveedores: [],
+        catalogoProveedores: [], // Nueva categoría para catálogo de proveedores
       },
       compras: {
         compras: [],
       },
       mascotas: {
         mascotas: [],
+        especies: [], // Nueva categoría para especies
       },
       citas: {
         citas: [],
@@ -168,7 +170,9 @@ const RoleForm = ({ formData, setFormData, modalTitle, handleCloseModal, handleS
       }
 
       // Proveedores
-      else if (nombre.includes("Proveedores")) {
+      else if (nombre.includes("Catálogo Proveedores")) {
+        permisosAgrupados.proveedores.catalogoProveedores.push(permiso)
+      } else if (nombre.includes("Proveedores")) {
         permisosAgrupados.proveedores.proveedores.push(permiso)
       }
 
@@ -178,7 +182,9 @@ const RoleForm = ({ formData, setFormData, modalTitle, handleCloseModal, handleS
       }
 
       // Mascotas
-      else if (nombre.includes("Mascotas")) {
+      else if (nombre.includes("Especies")) {
+        permisosAgrupados.mascotas.especies.push(permiso)
+      } else if (nombre.includes("Mascotas")) {
         permisosAgrupados.mascotas.mascotas.push(permiso)
       }
 
@@ -360,7 +366,10 @@ const RoleForm = ({ formData, setFormData, modalTitle, handleCloseModal, handleS
               </td>
             </tr>
             {expandedSections.proveedores && (
-              <>{renderPermissionRow("Gestión de Proveedores", permisosAgrupados.proveedores.proveedores)}</>
+              <>
+                {renderPermissionRow("Gestión de Proveedores", permisosAgrupados.proveedores.proveedores)}
+                {renderPermissionRow("Catálogo de Proveedores", permisosAgrupados.proveedores.catalogoProveedores)}
+              </>
             )}
 
             {/* COMPRAS */}
@@ -390,7 +399,10 @@ const RoleForm = ({ formData, setFormData, modalTitle, handleCloseModal, handleS
               </td>
             </tr>
             {expandedSections.mascotas && (
-              <>{renderPermissionRow("Gestión de Mascotas", permisosAgrupados.mascotas.mascotas)}</>
+              <>
+                {renderPermissionRow("Gestión de Mascotas", permisosAgrupados.mascotas.mascotas)}
+                {renderPermissionRow("Gestión de Especies", permisosAgrupados.mascotas.especies)}
+              </>
             )}
 
             {/* CITAS */}
@@ -526,4 +538,4 @@ const RoleForm = ({ formData, setFormData, modalTitle, handleCloseModal, handleS
   )
 }
 
-export default RoleForm;
+export default RoleForm

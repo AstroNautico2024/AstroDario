@@ -36,12 +36,11 @@ const UserProfileService = {
     }
   },
 
-  // Modificar el método emitProfilePhotoChange para mejorar la emisión del evento
-  // y asegurar que el avatar superior lo pueda capturar
-
-  // Reemplazar el método emitProfilePhotoChange actual con esta versión mejorada:
+  // Método mejorado para sincronizar la foto de perfil con el avatar
   emitProfilePhotoChange: (photoUrl) => {
     try {
+      console.log("Sincronizando foto de perfil con avatar:", photoUrl)
+
       // Guardar en localStorage para persistencia
       localStorage.setItem("userProfilePhoto", photoUrl)
 
@@ -51,9 +50,6 @@ const UserProfileService = {
       localStorage.setItem("userData", JSON.stringify(userData))
 
       // Emitir evento personalizado para notificar a otros componentes
-      // Usamos diferentes tipos de eventos para mayor compatibilidad
-
-      // Evento principal para componentes que escuchan en window
       const event = new CustomEvent("profilePhotoChange", {
         detail: { photoUrl },
         bubbles: true,
@@ -75,13 +71,69 @@ const UserProfileService = {
         window.jQuery(document).trigger("avatar:update", { photoUrl })
       }
 
-      console.log("Eventos de cambio de foto emitidos:", photoUrl)
+      // ACTUALIZACIÓN DIRECTA DEL AVATAR EN LA BARRA DE NAVEGACIÓN
+      setTimeout(() => {
+        try {
+          // Buscar específicamente el avatar en user-profile.tsx
+          const avatarElements = document.querySelectorAll(
+            ".avatar img, .user-avatar-img, .header-avatar-img, .dropdown-toggle img, .profile-button .avatar img",
+          )
+
+          if (avatarElements.length > 0) {
+            console.log(`Actualizando ${avatarElements.length} elementos de avatar encontrados`)
+            avatarElements.forEach((img) => {
+              // Actualizar la imagen
+              img.src = photoUrl
+              // Asegurar que se cargue correctamente
+              img.onerror = () => {
+                console.error("Error al cargar la imagen en el avatar")
+              }
+            })
+          } else {
+            console.warn("No se encontraron elementos de avatar en la página")
+
+            // Plan B: Intentar crear o actualizar el avatar si no existe
+            const avatarContainers = document.querySelectorAll(".avatar, .user-avatar, .header-avatar")
+            avatarContainers.forEach((container) => {
+              // Verificar si ya tiene una imagen
+              let img = container.querySelector("img")
+
+              // Si no tiene imagen, crear una
+              if (!img) {
+                console.log("Creando nueva imagen de avatar en:", container)
+                img = document.createElement("img")
+                img.className = "user-avatar-img"
+                img.alt = "Avatar"
+                img.style.width = "100%"
+                img.style.height = "100%"
+                img.style.objectFit = "cover"
+                img.style.borderRadius = "50%"
+
+                // Reemplazar el ícono FiUser si existe
+                const iconElement = container.querySelector("svg")
+                if (iconElement) {
+                  container.replaceChild(img, iconElement)
+                } else {
+                  container.appendChild(img)
+                }
+              }
+
+              // Actualizar la imagen
+              img.src = photoUrl
+            })
+          }
+        } catch (domError) {
+          console.error("Error al actualizar avatar en el DOM:", domError)
+        }
+      }, 100) // Pequeño retraso para asegurar que el DOM esté listo
+
+      console.log("Eventos de cambio de foto emitidos y avatar actualizado")
     } catch (error) {
       console.error("Error al emitir evento de cambio de foto:", error)
     }
   },
 
-  // Método para actualizar la imagen de perfil - USANDO EL SERVICIO CENTRALIZADO
+  // Método para actualizar la imagen de perfil
   updateProfileImage: async (id, file) => {
     try {
       // Validar el archivo antes de enviarlo
@@ -100,15 +152,12 @@ const UserProfileService = {
         throw new Error("Formato de imagen no válido. Por favor, sube una imagen en formato JPG, PNG, GIF o WebP.")
       }
 
-      // Modificar el método updateProfileImage para emitir el evento inmediatamente después de subir la imagen
-      // Reemplazar la sección donde se emite el evento en updateProfileImage:
-
       // Usar el servicio centralizado para subir la imagen a Cloudinary
       const cloudinaryUrl = await uploadImageToCloudinary(file, "usuarios")
 
       console.log("Imagen subida exitosamente a Cloudinary:", cloudinaryUrl)
 
-      // Emitir evento con la URL de Cloudinary ANTES de intentar actualizar el perfil
+      // IMPORTANTE: Emitir evento con la URL de Cloudinary ANTES de intentar actualizar el perfil
       // para que la UI se actualice inmediatamente
       UserProfileService.emitProfilePhotoChange(cloudinaryUrl)
 

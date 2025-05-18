@@ -698,10 +698,11 @@ $selected-color: #4f46e5;
           color: $secondary-color;
           margin-bottom: 0.75rem;
           display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-          height: 2.5rem;
+-webkit-box-orient: vertical;
+-webkit-line-clamp: 3;
+line-clamp: 3; // 🔧 Esta es la sugerida por el warning
+overflow: hidden;
+
         }
         
         .servicio-details {

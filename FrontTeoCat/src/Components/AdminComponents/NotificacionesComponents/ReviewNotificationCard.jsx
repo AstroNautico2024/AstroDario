@@ -6,7 +6,7 @@ import { es } from "date-fns/locale"
 /**
  * Componente para mostrar una tarjeta de notificación de reseña
  */
-const ReviewNotificationCard = ({ notificacion, onChangeStatus }) => {
+const ReviewNotificationCard = ({ notificacion, onChangeStatus, id, className = "" }) => {
   // Usar los campos correctos según la tabla Notificaciones
   const {
     IdNotificacion,
@@ -102,7 +102,10 @@ const ReviewNotificationCard = ({ notificacion, onChangeStatus }) => {
   // Verificar si el producto existe antes de intentar acceder a sus propiedades
   if (!producto) {
     return (
-      <div className={`card h-100 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""}`}>
+      <div
+        id={id}
+        className={`card h-100 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""} ${className}`}
+      >
         <div className="card-header d-flex justify-content-between align-items-start">
           <div className="d-flex align-items-center">
             <i className="bi bi-star-fill text-purple me-2"></i>
@@ -118,16 +121,25 @@ const ReviewNotificationCard = ({ notificacion, onChangeStatus }) => {
           <small className="text-muted d-block mb-2">{formatRelativeTime(FechaCreacion)}</small>
           <div className="d-flex flex-column gap-2">
             {Estado === "Pendiente" && (
-              <button
-                className="btn btn-outline-primary btn-sm"
-                onClick={() => onChangeStatus(IdNotificacion, "Vista")}
+              <button 
+                className="btn btn-outline-primary btn-sm" 
+                onClick={(e) => {
+                  e.preventDefault(); // Prevenir comportamiento por defecto
+                  onChangeStatus(IdNotificacion, "Vista");
+                }}
               >
                 <i className="bi bi-eye me-1"></i>
                 Marcar como vista
               </button>
             )}
             {(Estado === "Pendiente" || Estado === "Vista") && (
-              <button className="btn btn-primary btn-sm" onClick={() => onChangeStatus(IdNotificacion, "Resuelta")}>
+              <button 
+                className="btn btn-primary btn-sm" 
+                onClick={(e) => {
+                  e.preventDefault(); // Prevenir comportamiento por defecto
+                  onChangeStatus(IdNotificacion, "Resuelta");
+                }}
+              >
                 <i className="bi bi-check-circle me-1"></i>
                 Marcar como resuelta
               </button>
@@ -139,7 +151,10 @@ const ReviewNotificationCard = ({ notificacion, onChangeStatus }) => {
   }
 
   return (
-    <div className={`card h-100 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""}`}>
+    <div
+      id={id}
+      className={`card h-100 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""} ${className}`}
+    >
       <div className="card-header d-flex justify-content-between align-items-start">
         <div className="d-flex align-items-center">
           <i className="bi bi-star-fill text-purple me-2"></i>
@@ -191,14 +206,26 @@ const ReviewNotificationCard = ({ notificacion, onChangeStatus }) => {
           )}
 
           {Estado === "Pendiente" && (
-            <button className="btn btn-outline-primary btn-sm" onClick={() => onChangeStatus(IdNotificacion, "Vista")}>
+            <button 
+              className="btn btn-outline-primary btn-sm" 
+              onClick={(e) => {
+                e.preventDefault(); // Prevenir comportamiento por defecto
+                onChangeStatus(IdNotificacion, "Vista");
+              }}
+            >
               <i className="bi bi-eye me-1"></i>
               Marcar como vista
             </button>
           )}
 
           {(Estado === "Pendiente" || Estado === "Vista") && (
-            <button className="btn btn-primary btn-sm" onClick={() => onChangeStatus(IdNotificacion, "Resuelta")}>
+            <button 
+              className="btn btn-primary btn-sm" 
+              onClick={(e) => {
+                e.preventDefault(); // Prevenir comportamiento por defecto
+                onChangeStatus(IdNotificacion, "Resuelta");
+              }}
+            >
               <i className="bi bi-check-circle me-1"></i>
               Marcar como resuelta
             </button>

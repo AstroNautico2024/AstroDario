@@ -49,7 +49,12 @@ export const PetStep = ({
       <div className="mascota-container">
         <div className="d-flex justify-content-between align-items-center mb-2">
           <h5 className="mb-0">Selecciona una mascota registrada:</h5>
-          <Button variant="outline-primary" className="d-flex align-items-center" onClick={onNewMascota} size="sm">
+          <Button
+            variant="outline-primary"
+            className="d-flex align-items-center"
+            onClick={() => onNewMascota(cliente)}
+            size="sm"
+          >
             <PawPrint size={14} className="me-1" />
             Nueva Mascota
           </Button>
