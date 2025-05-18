@@ -3,7 +3,7 @@
 /**
  * Componente para la sección de información básica del servicio
  */
-const BasicInfoSection = ({ formData, formErrors, tiposServicio, handleInputChange, loading }) => {
+const BasicInfoSection = ({ formData, formErrors, tiposServicio, handleInputChange, loading, isEditing }) => {
   return (
     <div className="mb-3">
       <div className="row g-2 mb-2">
@@ -73,17 +73,23 @@ const BasicInfoSection = ({ formData, formErrors, tiposServicio, handleInputChan
           Descripción
         </label>
         <textarea
-          className="form-control form-control-sm bg-light"
+          className={`form-control form-control-sm ${!isEditing ? "bg-light" : ""}`}
           id="descripcion"
           name="descripcion"
           rows="2"
           value={formData.descripcion}
           onChange={handleInputChange}
-          readOnly
-          placeholder="La descripción se completará automáticamente según el tipo de servicio seleccionado"
+          readOnly={!isEditing}
+          placeholder={
+            isEditing
+              ? "Ingrese la descripción del servicio"
+              : "La descripción se completará automáticamente según el tipo de servicio seleccionado"
+          }
         ></textarea>
         <small className="text-muted small">
-          La descripción se completa automáticamente según el tipo de servicio seleccionado.
+          {isEditing
+            ? "Puede editar la descripción del servicio."
+            : "La descripción se completa automáticamente según el tipo de servicio seleccionado."}
         </small>
       </div>
     </div>

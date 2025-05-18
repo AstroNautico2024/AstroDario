@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft } from "lucide-react"
 import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
-import { Container, Row, Col, Button, Card } from "react-bootstrap"
-import "../../../Styles/AdminStyles/NuevaCita.scss"
 import "../../../Styles/AdminStyles/ToastStyles.css"
+// Cambiamos la extensión de .css a .scss para que coincida con el archivo real
+import "../../../Styles/AdminStyles/NuevaCita.scss"
 
 // Importar componentes
 import { StepIndicator } from "../../../Components/AdminComponents/CitasComponents/step-indicator"
@@ -18,9 +18,13 @@ import { PetStep } from "../../../Components/AdminComponents/CitasComponents/pet
 import { AppointmentSummary } from "../../../Components/AdminComponents/CitasComponents/appointment-summary"
 import ClienteForm from "../../../Components/AdminComponents/ClientesComponents/ClienteForm"
 import MascotaForm from "../../../Components/AdminComponents/MascotasComponents/MascotaForm"
+import { Container, Row, Col, Button, Card } from "react-bootstrap"
 
 // Importar servicio de citas
 import CitasService from "../../../Services/ConsumoAdmin/CitasService.js"
+import ClientesService from "../../../Services/ConsumoAdmin/ClientesService.js"
+import MascotasService from "../../../Services/ConsumoAdmin/MascotasService.js"
+import EspeciesService from "../../../Services/ConsumoAdmin/EspeciesService.js" // Importar el servicio de especies
 
 /**
  * Componente para agendar una nueva cita o editar una existente
@@ -69,11 +73,14 @@ const NuevaCita = () => {
 
   const [fotoPreview, setFotoPreview] = useState(null)
 
+  // Estado para las especies obtenidas del servicio
+  const [especies, setEspecies] = useState([])
+
   // Opciones para los selectores del formulario de mascota
-  const especiesOptions = [
+  const [especiesOptions, setEspeciesOptions] = useState([
     { value: "Perro", label: "Perro" },
     { value: "Gato", label: "Gato" },
-  ]
+  ])
 
   const tamañosOptions = [
     { value: "Pequeño", label: "Pequeño" },
@@ -132,28 +139,30 @@ const NuevaCita = () => {
         // Cargar servicios
         const serviciosData = await CitasService.obtenerServicios()
         console.log("Servicios cargados:", serviciosData)
-        
-        setServicios(serviciosData.map(servicio => ({
-          id: servicio.IdServicio,
-          nombre: servicio.Nombre,
-          descripcion: servicio.Descripcion,
-          duracion: servicio.Duracion,
-          precio: servicio.Precio,
-          multiplesMascotas: servicio.Que_incluye?.toLowerCase().includes('múltiples') || false,
-          tipoServicioId: servicio.IdTipoServicio,
-          imagen: servicio.Foto || "/placeholder.svg?height=200&width=200",
-        })))
+
+        setServicios(
+          serviciosData.map((servicio) => ({
+            id: servicio.IdServicio,
+            nombre: servicio.Nombre,
+            descripcion: servicio.Descripcion,
+            duracion: servicio.Duracion,
+            precio: servicio.Precio,
+            multiplesMascotas: servicio.Que_incluye?.toLowerCase().includes("múltiples") || false,
+            tipoServicioId: servicio.IdTipoServicio,
+            imagen: servicio.Foto || "/placeholder.svg?height=200&width=200",
+          })),
+        )
 
         // Cargar clientes
         const clientesData = await CitasService.obtenerClientes()
         console.log("Clientes cargados:", clientesData)
-        
+
         const clientesConMascotas = await Promise.all(
           clientesData.map(async (cliente) => {
             try {
               const mascotas = await CitasService.obtenerMascotasPorCliente(cliente.IdCliente)
               console.log(`Mascotas para cliente ${cliente.IdCliente}:`, mascotas)
-              
+
               return {
                 id: cliente.IdCliente,
                 nombre: cliente.Nombre,
@@ -161,7 +170,7 @@ const NuevaCita = () => {
                 telefono: cliente.Telefono,
                 correo: cliente.Correo,
                 foto: cliente.Foto || "/placeholder.svg?height=100&width=100",
-                mascotas: mascotas.map(mascota => ({
+                mascotas: mascotas.map((mascota) => ({
                   id: mascota.IdMascota,
                   nombre: mascota.Nombre,
                   especie: mascota.Especie || mascota.Tipo,
@@ -170,7 +179,7 @@ const NuevaCita = () => {
                   pelaje: mascota.Pelaje,
                   fechaNacimiento: mascota.FechaNacimiento,
                   foto: mascota.Foto || "/placeholder.svg?height=200&width=200",
-                }))
+                })),
               }
             } catch (error) {
               console.error(`Error al cargar mascotas del cliente ${cliente.IdCliente}:`, error)
@@ -179,75 +188,93 @@ const NuevaCita = () => {
                 id: cliente.IdCliente,
                 nombre: cliente.Nombre,
                 apellido: cliente.Apellido,
-                mascotas: []
+                mascotas: [],
               }
             }
-          })
+          }),
         )
         setClientes(clientesConMascotas)
 
         // Cargar citas
         const citasData = await CitasService.obtenerCitas()
         console.log("Citas cargadas:", citasData)
-        
-        const citasFormateadas = await Promise.all(citasData.map(async (cita) => {
-          // Encontrar cliente y mascota correspondientes
-          const cliente = clientesConMascotas.find(c => c.id === cita.IdCliente)
-          const mascota = cliente?.mascotas.find(m => m.id === cita.IdMascota)
-          
-          // Extraer fecha y hora
-          const fechaHora = new Date(cita.Fecha)
-          const fecha = fechaHora.toISOString().split('T')[0]
-          const hora = `${String(fechaHora.getHours()).padStart(2, '0')}:${String(fechaHora.getMinutes()).padStart(2, '0')}`
-          
-          // Obtener servicios de la cita
-          let citaServicios = []
-          try {
-            // Aquí deberíamos tener un endpoint para obtener los servicios de una cita específica
-            // Como no lo tenemos, asumimos que los servicios vienen en la respuesta de la cita
-            if (cita.servicios && Array.isArray(cita.servicios)) {
-              citaServicios = cita.servicios.map(servId => {
-                const servicio = serviciosData.find(s => s.IdServicio === servId.IdServicio)
-                if (servicio) {
-                  return {
-                    id: servicio.IdServicio,
-                    nombre: servicio.Nombre,
-                    descripcion: servicio.Descripcion,
-                    duracion: servicio.Duracion,
-                    precio: servicio.Precio,
-                    multiplesMascotas: servicio.Que_incluye?.toLowerCase().includes('múltiples') || false,
-                    tipoServicioId: servicio.IdTipoServicio,
-                    imagen: servicio.Foto || "/placeholder.svg?height=200&width=200",
-                  }
-                }
-                return null
-              }).filter(Boolean)
+
+        const citasFormateadas = await Promise.all(
+          citasData.map(async (cita) => {
+            // Encontrar cliente y mascota correspondientes
+            const cliente = clientesConMascotas.find((c) => c.id === cita.IdCliente)
+            const mascota = cliente?.mascotas.find((m) => m.id === cita.IdMascota)
+
+            // Extraer fecha y hora
+            const fechaHora = new Date(cita.Fecha)
+            const fecha = fechaHora.toISOString().split("T")[0]
+            const hora = `${String(fechaHora.getHours()).padStart(2, "0")}:${String(fechaHora.getMinutes()).padStart(2, "0")}`
+
+            // Obtener servicios de la cita
+            let citaServicios = []
+            try {
+              // Aquí deberíamos tener un endpoint para obtener los servicios de una cita específica
+              // Como no lo tenemos, asumimos que los servicios vienen en la respuesta de la cita
+              if (cita.servicios && Array.isArray(cita.servicios)) {
+                citaServicios = cita.servicios
+                  .map((servId) => {
+                    const servicio = serviciosData.find((s) => s.IdServicio === servId.IdServicio)
+                    if (servicio) {
+                      return {
+                        id: servicio.IdServicio,
+                        nombre: servicio.Nombre,
+                        descripcion: servicio.Descripcion,
+                        duracion: servicio.Duracion,
+                        precio: servicio.Precio,
+                        multiplesMascotas: servicio.Que_incluye?.toLowerCase().includes("múltiples") || false,
+                        tipoServicioId: servicio.IdTipoServicio,
+                        imagen: servicio.Foto || "/placeholder.svg?height=200&width=200",
+                      }
+                    }
+                    return null
+                  })
+                  .filter(Boolean)
+              }
+            } catch (error) {
+              console.error(`Error al obtener servicios de la cita ${cita.IdCita}:`, error)
             }
-          } catch (error) {
-            console.error(`Error al obtener servicios de la cita ${cita.IdCita}:`, error)
-          }
-          
-          return {
-            id: cita.IdCita,
-            clienteId: cita.IdCliente,
-            mascotaId: cita.IdMascota,
-            mascotasIds: [cita.IdMascota],
-            serviciosIds: citaServicios.map(s => s.id),
-            fecha,
-            hora,
-            estado: cita.Estado,
-            notas: cita.NotasAdicionales || "",
-            duracionTotal: citaServicios.reduce((total, servicio) => total + servicio.duracion, 0),
-            precioTotal: citaServicios.reduce((total, servicio) => total + servicio.precio, 0),
-            fechaCreacion: cita.FechaCreacion,
-            // Datos para la UI
-            cliente,
-            mascota,
-            mascotas: mascota ? [mascota] : [],
-            servicios: citaServicios,
-          }
-        }))
+
+            return {
+              id: cita.IdCita,
+              clienteId: cita.IdCliente,
+              mascotaId: cita.IdMascota,
+              mascotasIds: [cita.IdMascota],
+              serviciosIds: citaServicios.map((s) => s.id),
+              fecha,
+              hora,
+              estado: cita.Estado,
+              notas: cita.NotasAdicionales || "",
+              duracionTotal: citaServicios.reduce((total, servicio) => total + servicio.duracion, 0),
+              precioTotal: citaServicios.reduce((total, servicio) => total + servicio.precio, 0),
+              fechaCreacion: cita.FechaCreacion,
+              // Datos para la UI
+              cliente,
+              mascota,
+              mascotas: mascota ? [mascota] : [],
+              servicios: citaServicios,
+            }
+          }),
+        )
         setCitasAgendadas(citasFormateadas)
+
+        // Cargar especies desde el servicio
+        const especiesData = await EspeciesService.getAll()
+        console.log("Especies cargadas:", especiesData)
+        setEspecies(especiesData)
+
+        // Convertir las especies a opciones para el select
+        if (especiesData && especiesData.length > 0) {
+          const options = especiesData.map((especie) => ({
+            value: especie.NombreEspecie,
+            label: especie.NombreEspecie,
+          }))
+          setEspeciesOptions(options)
+        }
       } catch (error) {
         console.error("Error al cargar datos iniciales:", error)
         toast.error(
@@ -262,7 +289,7 @@ const NuevaCita = () => {
             closeOnClick: true,
             pauseOnHover: true,
             draggable: true,
-          }
+          },
         )
       } finally {
         setIsLoading(false)
@@ -275,7 +302,7 @@ const NuevaCita = () => {
   // Cargar cita para edición si existe el ID
   useEffect(() => {
     if (isEditing && citaId && !isLoading && citasAgendadas.length > 0) {
-      const citaExistente = citasAgendadas.find((cita) => cita.id === parseInt(citaId) || cita.id === citaId)
+      const citaExistente = citasAgendadas.find((cita) => cita.id === Number.parseInt(citaId) || cita.id === citaId)
       if (citaExistente) {
         setFormData({
           ...citaExistente,
@@ -378,18 +405,58 @@ const NuevaCita = () => {
   }
 
   const handleSaveCliente = async () => {
-    // Aquí iría la lógica para guardar el cliente usando la API
     try {
-      // Implementar cuando se tenga el endpoint para crear clientes
-      console.log("Guardando cliente:", clienteFormData)
+      // Validar datos mínimos
+      if (!clienteFormData.nombre || !clienteFormData.apellido) {
+        toast.error("Nombre y Apellido son campos obligatorios")
+        return
+      }
+
+      // Crear el cliente usando el servicio
+      const clienteData = {
+        Nombre: clienteFormData.nombre,
+        Apellido: clienteFormData.apellido,
+        Documento: clienteFormData.documento,
+        Correo: clienteFormData.correo,
+        Telefono: clienteFormData.telefono,
+        Direccion: clienteFormData.direccion,
+      }
+
+      const clienteCreado = await ClientesService.create(clienteData)
+
+      // Crear objeto cliente para el formulario
+      const nuevoClienteObj = {
+        id: clienteCreado.IdCliente || clienteCreado.id,
+        nombre: `${clienteCreado.Nombre} ${clienteCreado.Apellido}`,
+        apellido: clienteCreado.Apellido,
+        telefono: clienteCreado.Telefono,
+        correo: clienteCreado.Correo,
+        mascotas: [],
+      }
+
+      // Actualizar la lista de clientes
+      setClientes((prev) => [...prev, nuevoClienteObj])
+
+      // Seleccionar el cliente recién creado
+      handleUpdateFormData({
+        ...formData,
+        cliente: nuevoClienteObj,
+        mascota: null,
+        mascotas: [],
+      })
+
+      // Cerrar el modal
       handleCloseClienteModal()
-      toast.success("Cliente guardado correctamente")
-      
-      // Recargar la lista de clientes
-      const clientesData = await CitasService.obtenerClientes()
-      setClientes(clientesData)
+
+      // Mostrar mensaje de éxito
+      toast.success("Cliente creado correctamente")
+
+      // Abrir modal para crear mascota para este cliente
+      setTimeout(() => {
+        handleOpenMascotaModal(nuevoClienteObj)
+      }, 500)
     } catch (error) {
-      console.error("Error al guardar cliente:", error)
+      console.error("Error al crear cliente:", error)
       toast.error("Error al guardar el cliente. Por favor, intente nuevamente.")
     }
   }
@@ -414,49 +481,81 @@ const NuevaCita = () => {
   }
 
   const handleSaveMascota = async () => {
-    // Aquí iría la lógica para guardar la mascota usando la API
     try {
-      // Implementar cuando se tenga el endpoint para crear mascotas
-      console.log("Guardando mascota:", mascotaFormData)
-      handleCloseMascotaModal()
-      toast.success("Mascota guardada correctamente")
-      
-      // Recargar las mascotas del cliente seleccionado
-      if (formData.cliente) {
-        const mascotas = await CitasService.obtenerMascotasPorCliente(formData.cliente.id)
-        const clienteActualizado = {
-          ...formData.cliente,
-          mascotas: mascotas.map(mascota => ({
-            id: mascota.IdMascota,
-            nombre: mascota.Nombre,
-            especie: mascota.Especie || mascota.Tipo,
-            raza: mascota.Raza,
-            tamaño: mascota.Tamaño,
-            pelaje: mascota.Pelaje,
-            fechaNacimiento: mascota.FechaNacimiento,
-            foto: mascota.Foto || "/placeholder.svg?height=200&width=200",
-          }))
-        }
-        
-        // Actualizar el cliente en la lista de clientes
-        setClientes(clientes.map(cliente => 
-          cliente.id === formData.cliente.id ? clienteActualizado : cliente
-        ))
-        
-        // Actualizar el cliente en el formulario
-        setFormData({
-          ...formData,
-          cliente: clienteActualizado
-        })
+      // Validar datos mínimos
+      if (!mascotaFormData.nombre || !mascotaFormData.especie) {
+        toast.error("Nombre y Especie son campos obligatorios")
+        return
       }
+
+      if (!formData.cliente) {
+        toast.error("Debe seleccionar un cliente primero")
+        return
+      }
+
+      // Preparar datos para crear mascota
+      const mascotaData = {
+        Nombre: mascotaFormData.nombre,
+        Especie: mascotaFormData.especie,
+        Raza: mascotaFormData.raza,
+        Tamaño: mascotaFormData.tamaño,
+        FechaNacimiento: mascotaFormData.fechaNacimiento,
+        IdCliente: formData.cliente.id,
+        FotoURL: fotoPreview,
+      }
+
+      // Crear la mascota
+      const mascotaCreada = await MascotasService.create(mascotaData)
+
+      // Crear objeto mascota para el formulario
+      const nuevaMascotaObj = {
+        id: mascotaCreada.IdMascota || mascotaCreada.id,
+        nombre: mascotaCreada.Nombre,
+        especie: mascotaCreada.Especie,
+        raza: mascotaCreada.Raza,
+        tamaño: mascotaCreada.Tamaño,
+        fechaNacimiento: mascotaCreada.FechaNacimiento,
+        foto: mascotaCreada.FotoURL || mascotaCreada.Foto,
+      }
+
+      // Actualizar el cliente con la nueva mascota
+      const clienteActualizado = {
+        ...formData.cliente,
+        mascotas: [...(formData.cliente.mascotas || []), nuevaMascotaObj],
+      }
+
+      // Actualizar la lista de clientes
+      setClientes((prev) => prev.map((cliente) => (cliente.id === formData.cliente.id ? clienteActualizado : cliente)))
+
+      // Actualizar el formulario con la mascota seleccionada
+      handleUpdateFormData({
+        ...formData,
+        cliente: clienteActualizado,
+        mascota: nuevaMascotaObj,
+        mascotas: [nuevaMascotaObj],
+      })
+
+      // Cerrar el modal
+      handleCloseMascotaModal()
+
+      // Mostrar mensaje de éxito
+      toast.success("Mascota creada correctamente")
     } catch (error) {
-      console.error("Error al guardar mascota:", error)
+      console.error("Error al crear mascota:", error)
       toast.error("Error al guardar la mascota. Por favor, intente nuevamente.")
     }
   }
 
   // Manejadores para los modales
   const handleOpenClienteModal = () => {
+    setClienteFormData({
+      documento: "",
+      correo: "",
+      nombre: "",
+      apellido: "",
+      telefono: "",
+      direccion: "",
+    })
     setShowClienteModal(true)
   }
 
@@ -464,13 +563,58 @@ const NuevaCita = () => {
     setShowClienteModal(false)
   }
 
-  const handleOpenMascotaModal = () => {
+  const handleOpenMascotaModal = (cliente) => {
+    setMascotaFormData({
+      cliente: cliente ? cliente.id : "",
+      nombre: "",
+      especie: especiesOptions.length > 0 ? especiesOptions[0].value : "",
+      raza: "",
+      tamaño: "Mediano",
+      pelaje: "Medio",
+      fechaNacimiento: "",
+    })
+    setFotoPreview(null)
     setShowMascotaModal(true)
   }
 
   const handleCloseMascotaModal = () => {
     setShowMascotaModal(false)
   }
+
+  // Efecto para inicializar los modales de Bootstrap
+  useEffect(() => {
+    // Inicializar modal de cliente
+    let clienteModalInstance = null
+    const clienteModalElement = document.getElementById("clienteModal")
+
+    if (showClienteModal && clienteModalElement) {
+      import("bootstrap").then((bootstrap) => {
+        clienteModalInstance = new bootstrap.Modal(clienteModalElement)
+        clienteModalInstance.show()
+      })
+    }
+
+    // Inicializar modal de mascota
+    let mascotaModalInstance = null
+    const mascotaModalElement = document.getElementById("mascotaModal")
+
+    if (showMascotaModal && mascotaModalElement) {
+      import("bootstrap").then((bootstrap) => {
+        mascotaModalInstance = new bootstrap.Modal(mascotaModalElement)
+        mascotaModalInstance.show()
+      })
+    }
+
+    // Cleanup
+    return () => {
+      if (clienteModalInstance) {
+        clienteModalInstance.hide()
+      }
+      if (mascotaModalInstance) {
+        mascotaModalInstance.hide()
+      }
+    }
+  }, [showClienteModal, showMascotaModal])
 
   // Manejador para cambiar el formato de hora
   const handleToggleTimeFormat = () => {
@@ -552,7 +696,7 @@ const NuevaCita = () => {
     // Verificar conflictos con otras citas
     return citasAgendadas.some((cita) => {
       // Ignorar la cita actual si estamos editando
-      if (citaId && (cita.id === parseInt(citaId) || cita.id === citaId)) return false
+      if (citaId && (cita.id === Number.parseInt(citaId) || cita.id === citaId)) return false
 
       // Solo verificar citas en la misma fecha
       if (cita.fecha !== fecha) return false
@@ -625,188 +769,188 @@ const NuevaCita = () => {
   }
 
   /**
- * Manejador para guardar la cita
- */
-const handleSaveCita = async () => {
-  // Validar el formulario completo
-  const errors = {
-    fecha: "",
-    hora: "",
-    cliente: "",
-    mascota: "",
-    mascotas: "",
-    servicios: "",
-  }
+   * Manejador para guardar la cita
+   */
+  const handleSaveCita = async () => {
+    // Validar el formulario completo
+    const errors = {
+      fecha: "",
+      hora: "",
+      cliente: "",
+      mascota: "",
+      mascotas: "",
+      servicios: "",
+    }
 
-  let isValid = true
+    let isValid = true
 
-  if (!formData.fecha) {
-    errors.fecha = "Debe seleccionar una fecha"
-    isValid = false
-  }
-
-  if (!formData.hora) {
-    errors.hora = "Debe seleccionar una hora"
-    isValid = false
-  }
-
-  if (!formData.cliente) {
-    errors.cliente = "Debe seleccionar un cliente"
-    isValid = false
-  }
-
-  if (!formData.servicios || formData.servicios.length === 0) {
-    errors.servicios = "Debe seleccionar al menos un servicio"
-    isValid = false
-  }
-
-  // Validar que se haya seleccionado al menos una mascota
-  const tieneMultiplesMascotas = formData.servicios.some((servicio) => servicio.multiplesMascotas)
-
-  if (tieneMultiplesMascotas) {
-    if (formData.mascotas.length === 0) {
-      errors.mascotas = "Debe seleccionar al menos una mascota para los servicios elegidos"
+    if (!formData.fecha) {
+      errors.fecha = "Debe seleccionar una fecha"
       isValid = false
     }
-  } else {
-    if (!formData.mascota) {
-      errors.mascota = "Debe seleccionar una mascota para la cita"
+
+    if (!formData.hora) {
+      errors.hora = "Debe seleccionar una hora"
       isValid = false
     }
-  }
 
-  setFormErrors(errors)
-
-  if (!isValid) {
-    // Mostrar notificación de error general
-    toast.error(
-      <div>
-        <strong>Error</strong>
-        <p>Por favor, complete todos los campos obligatorios.</p>
-      </div>,
-      {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      }
-    )
-    return
-  }
-
-  // Verificar si el horario ya está ocupado considerando la duración del servicio
-  const fechaSeleccionada = formData.fecha
-  const horaSeleccionada = formData.hora
-  const serviciosSeleccionados = formData.servicios
-
-  const hayConflicto = checkTimeConflicts(
-    fechaSeleccionada,
-    horaSeleccionada,
-    serviciosSeleccionados,
-    isEditing ? citaId : null,
-  )
-
-  if (hayConflicto) {
-    toast.error(
-      <div>
-        <strong>Error</strong>
-        <p>Este horario se solapa con otra cita existente. Por favor, seleccione otro horario.</p>
-      </div>,
-      {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      }
-    )
-    return
-  }
-
-  try {
-    // Preparar datos para la API en el formato correcto
-    const citaData = {
-      IdCliente: formData.cliente.id,
-      IdMascota: formData.mascota ? formData.mascota.id : null,
-      Fecha: formData.fecha,
-      hora: formData.hora,
-      NotasAdicionales: formData.notas || "",
-      Estado: "Programada",
-      servicios: formData.servicios.map(servicio => ({
-        IdServicio: servicio.id
-      }))
+    if (!formData.cliente) {
+      errors.cliente = "Debe seleccionar un cliente"
+      isValid = false
     }
 
-    console.log("Datos enviados al crear cita:", citaData)
+    if (!formData.servicios || formData.servicios.length === 0) {
+      errors.servicios = "Debe seleccionar al menos un servicio"
+      isValid = false
+    }
 
-    if (isEditing) {
-      // Actualizar cita existente
-      await CitasService.actualizarCita(citaId, citaData)
-      
-      toast.success(
-        <div>
-          <strong>Cita actualizada</strong>
-          <p>La cita ha sido actualizada correctamente.</p>
-        </div>,
-        {
-          icon: "✅",
-          position: "top-right",
-          autoClose: 3000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          onClose: () => {
-            navigate("/servicios/AgendarCitas")
-          },
-        }
-      )
+    // Validar que se haya seleccionado al menos una mascota
+    const tieneMultiplesMascotas = formData.servicios.some((servicio) => servicio.multiplesMascotas)
+
+    if (tieneMultiplesMascotas) {
+      if (formData.mascotas.length === 0) {
+        errors.mascotas = "Debe seleccionar al menos una mascota para los servicios elegidos"
+        isValid = false
+      }
     } else {
-      // Crear nueva cita
-      const nuevaCita = await CitasService.crearCita(citaData)
-      
-      toast.success(
+      if (!formData.mascota) {
+        errors.mascota = "Debe seleccionar una mascota para la cita"
+        isValid = false
+      }
+    }
+
+    setFormErrors(errors)
+
+    if (!isValid) {
+      // Mostrar notificación de error general
+      toast.error(
         <div>
-          <strong>Cita agendada</strong>
-          <p>La cita ha sido agendada correctamente.</p>
+          <strong>Error</strong>
+          <p>Por favor, complete todos los campos obligatorios.</p>
         </div>,
         {
-          icon: "✅",
           position: "top-right",
           autoClose: 3000,
           hideProgressBar: false,
           closeOnClick: true,
           pauseOnHover: true,
           draggable: true,
-          onClose: () => {
-            // Redirigir a la tabla de citas
-            navigate("/servicios/AgendarCitas")
+        },
+      )
+      return
+    }
+
+    // Verificar si el horario ya está ocupado considerando la duración del servicio
+    const fechaSeleccionada = formData.fecha
+    const horaSeleccionada = formData.hora
+    const serviciosSeleccionados = formData.servicios
+
+    const hayConflicto = checkTimeConflicts(
+      fechaSeleccionada,
+      horaSeleccionada,
+      serviciosSeleccionados,
+      isEditing ? citaId : null,
+    )
+
+    if (hayConflicto) {
+      toast.error(
+        <div>
+          <strong>Error</strong>
+          <p>Este horario se solapa con otra cita existente. Por favor, seleccione otro horario.</p>
+        </div>,
+        {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        },
+      )
+      return
+    }
+
+    try {
+      // Preparar datos para la API en el formato correcto
+      const citaData = {
+        IdCliente: formData.cliente.id,
+        IdMascota: formData.mascota ? formData.mascota.id : null,
+        Fecha: formData.fecha,
+        hora: formData.hora,
+        NotasAdicionales: formData.notas || "",
+        Estado: "Programada",
+        servicios: formData.servicios.map((servicio) => ({
+          IdServicio: servicio.id,
+        })),
+      }
+
+      console.log("Datos enviados al crear cita:", citaData)
+
+      if (isEditing) {
+        // Actualizar cita existente
+        await CitasService.actualizarCita(citaId, citaData)
+
+        toast.success(
+          <div>
+            <strong>Cita actualizada</strong>
+            <p>La cita ha sido actualizada correctamente.</p>
+          </div>,
+          {
+            icon: "✅",
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            onClose: () => {
+              navigate("/servicios/AgendarCitas")
+            },
           },
-        }
+        )
+      } else {
+        // Crear nueva cita
+        const nuevaCita = await CitasService.crearCita(citaData)
+
+        toast.success(
+          <div>
+            <strong>Cita agendada</strong>
+            <p>La cita ha sido agendada correctamente.</p>
+          </div>,
+          {
+            icon: "✅",
+            position: "top-right",
+            autoClose: 3000,
+            hideProgressBar: false,
+            closeOnClick: true,
+            pauseOnHover: true,
+            draggable: true,
+            onClose: () => {
+              // Redirigir a la tabla de citas
+              navigate("/servicios/AgendarCitas")
+            },
+          },
+        )
+      }
+    } catch (error) {
+      console.error("Error al guardar la cita:", error)
+      toast.error(
+        <div>
+          <strong>Error</strong>
+          <p>Ocurrió un error al guardar la cita. Por favor, intente nuevamente.</p>
+          <p>{error.response?.data?.message || error.message}</p>
+        </div>,
+        {
+          position: "top-right",
+          autoClose: 5000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+        },
       )
     }
-  } catch (error) {
-    console.error("Error al guardar la cita:", error)
-    toast.error(
-      <div>
-        <strong>Error</strong>
-        <p>Ocurrió un error al guardar la cita. Por favor, intente nuevamente.</p>
-        <p>{error.response?.data?.message || error.message}</p>
-      </div>,
-      {
-        position: "top-right",
-        autoClose: 5000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-      }
-    )
   }
-}
 
   /**
    * Manejador para cancelar y volver a la lista de citas
@@ -907,7 +1051,7 @@ const handleSaveCita = async () => {
             notas={formData.notas}
             onSave={handleSaveCita}
             onPrev={handlePrevStep}
-            onNewMascota={handleOpenMascotaModal}
+            onNewMascota={() => handleOpenMascotaModal(formData.cliente)}
           />
         )
       default:
@@ -932,7 +1076,12 @@ const handleSaveCita = async () => {
               <p className="text-muted small">Programa una cita para los servicios que tu mascota necesita</p>
             </Col>
             <Col xs="auto">
-              <Button variant="outline-secondary" size="sm" className="d-flex align-items-center" onClick={handleCancel}>
+              <Button
+                variant="outline-secondary"
+                size="sm"
+                className="d-flex align-items-center"
+                onClick={handleCancel}
+              >
                 <ArrowLeft size={16} className="me-1" />
                 Volver a Citas
               </Button>

@@ -619,6 +619,7 @@ const RegistrarServicio = () => {
                   tiposServicio={tiposServicio}
                   handleInputChange={handleInputChange}
                   loading={loadingTipos}
+                  isEditing={isEditing}
                 />
 
                 {/* Sección de precios */}

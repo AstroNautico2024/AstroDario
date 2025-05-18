@@ -55,6 +55,52 @@ const UserProfile = () => {
     fetchUserData()
   }, [])
 
+  // Efecto para sincronizar la foto de perfil con el avatar en la barra de navegación
+  useEffect(() => {
+    // Función para sincronizar la foto de perfil con el avatar
+    const syncProfilePhoto = () => {
+      try {
+        const photoUrl = localStorage.getItem("userProfilePhoto")
+        if (photoUrl) {
+          // Buscar todos los posibles elementos de avatar en la página
+          const avatarElements = document.querySelectorAll(
+            ".dropdown-toggle img, .avatar img, header img, .navbar img, .user-avatar img",
+          )
+
+          if (avatarElements.length > 0) {
+            console.log(`Sincronizando ${avatarElements.length} elementos de avatar al iniciar`)
+            avatarElements.forEach((img) => {
+              img.src = photoUrl
+              img.onerror = () => {
+                console.error("Error al cargar la imagen en el avatar")
+              }
+            })
+          }
+        }
+      } catch (error) {
+        console.error("Error al sincronizar foto de perfil:", error)
+      }
+    }
+
+    // Ejecutar la sincronización al montar el componente
+    syncProfilePhoto()
+
+    // Configurar listeners para eventos de cambio de foto
+    const handleProfilePhotoChange = () => {
+      syncProfilePhoto()
+    }
+
+    // Escuchar eventos de cambio de foto
+    window.addEventListener("profilePhotoChange", handleProfilePhotoChange)
+    document.addEventListener("userAvatarUpdate", handleProfilePhotoChange)
+
+    // Limpiar event listeners al desmontar
+    return () => {
+      window.removeEventListener("profilePhotoChange", handleProfilePhotoChange)
+      document.removeEventListener("userAvatarUpdate", handleProfilePhotoChange)
+    }
+  }, [])
+
   /**
    * Obtiene los datos del usuario desde la API
    */
@@ -122,6 +168,11 @@ const UserProfile = () => {
         ContraseñaConfirm: "",
         Foto: profilePhoto,
       })
+
+      // Sincronizar la foto con el avatar en la barra de navegación
+      if (profilePhoto) {
+        userProfileService.emitProfilePhotoChange(profilePhoto)
+      }
     } catch (error) {
       console.error("Error al cargar datos del usuario:", error)
       toast.error("Error al cargar datos del perfil")
@@ -319,6 +370,11 @@ const UserProfile = () => {
           })
           localStorage.setItem("userData", JSON.stringify(storedUserData))
 
+          // Si se actualizó la foto, sincronizar con el avatar
+          if (updateData.Foto) {
+            userProfileService.emitProfilePhotoChange(updateData.Foto)
+          }
+
           toast.success("Perfil actualizado correctamente")
         } catch (updateError) {
           console.error("Error al actualizar perfil en el servidor:", updateError)
@@ -329,6 +385,11 @@ const UserProfile = () => {
             storedUserData[key] = updateData[key]
           })
           localStorage.setItem("userData", JSON.stringify(storedUserData))
+
+          // Si se actualizó la foto, sincronizar con el avatar aunque haya error en el servidor
+          if (updateData.Foto) {
+            userProfileService.emitProfilePhotoChange(updateData.Foto)
+          }
 
           toast.warning("Los cambios se guardaron localmente pero no se pudieron actualizar en el servidor")
         }

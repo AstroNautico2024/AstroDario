@@ -6,7 +6,7 @@ import { FiUser, FiLogOut, FiChevronDown, FiBell, FiCheck } from "react-icons/fi
 import { motion, AnimatePresence } from "framer-motion"
 import "./UserProfile.scss"
 import authService from "../../Services/ConsumoAdmin/authService.js"
-import notificacionesService from "../../Services/ConsumoAdmin/notificacionesService.js"
+import notificacionesService from "../../Services/ConsumoAdmin/NotificacionesService.js"
 
 const UserProfile = () => {
   const [isOpen, setIsOpen] = useState(false)
@@ -14,17 +14,134 @@ const UserProfile = () => {
   const [userData, setUserData] = useState({ name: "Usuario", email: "usuario@ejemplo.com", role: "Invitado" })
   const [notificaciones, setNotificaciones] = useState([])
   const [loading, setLoading] = useState(false)
+  const [profilePhoto, setProfilePhoto] = useState(null)
+  const [imageError, setImageError] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const dropdownRef = useRef(null)
   const notificationsRef = useRef(null)
   const backdropRef = useRef(null)
   const navigate = useNavigate()
 
+  // Imagen por defecto (un simple icono de usuario)
+  const defaultImageBase64 =
+    "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iMTAwIiB2aWV3Qm94PSIwIDAgMTAwIDEwMCI+PHJlY3Qgd2lkdGg9IjEwMCIgaGVpZ2h0PSIxMDAiIGZpbGw9IiNlOWVjZWYiLz48Y2lyY2xlIGN4PSI1MCIgY3k9IjM1IiByPSIyMCIgZmlsbD0iIzZjNzU3ZCIvPjxwYXRoIGQ9Ik0yNSw4NWMwLTIwLDExLjUtMjUsMjUtMjVzMjUsNSwyNSwyNXoiIGZpbGw9IiM2Yzc1N2QiLz48L3N2Zz4="
+
   // Cargar datos del usuario y notificaciones al montar el componente
   useEffect(() => {
     fetchUserData()
     fetchNotificaciones()
+    loadProfilePhoto()
+
+    // Escuchar eventos de cambio de foto de perfil
+    const handleProfilePhotoChange = (event) => {
+      console.log("Evento de cambio de foto recibido en UserProfile:", event)
+      const photoUrl = event.detail?.photoUrl
+      if (photoUrl) {
+        setProfilePhoto(photoUrl)
+        setImageError(false)
+      }
+    }
+
+    // Escuchar múltiples tipos de eventos para mayor compatibilidad
+    window.addEventListener("profilePhotoChange", handleProfilePhotoChange)
+    document.addEventListener("userAvatarUpdate", handleProfilePhotoChange)
+
+    // Escuchar cambios en localStorage
+    window.addEventListener("storage", (e) => {
+      if (e.key === "userProfilePhoto" || e.key === "userData") {
+        loadProfilePhoto()
+      }
+    })
+
+    return () => {
+      window.removeEventListener("profilePhotoChange", handleProfilePhotoChange)
+      document.removeEventListener("userAvatarUpdate", handleProfilePhotoChange)
+      window.removeEventListener("storage", loadProfilePhoto)
+    }
   }, [])
+
+  // Efecto para escuchar eventos de actualización del contador de notificaciones
+  useEffect(() => {
+    // Función para actualizar el contador de notificaciones
+    const handleNotificationCountUpdate = (event) => {
+      if (event.detail && typeof event.detail.pendientes === 'number') {
+        // Actualizar el contador directamente con el valor del evento
+        const pendientes = event.detail.pendientes
+        setUnreadCount(pendientes)
+        
+        // Si el contador cambió, refrescar las notificaciones
+        if (pendientes !== unreadCount) {
+          fetchNotificaciones()
+        }
+      }
+    }
+    
+    // Escuchar el evento personalizado
+    window.addEventListener("actualizarContadorNotificaciones", handleNotificationCountUpdate)
+    
+    // También escuchar cambios en localStorage
+    const handleStorageChange = (e) => {
+      if (e.key === "contadorNotificacionesPendientes") {
+        const newCount = Number.parseInt(e.newValue || "0", 10)
+        if (!isNaN(newCount) && newCount !== unreadCount) {
+          setUnreadCount(newCount)
+          fetchNotificaciones()
+        }
+      }
+    }
+    
+    window.addEventListener("storage", handleStorageChange)
+    
+    // Verificar si hay un valor en localStorage al montar
+    const contadorGuardado = localStorage.getItem("contadorNotificacionesPendientes")
+    if (contadorGuardado) {
+      const savedCount = Number.parseInt(contadorGuardado, 10)
+      if (!isNaN(savedCount)) {
+        setUnreadCount(savedCount)
+      }
+    }
+    
+    return () => {
+      window.removeEventListener("actualizarContadorNotificaciones", handleNotificationCountUpdate)
+      window.removeEventListener("storage", handleStorageChange)
+    }
+  }, [unreadCount])
+
+  // Cargar la foto de perfil desde localStorage
+  const loadProfilePhoto = () => {
+    try {
+      // Intentar obtener la foto del localStorage
+      const storedPhoto = localStorage.getItem("userProfilePhoto")
+
+      if (storedPhoto) {
+        console.log("Foto de perfil cargada desde localStorage:", storedPhoto)
+        setProfilePhoto(storedPhoto)
+        setImageError(false)
+        return
+      }
+
+      // Si no hay foto en localStorage, intentar obtenerla de userData
+      const storedUserData = JSON.parse(localStorage.getItem("userData") || "{}")
+      if (storedUserData && storedUserData.Foto) {
+        console.log("Foto de perfil cargada desde userData:", storedUserData.Foto)
+        setProfilePhoto(storedUserData.Foto)
+        setImageError(false)
+
+        // Guardar en localStorage para futuras referencias
+        localStorage.setItem("userProfilePhoto", storedUserData.Foto)
+      }
+    } catch (error) {
+      console.error("Error al cargar la foto de perfil:", error)
+      setImageError(true)
+    }
+  }
+
+  // Manejar errores de carga de imagen
+  const handleImageError = () => {
+    console.error("Error al cargar la imagen de perfil en el avatar")
+    setImageError(true)
+  }
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -65,6 +182,14 @@ const UserProfile = () => {
         role: storedUserData.rol?.nombre || "Invitado",
         id: storedUserData.id,
       })
+
+      // Si el usuario tiene una foto, actualizarla
+      if (storedUserData.Foto) {
+        setProfilePhoto(storedUserData.Foto)
+        setImageError(false)
+        // Guardar en localStorage para persistencia
+        localStorage.setItem("userProfilePhoto", storedUserData.Foto)
+      }
     }
   }
 
@@ -74,6 +199,13 @@ const UserProfile = () => {
     try {
       const data = await notificacionesService.getNotificaciones()
       setNotificaciones(data || [])
+      
+      // Actualizar el contador de notificaciones no leídas
+      const pendientes = data.filter(n => n.Estado === "Pendiente").length
+      setUnreadCount(pendientes)
+      
+      // Actualizar el contador global
+      localStorage.setItem("contadorNotificacionesPendientes", pendientes.toString())
     } catch (error) {
       console.error("Error al obtener notificaciones:", error)
       setNotificaciones([])
@@ -87,14 +219,29 @@ const UserProfile = () => {
     e.stopPropagation()
     try {
       await notificacionesService.markAsRead(id)
-      setNotificaciones(
-        notificaciones.map((notif) => {
-          if (notif.IdNotificacion === id) {
-            return { ...notif, Estado: "Vista", FechaVista: new Date() }
-          }
-          return notif
-        }),
-      )
+      
+      // Actualizar el estado local
+      const updatedNotificaciones = notificaciones.map((notif) => {
+        if (notif.IdNotificacion === id) {
+          return { ...notif, Estado: "Vista", FechaVista: new Date() }
+        }
+        return notif
+      })
+      
+      setNotificaciones(updatedNotificaciones)
+      
+      // Actualizar el contador de notificaciones no leídas
+      const pendientes = updatedNotificaciones.filter(n => n.Estado === "Pendiente").length
+      setUnreadCount(pendientes)
+      
+      // Actualizar el contador global
+      localStorage.setItem("contadorNotificacionesPendientes", pendientes.toString())
+      
+      // Disparar evento para actualizar otros componentes
+      const evento = new CustomEvent("actualizarContadorNotificaciones", {
+        detail: { pendientes }
+      })
+      window.dispatchEvent(evento)
     } catch (error) {
       console.error("Error al marcar notificación como leída:", error)
     }
@@ -104,17 +251,43 @@ const UserProfile = () => {
   const handleMarkAllAsRead = async () => {
     try {
       await notificacionesService.markAllAsRead()
-      setNotificaciones(
-        notificaciones.map((notif) => {
-          if (notif.Estado === "Pendiente") {
-            return { ...notif, Estado: "Vista", FechaVista: new Date() }
-          }
-          return notif
-        }),
-      )
+      
+      // Actualizar el estado local
+      const updatedNotificaciones = notificaciones.map((notif) => {
+        if (notif.Estado === "Pendiente") {
+          return { ...notif, Estado: "Vista", FechaVista: new Date() }
+        }
+        return notif
+      })
+      
+      setNotificaciones(updatedNotificaciones)
+      
+      // Actualizar el contador de notificaciones no leídas
+      setUnreadCount(0)
+      
+      // Actualizar el contador global
+      localStorage.setItem("contadorNotificacionesPendientes", "0")
+      
+      // Disparar evento para actualizar otros componentes
+      const evento = new CustomEvent("actualizarContadorNotificaciones", {
+        detail: { pendientes: 0 }
+      })
+      window.dispatchEvent(evento)
     } catch (error) {
       console.error("Error al marcar todas como leídas:", error)
     }
+  }
+
+  // Navegar a la notificación específica
+  const navigateToNotification = (notification) => {
+    // Guardar el ID de la notificación en localStorage para que la página de notificaciones pueda acceder a él
+    localStorage.setItem("selectedNotificationId", notification.IdNotificacion.toString())
+
+    // Cerrar el menú de notificaciones
+    setIsNotificationsOpen(false)
+
+    // Navegar a la página de notificaciones
+    navigate("/inventario/notificaciones")
   }
 
   const toggleDropdown = () => {
@@ -179,9 +352,6 @@ const UserProfile = () => {
     }
   }
 
-  // Contar notificaciones no leídas
-  const unreadCount = notificaciones.filter((notif) => notif.Estado === "Pendiente").length
-
   return (
     <div className="user-profile ms-auto">
       {/* Componente de notificaciones */}
@@ -229,6 +399,9 @@ const UserProfile = () => {
                       <div
                         key={notification.IdNotificacion}
                         className={`notification-item ${notification.Estado === "Pendiente" ? "unread" : ""}`}
+                        onClick={() => navigateToNotification(notification)}
+                        style={{ cursor: "pointer" }}
+                        title="Haz clic para ver detalles"
                       >
                         <div className="notification-icon">{getNotificationIcon(notification.TipoNotificacion)}</div>
                         <div className="notification-content">
@@ -252,7 +425,7 @@ const UserProfile = () => {
               </div>
 
               <div className="notification-footer">
-                <Link to="/admin/notificaciones" onClick={() => setIsNotificationsOpen(false)}>
+                <Link to="/inventario/notificaciones" onClick={() => setIsNotificationsOpen(false)}>
                   Ver todas las notificaciones
                 </Link>
               </div>
@@ -270,7 +443,17 @@ const UserProfile = () => {
           whileTap={{ scale: 0.97 }}
         >
           <div className="avatar">
-            <FiUser size={20} />
+            {profilePhoto && !imageError ? (
+              <img
+                src={profilePhoto || "/placeholder.svg"}
+                alt="Avatar"
+                className="user-avatar-img"
+                onError={handleImageError}
+                style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
+              />
+            ) : (
+              <FiUser size={20} />
+            )}
           </div>
           <div className="user-info">
             <div className="user-name">{userData.name || "Usuario"}</div>
@@ -302,8 +485,23 @@ const UserProfile = () => {
                 transition={{ duration: 0.2 }}
               >
                 <div className="dropdown-header">
-                  <div className="header-name">{userData.name || "Usuario"}</div>
-                  <div className="header-email">{userData.email || "usuario@ejemplo.com"}</div>
+                  <div className="header-avatar">
+                    {profilePhoto && !imageError ? (
+                      <img
+                        src={profilePhoto || "/placeholder.svg"}
+                        alt="Avatar"
+                        className="header-avatar-img"
+                        onError={handleImageError}
+                        style={{ width: "40px", height: "40px", objectFit: "cover", borderRadius: "50%" }}
+                      />
+                    ) : (
+                      <FiUser size={24} />
+                    )}
+                  </div>
+                  <div>
+                    <div className="header-name">{userData.name || "Usuario"}</div>
+                    <div className="header-email">{userData.email || "usuario@ejemplo.com"}</div>
+                  </div>
                 </div>
                 <div className="dropdown-divider" />
                 <div className="dropdown-content">

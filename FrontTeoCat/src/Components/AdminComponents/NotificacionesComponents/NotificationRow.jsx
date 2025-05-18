@@ -6,7 +6,7 @@ import { es } from "date-fns/locale"
 /**
  * Componente para mostrar una fila de notificación de producto (vista de lista)
  */
-const NotificationRow = ({ notificacion, onChangeStatus }) => {
+const NotificationRow = ({ notificacion, onChangeStatus, id, className = "" }) => {
   // Usar los campos correctos según la tabla Notificaciones
   const { IdNotificacion, TipoNotificacion, Titulo, Mensaje, Prioridad, FechaCreacion, Estado, producto } = notificacion
 
@@ -85,7 +85,10 @@ const NotificationRow = ({ notificacion, onChangeStatus }) => {
   // Verificar si el producto existe antes de intentar acceder a sus propiedades
   if (!producto) {
     return (
-      <div className={`card mb-3 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""}`}>
+      <div
+        id={id}
+        className={`card mb-3 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""} ${className}`}
+      >
         <div className="card-body">
           <div className="d-flex align-items-center gap-2 mb-3">
             <i className={`${getNotificationIcon(TipoNotificacion)}`}></i>
@@ -205,7 +208,10 @@ const NotificationRow = ({ notificacion, onChangeStatus }) => {
   }
 
   return (
-    <div className={`card mb-3 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""}`}>
+    <div
+      id={id}
+      className={`card mb-3 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""} ${className}`}
+    >
       <div className="card-body">
         <div className="d-flex align-items-center gap-2 mb-3">
           <i className={`${getNotificationIcon(TipoNotificacion)}`}></i>

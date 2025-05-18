@@ -2,7 +2,7 @@
 
 import { useEffect } from "react"
 import { useNavigate, useLocation } from "react-router-dom"
-import NuevaCita from "../../AdminPages/Citas/NuevaCita"
+import NuevaCita from "./NuevaCita"
 
 const EditarCita = () => {
   const navigate = useNavigate()
@@ -20,4 +20,3 @@ const EditarCita = () => {
 }
 
 export default EditarCita
-

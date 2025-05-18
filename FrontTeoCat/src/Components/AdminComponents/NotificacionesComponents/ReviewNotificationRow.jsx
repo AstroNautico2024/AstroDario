@@ -6,7 +6,8 @@ import { es } from "date-fns/locale"
 /**
  * Componente para mostrar una fila de notificación de reseña (vista de lista)
  */
-const ReviewNotificationRow = ({ notificacion, onChangeStatus }) => {
+// Modificar la definición de props para incluir id y className
+const ReviewNotificationRow = ({ notificacion, onChangeStatus, id, className = "" }) => {
   // Usar los campos correctos según la tabla Notificaciones
   const {
     IdNotificacion,
@@ -102,7 +103,10 @@ const ReviewNotificationRow = ({ notificacion, onChangeStatus }) => {
   // Verificar si el producto existe antes de intentar acceder a sus propiedades
   if (!producto) {
     return (
-      <div className={`card mb-3 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""}`}>
+      <div
+        id={id}
+        className={`card mb-3 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""} ${className}`}
+      >
         <div className="card-body">
           <div className="d-flex align-items-center gap-2 mb-3">
             <i className="bi bi-star-fill text-purple"></i>
@@ -139,7 +143,10 @@ const ReviewNotificationRow = ({ notificacion, onChangeStatus }) => {
   }
 
   return (
-    <div className={`card mb-3 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""}`}>
+    <div
+      id={id}
+      className={`card mb-3 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""} ${className}`}
+    >
       <div className="card-body">
         <div className="d-flex align-items-center gap-2 mb-3">
           <i className="bi bi-star-fill text-purple"></i>

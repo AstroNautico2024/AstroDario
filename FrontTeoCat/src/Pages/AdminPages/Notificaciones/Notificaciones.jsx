@@ -12,7 +12,7 @@ import PaymentReceiptCard from "../../../Components/AdminComponents/Notificacion
 import PaymentReceiptRow from "../../../Components/AdminComponents/NotificacionesComponents/PaymentReceiptRow"
 import CitasNotificationCard from "../../../Components/AdminComponents/NotificacionesComponents/CitasNotificationCard"
 import CitasNotificationRow from "../../../Components/AdminComponents/NotificacionesComponents/CitasNotificationRow"
-import notificacionesService from "../../../Services/ConsumoAdmin/Notificacionesservice.js" 
+import notificacionesService from "../../../Services/ConsumoAdmin/NotificacionesService.js"
 import reviewsService from "../../../Services/ConsumoAdmin/ReviewsService.js"
 
 const Notificaciones = () => {
@@ -22,8 +22,17 @@ const Notificaciones = () => {
   const [viewMode, setViewMode] = useState("cards") // "cards" o "list"
   const [tipoFiltro, setTipoFiltro] = useState("todos")
   const [estadoFiltro, setEstadoFiltro] = useState("todos")
+  const [selectedNotificationId, setSelectedNotificationId] = useState(null)
 
   useEffect(() => {
+    // Verificar si hay un ID de notificación seleccionado en localStorage
+    const storedNotificationId = localStorage.getItem("selectedNotificationId")
+    if (storedNotificationId) {
+      setSelectedNotificationId(Number.parseInt(storedNotificationId, 10))
+      // Limpiar el localStorage después de obtener el ID
+      localStorage.removeItem("selectedNotificationId")
+    }
+
     fetchNotificaciones()
   }, [])
 
@@ -31,11 +40,93 @@ const Notificaciones = () => {
     filtrarNotificaciones()
   }, [notificaciones, tipoFiltro, estadoFiltro])
 
+  // Efecto para resaltar la notificación seleccionada
+  useEffect(() => {
+    if (selectedNotificationId) {
+      // Esperar a que se carguen las notificaciones y se renderice el DOM
+      setTimeout(() => {
+        const notificationElement = document.getElementById(`notification-${selectedNotificationId}`)
+        if (notificationElement) {
+          // Desplazarse a la notificación seleccionada
+          notificationElement.scrollIntoView({ behavior: "smooth", block: "center" })
+
+          // Agregar una clase para resaltar la notificación
+          notificationElement.classList.add("highlighted-notification")
+
+          // Agregar un borde más visible
+          notificationElement.style.boxShadow = "0 0 0 3px rgba(13, 110, 253, 0.5)"
+          notificationElement.style.zIndex = "1"
+
+          // Quitar la clase después de unos segundos
+          setTimeout(() => {
+            notificationElement.classList.remove("highlighted-notification")
+            notificationElement.style.boxShadow = ""
+            // Mantener el zIndex para que siga siendo visible
+            setTimeout(() => {
+              notificationElement.style.zIndex = ""
+            }, 500)
+          }, 3000)
+        }
+      }, 500)
+    }
+  }, [selectedNotificationId, filteredNotificaciones])
+
+  // Efecto para actualizar el contador al cargar el componente
+  useEffect(() => {
+    if (!loading && notificaciones.length > 0) {
+      actualizarContadorNotificaciones()
+    }
+  }, [loading, notificaciones])
+
   const fetchNotificaciones = async () => {
     setLoading(true)
     try {
       const data = await notificacionesService.getNotificaciones()
-      setNotificaciones(data)
+
+      // Procesar las fechas antes de actualizar el estado
+      const notificacionesProcesadas = data.map((notificacion) => {
+        // Crear una copia para no modificar el objeto original
+        const notificacionProcesada = { ...notificacion }
+
+        // Procesar fechaCita si existe y es una cadena
+        if (notificacionProcesada.fechaCita && typeof notificacionProcesada.fechaCita === "string") {
+          try {
+            // Intentar convertir a objeto Date
+            const fechaObj = new Date(notificacionProcesada.fechaCita)
+            if (!isNaN(fechaObj.getTime())) {
+              notificacionProcesada.fechaCita = fechaObj
+            }
+          } catch (error) {
+            console.error("Error al procesar fechaCita:", error)
+          }
+        }
+
+        // Procesar FechaCreacion si existe y es una cadena
+        if (notificacionProcesada.FechaCreacion && typeof notificacionProcesada.FechaCreacion === "string") {
+          try {
+            const fechaObj = new Date(notificacionProcesada.FechaCreacion)
+            if (!isNaN(fechaObj.getTime())) {
+              notificacionProcesada.FechaCreacion = fechaObj
+            }
+          } catch (error) {
+            console.error("Error al procesar FechaCreacion:", error)
+          }
+        }
+
+        return notificacionProcesada
+      })
+
+      setNotificaciones(notificacionesProcesadas)
+      
+      // Actualizar el contador de notificaciones pendientes
+      const pendientes = notificacionesProcesadas.filter(n => n.Estado === "Pendiente").length
+      localStorage.setItem("contadorNotificacionesPendientes", pendientes.toString())
+      
+      // Disparar evento para actualizar otros componentes
+      const evento = new CustomEvent("actualizarContadorNotificaciones", {
+        detail: { pendientes }
+      })
+      window.dispatchEvent(evento)
     } catch (error) {
       console.error("Error al obtener notificaciones:", error)
       toast.error(
@@ -64,7 +155,33 @@ const Notificaciones = () => {
       filtered = filtered.filter((n) => n.Estado === estadoFiltro)
     }
 
+    // Si hay una notificación seleccionada, asegurarse de que esté incluida en las filtradas
+    if (selectedNotificationId) {
+      const selectedNotification = notificaciones.find((n) => n.IdNotificacion === selectedNotificationId)
+      if (selectedNotification && !filtered.some((n) => n.IdNotificacion === selectedNotificationId)) {
+        // Si la notificación seleccionada no está en las filtradas, resetear los filtros
+        setTipoFiltro("todos")
+        setEstadoFiltro("todos")
+        filtered = [...notificaciones]
+      }
+    }
+
     setFilteredNotificaciones(filtered)
+  }
+
+  // Función para actualizar el contador global de notificaciones
+  const actualizarContadorNotificaciones = () => {
+    // Contar las notificaciones pendientes después de la actualización
+    const pendientes = notificaciones.filter(n => n.Estado === "Pendiente").length
+    
+    // Actualizar el contador global usando localStorage
+    localStorage.setItem("contadorNotificacionesPendientes", pendientes.toString())
+    
+    // Disparar un evento para que otros componentes puedan reaccionar
+    const evento = new CustomEvent("actualizarContadorNotificaciones", {
+      detail: { pendientes }
+    })
+    window.dispatchEvent(evento)
   }
 
   const cambiarEstadoNotificacion = async (id, nuevoEstado, notasAdicionales = "") => {
@@ -121,6 +238,9 @@ const Notificaciones = () => {
       })
 
       setNotificaciones(updatedNotificaciones)
+      
+      // Actualizar el contador global de notificaciones
+      actualizarContadorNotificaciones()
 
       // Mostrar notificación de éxito
       toast.success(
@@ -167,6 +287,9 @@ const Notificaciones = () => {
       })
 
       setNotificaciones(updatedNotificaciones)
+      
+      // Actualizar el contador global
+      actualizarContadorNotificaciones()
 
       toast.success(
         <div>
@@ -231,6 +354,9 @@ const Notificaciones = () => {
 
       // Actualizar el estado local añadiendo la nueva notificación
       setNotificaciones([nuevaNotificacion, ...notificaciones])
+      
+      // Actualizar el contador global
+      actualizarContadorNotificaciones()
 
       toast.success(
         <div>
@@ -274,6 +400,9 @@ const Notificaciones = () => {
       })
 
       setNotificaciones(notificacionesActualizadas)
+      
+      // Actualizar el contador global
+      actualizarContadorNotificaciones()
 
       toast.success(
         <div>
@@ -301,31 +430,46 @@ const Notificaciones = () => {
   }
 
   const renderNotificationComponent = (notificacion) => {
+    // Agregar ID para poder identificar y resaltar la notificación seleccionada
+    const isSelected = notificacion.IdNotificacion === selectedNotificationId
+
+    // Asegurarse de que las fechas estén en formato correcto
+    if (notificacion.TipoNotificacion === "Cita" && notificacion.fechaCita) {
+      // Asegurarse de que fechaCita sea un objeto Date válido
+      if (typeof notificacion.fechaCita === "string") {
+        try {
+          // Intentar convertir la cadena a fecha si no es ya un objeto Date
+          const fechaObj = new Date(notificacion.fechaCita)
+          if (!isNaN(fechaObj.getTime())) {
+            notificacion.fechaCita = fechaObj
+          }
+        } catch (error) {
+          console.error("Error al convertir fecha:", error)
+        }
+      }
+    }
+
+    // Extraer la key y crear un objeto con el resto de props
+    const { IdNotificacion } = notificacion
+    const commonProps = {
+      notificacion: notificacion,
+      onChangeStatus: cambiarEstadoNotificacion,
+      id: `notification-${notificacion.IdNotificacion}`,
+      className: isSelected ? "highlighted-notification" : "",
+    }
+
     switch (notificacion.TipoNotificacion) {
       case "StockBajo":
-        return (
-          <NotificationCard
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
-          />
-        )
+        return <NotificationCard key={IdNotificacion} {...commonProps} />
       case "Vencimiento":
-        return (
-          <NotificationCard
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
-          />
-        )
+        return <NotificationCard key={IdNotificacion} {...commonProps} />
       case "ReseñaProducto":
       case "ReseñaServicio":
       case "ReseñaGeneral":
         return (
           <ReviewNotificationCard
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
+            key={IdNotificacion}
+            {...commonProps}
             onDeleteReview={
               notificacion.TipoNotificacion === "ReseñaProducto"
                 ? () => eliminarResenaProducto(notificacion.IdReferencia)
@@ -334,58 +478,56 @@ const Notificaciones = () => {
           />
         )
       case "Comprobante":
-        return (
-          <PaymentReceiptCard
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
-          />
-        )
+        return <PaymentReceiptCard key={IdNotificacion} {...commonProps} />
       case "Cita":
-        return (
-          <CitasNotificationCard
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
-          />
-        )
+        return <CitasNotificationCard key={IdNotificacion} {...commonProps} />
       default:
-        return (
-          <NotificationCard
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
-          />
-        )
+        return <NotificationCard key={IdNotificacion} {...commonProps} />
     }
   }
 
+  // Aplicar la misma corrección para renderNotificationRowComponent
   const renderNotificationRowComponent = (notificacion) => {
+    // Agregar ID para poder identificar y resaltar la notificación seleccionada
+    const isSelected = notificacion.IdNotificacion === selectedNotificationId
+
+    // Asegurarse de que las fechas estén en formato correcto
+    if (notificacion.TipoNotificacion === "Cita" && notificacion.fechaCita) {
+      // Asegurarse de que fechaCita sea un objeto Date válido
+      if (typeof notificacion.fechaCita === "string") {
+        try {
+          // Intentar convertir la cadena a fecha si no es ya un objeto Date
+          const fechaObj = new Date(notificacion.fechaCita)
+          if (!isNaN(fechaObj.getTime())) {
+            notificacion.fechaCita = fechaObj
+          }
+        } catch (error) {
+          console.error("Error al convertir fecha:", error)
+        }
+      }
+    }
+
+    // Extraer la key y crear un objeto con el resto de props
+    const { IdNotificacion } = notificacion
+    const commonProps = {
+      notificacion: notificacion,
+      onChangeStatus: cambiarEstadoNotificacion,
+      id: `notification-${notificacion.IdNotificacion}`,
+      className: isSelected ? "highlighted-notification" : "",
+    }
+
     switch (notificacion.TipoNotificacion) {
       case "StockBajo":
-        return (
-          <NotificationRow
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
-          />
-        )
+        return <NotificationRow key={IdNotificacion} {...commonProps} />
       case "Vencimiento":
-        return (
-          <NotificationRow
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
-          />
-        )
+        return <NotificationRow key={IdNotificacion} {...commonProps} />
       case "ReseñaProducto":
       case "ReseñaServicio":
       case "ReseñaGeneral":
         return (
           <ReviewNotificationRow
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
+            key={IdNotificacion}
+            {...commonProps}
             onDeleteReview={
               notificacion.TipoNotificacion === "ReseñaProducto"
                 ? () => eliminarResenaProducto(notificacion.IdReferencia)
@@ -394,29 +536,11 @@ const Notificaciones = () => {
           />
         )
       case "Comprobante":
-        return (
-          <PaymentReceiptRow
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
-          />
-        )
+        return <PaymentReceiptRow key={IdNotificacion} {...commonProps} />
       case "Cita":
-        return (
-          <CitasNotificationRow
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
-          />
-        )
+        return <CitasNotificationRow key={IdNotificacion} {...commonProps} />
       default:
-        return (
-          <NotificationRow
-            key={notificacion.IdNotificacion}
-            notificacion={notificacion}
-            onChangeStatus={cambiarEstadoNotificacion}
-          />
-        )
+        return <NotificationRow key={IdNotificacion} {...commonProps} />
     }
   }
 
@@ -534,6 +658,31 @@ const Notificaciones = () => {
           ))}
         </div>
       )}
+
+      {/* Estilos para resaltar la notificación seleccionada */}
+      <style jsx="true">{`
+        .highlighted-notification {
+          animation: highlight 3s ease-in-out;
+          position: relative;
+          transition: all 0.3s ease;
+        }
+
+        @keyframes highlight {
+          0% { 
+            box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.5);
+            transform: scale(1);
+          }
+          10% { 
+            transform: scale(1.02);
+          }
+          20% { 
+            transform: scale(1);
+          }
+          100% { 
+            box-shadow: 0 0 0 0 rgba(13, 110, 253, 0);
+          }
+        }
+      `}</style>
     </div>
   )
 }
