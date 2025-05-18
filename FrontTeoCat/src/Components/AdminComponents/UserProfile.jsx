@@ -483,6 +483,12 @@ const UserProfile = () => {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
+                style={{ 
+                  minWidth: "250px", 
+                  maxHeight: "none", 
+                  height: "auto", 
+                  overflow: "visible"
+                }}
               >
                 <div className="dropdown-header">
                   <div className="header-avatar">
@@ -504,16 +510,33 @@ const UserProfile = () => {
                   </div>
                 </div>
                 <div className="dropdown-divider" />
-                <div className="dropdown-content">
+                <div className="dropdown-content" style={{ padding: "8px 0", minHeight: "80px" }}>
                   <motion.div whileHover={{ x: 5 }} transition={{ duration: 0.2 }}>
-                    <Link to="/perfil" className="dropdown-item" onClick={() => setIsOpen(false)}>
-                      <FiUser className="item-icon" size={16} />
+                    <Link 
+                      to="/perfil" 
+                      className="dropdown-item" 
+                      onClick={() => setIsOpen(false)}
+                      style={{ display: "flex", alignItems: "center", padding: "10px 15px" }}
+                    >
+                      <FiUser className="item-icon" size={16} style={{ marginRight: "10px" }} />
                       <span>Mi Perfil</span>
                     </Link>
                   </motion.div>
                   <motion.div whileHover={{ x: 5 }} transition={{ duration: 0.2 }}>
-                    <button onClick={handleLogout} className="dropdown-item logout-item">
-                      <FiLogOut className="item-icon" size={16} />
+                    <button 
+                      onClick={handleLogout} 
+                      className="dropdown-item logout-item"
+                      style={{ 
+                        display: "flex", 
+                        alignItems: "center", 
+                        padding: "10px 15px", 
+                        marginTop: "8px",
+                        color: "#dc3545",
+                        borderTop: "1px solid rgba(0,0,0,0.1)",
+                        paddingTop: "12px"
+                      }}
+                    >
+                      <FiLogOut className="item-icon" size={16} style={{ marginRight: "10px" }} />
                       <span>Cerrar Sesión</span>
                     </button>
                   </motion.div>
