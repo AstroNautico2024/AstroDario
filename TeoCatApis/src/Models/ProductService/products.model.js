@@ -97,14 +97,13 @@ export const categoriasModel = {
 
 export const productosModel = {
   getAll: async () => {
-    return await query(
-      `SELECT p.*, c.NombreCategoria 
-       FROM Productos p
-       JOIN CategoriaDeProductos c ON p.IdCategoriaDeProducto = c.IdCategoriaDeProductos
-       WHERE p.Estado = TRUE
-       ORDER BY p.NombreProducto`
-    );
-  },
+  return await query(
+    `SELECT p.*, c.NombreCategoria 
+     FROM Productos p
+     JOIN CategoriaDeProductos c ON p.IdCategoriaDeProducto = c.IdCategoriaDeProductos
+     ORDER BY p.NombreProducto`
+  );
+},
 
   getById: async (id) => {
     const productos = await query(

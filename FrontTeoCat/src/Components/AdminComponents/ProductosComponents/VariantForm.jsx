@@ -1,543 +1,409 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { ArrowLeft, Save, X, Plus, Image, Calculator } from 'lucide-react'
-import { toast } from "react-toastify"
+import { Save, ArrowLeft, AlertCircle } from 'lucide-react'
+import { useNavigate } from "react-router-dom" // Cambiado de next/navigation a react-router-dom
+import BasicInfoSection from "./BasicInfoSection"
+import AttributesAndSpecificationsSection from "./AttributesAndSpecificationsSection"
+import VariantImageSection from "./VariantImageSection"
+import AttributeTypeModal from "./AttributeTypeModal"
+import AttributeValueModal from "./AttributeValueModal"
+import ProductosService from "../../../Services/ConsumoAdmin/ProductosService.js"
 
 /**
- * Componente para crear o editar una variante de producto
- * @param {Object} baseProduct - Producto base al que pertenece la variante
- * @param {Function} onSave - Función para guardar la variante
- * @param {Function} onCancel - Función para cancelar la operación
- * @param {Object} initialData - Datos iniciales para edición (opcional)
- * @param {boolean} isEditing - Indica si se está editando una variante existente
+ * Formulario para crear o editar una variante de producto
  */
-const VariantForm = ({ baseProduct, onSave, onCancel, initialData = null, isEditing = false }) => {
-  // Estado para el formulario de la variante
-  const [variantData, setVariantData] = useState({
-    NombreProducto: isEditing && initialData ? initialData.NombreProducto : `${baseProduct.NombreProducto} - Variante`,
-    Descripcion: isEditing && initialData ? initialData.Descripcion : baseProduct.Descripcion,
-    Precio: isEditing && initialData ? initialData.Precio : baseProduct.Precio,
-    Costo: isEditing && initialData ? initialData.Costo : baseProduct.Costo,
-    MargenGanancia: isEditing && initialData ? initialData.MargenGanancia : baseProduct.MargenGanancia,
-    PorcentajeIVA: isEditing && initialData ? initialData.PorcentajeIVA : baseProduct.PorcentajeIVA,
-    Stock: isEditing && initialData ? initialData.Stock : "0",
-    StockMinimo: isEditing && initialData ? initialData.StockMinimo : "5",
-    Ubicacion: isEditing && initialData ? initialData.Ubicacion : "",
-    CodigoBarras: isEditing && initialData ? initialData.CodigoBarras : "",
-    Activo: isEditing && initialData ? initialData.Activo : true,
-    ProductoBase: baseProduct.IdProducto,
-    Atributos: [],
-    ImagenVariante: null,
-    imagenPreview: null
+const VariantForm = ({ 
+  productoBaseId, 
+  varianteId = null, 
+  isEditing = false,
+  baseProduct = null,
+  onSave = null,
+  onCancel = null
+}) => {
+  const navigate = useNavigate() // Cambiado de useRouter a useNavigate
+  const [loading, setLoading] = useState(false)
+  const [loadingData, setLoadingData] = useState(false)
+  const [error, setError] = useState(null)
+  const [formErrors, setFormErrors] = useState({})
+  const [formData, setFormData] = useState({
+    sku: "",
+    precio: "",
+    precioOferta: "",
+    stock: "",
+    estado: true
   })
+  const [selectedAttributes, setSelectedAttributes] = useState([])
+  const [images, setImages] = useState([])
+  const [productoBase, setProductoBase] = useState(baseProduct)
+  const [showAttributeTypeModal, setShowAttributeTypeModal] = useState(false)
+  const [showAttributeValueModal, setShowAttributeValueModal] = useState(false)
+  const [selectedTipoAtributoId, setSelectedTipoAtributoId] = useState(null)
 
-  // Estado para errores de validación
-  const [formErrors, setFormErrors] = useState({
-    NombreProducto: "",
-    Precio: "",
-    Stock: "",
-    Atributos: ""
-  })
-
-  // Estado para el nuevo atributo
-  const [nuevoAtributo, setNuevoAtributo] = useState({
-    nombre: "",
-    valor: ""
-  })
-
-  // Cargar atributos iniciales si estamos editando
+  // Cargar datos del producto base y de la variante si estamos editando
   useEffect(() => {
-    if (isEditing && initialData && initialData.Atributos) {
-      setVariantData(prev => ({
-        ...prev,
-        Atributos: initialData.Atributos.map(attr => ({
-          nombre: attr.NombreAtributo || attr.nombre,
-          valor: attr.Valor || attr.valor
-        }))
-      }))
+    // Si ya tenemos el producto base desde props, no necesitamos cargarlo
+    if (baseProduct) {
+      setProductoBase(baseProduct)
+      return;
     }
-  }, [isEditing, initialData])
-
-  // Manejador para cambios en los inputs del formulario
-  const handleInputChange = (e) => {
-    const { name, value, type, files, checked } = e.target
-
-    if (type === "file") {
-      if (files && files[0]) {
-        // Crear URL para vista previa de la imagen
-        const imageUrl = URL.createObjectURL(files[0])
+    
+    const cargarDatos = async () => {
+      try {
+        setLoadingData(true)
+        setError(null)
         
-        setVariantData({
-          ...variantData,
-          [name]: files[0],
-          imagenPreview: imageUrl
-        })
+        // Cargar datos del producto base
+        if (productoBaseId) {
+          const productoBaseData = await ProductosService.getProductoById(productoBaseId)
+          setProductoBase(productoBaseData)
+        }
+        
+        // Si estamos editando, cargar datos de la variante
+        if (isEditing && varianteId) {
+          const varianteData = await ProductosService.getVarianteById(varianteId)
+          
+          // Establecer datos del formulario
+          setFormData({
+            sku: varianteData.sku || "",
+            precio: varianteData.precio || "",
+            precioOferta: varianteData.precioOferta || "",
+            stock: varianteData.stock || "",
+            estado: varianteData.estado !== false
+          })
+          
+          // Establecer atributos seleccionados
+          if (Array.isArray(varianteData.atributos)) {
+            setSelectedAttributes(varianteData.atributos.map(attr => ({
+              id: attr.id,
+              tipoId: attr.tipoId,
+              tipoNombre: attr.tipoNombre,
+              valorId: attr.valorId,
+              valorNombre: attr.valorNombre
+            })))
+          }
+          
+          // Establecer imágenes
+          if (Array.isArray(varianteData.imagenes)) {
+            setImages(varianteData.imagenes.map(img => ({
+              id: img.id,
+              url: img.url,
+              name: img.nombre || "Imagen",
+              isPrincipal: img.esPrincipal,
+              isExisting: true // Marcar como existente para no volver a subirla
+            })))
+          }
+        }
+      } catch (err) {
+        console.error("Error al cargar datos:", err)
+        setError("No se pudieron cargar los datos necesarios. Por favor, intente nuevamente.")
+      } finally {
+        setLoadingData(false)
       }
-    } else if (type === "checkbox") {
-      setVariantData({
-        ...variantData,
-        [name]: checked
-      })
-    } else {
-      setVariantData({
-        ...variantData,
-        [name]: value
-      })
     }
-
-    // Limpiar el error específico
-    if (formErrors[name]) {
-      setFormErrors({
-        ...formErrors,
-        [name]: ""
-      })
-    }
-  }
-
-  // Manejador para agregar un nuevo atributo
-  const handleAddAtributo = () => {
-    if (nuevoAtributo.nombre.trim() === "" || nuevoAtributo.valor.trim() === "") {
-      toast.warning("Debe completar el nombre y valor del atributo")
-      return
-    }
-
-    // Verificar si ya existe un atributo con el mismo nombre
-    const existeNombre = variantData.Atributos.some(
-      (attr) => attr.nombre.toLowerCase() === nuevoAtributo.nombre.trim().toLowerCase()
-    )
-
-    if (existeNombre) {
-      toast.error("Ya existe un atributo con este nombre")
-      return
-    }
-
-    // Agregar el nuevo atributo
-    const updatedAtributos = [
-      ...variantData.Atributos,
-      {
-        nombre: nuevoAtributo.nombre.trim(),
-        valor: nuevoAtributo.valor.trim()
-      }
-    ]
-
-    // Actualizar el estado
-    setVariantData({
-      ...variantData,
-      Atributos: updatedAtributos
-    })
-
-    // Limpiar el error de atributos si existe
-    if (formErrors.Atributos) {
-      setFormErrors({
-        ...formErrors,
-        Atributos: ""
-      })
-    }
-
-    // Limpiar el formulario
-    setNuevoAtributo({ nombre: "", valor: "" })
-  }
-
-  // Manejador para eliminar un atributo
-  const handleRemoveAtributo = (index) => {
-    const updatedAtributos = [...variantData.Atributos]
-    updatedAtributos.splice(index, 1)
-
-    setVariantData({
-      ...variantData,
-      Atributos: updatedAtributos
-    })
-  }
+    
+    cargarDatos()
+  }, [productoBaseId, varianteId, isEditing, baseProduct])
 
   // Validar el formulario
   const validateForm = () => {
-    let isValid = true
-    const errors = {
-      NombreProducto: "",
-      Precio: "",
-      Stock: "",
-      Atributos: ""
+    const errors = {}
+    
+    if (!formData.sku.trim()) {
+      errors.sku = "El SKU es obligatorio"
     }
-
-    // Validar nombre (requerido)
-    if (!variantData.NombreProducto?.trim()) {
-      errors.NombreProducto = "El nombre de la variante es obligatorio"
-      isValid = false
+    
+    if (!formData.precio || formData.precio <= 0) {
+      errors.precio = "El precio debe ser mayor que cero"
     }
-
-    // Validar precio (requerido y numérico)
-    if (variantData.Precio === "") {
-      errors.Precio = "El precio es obligatorio"
-      isValid = false
-    } else {
-      const precioNum = Number(variantData.Precio)
-      if (isNaN(precioNum) || precioNum <= 0) {
-        errors.Precio = "El precio debe ser un número positivo"
-        isValid = false
-      }
+    
+    if (formData.precioOferta && (parseFloat(formData.precioOferta) >= parseFloat(formData.precio))) {
+      errors.precioOferta = "El precio de oferta debe ser menor que el precio regular"
     }
-
-    // Validar stock (requerido y numérico)
-    if (variantData.Stock === "") {
-      errors.Stock = "El stock es obligatorio"
-      isValid = false
-    } else {
-      const stockNum = Number(variantData.Stock)
-      if (isNaN(stockNum) || stockNum < 0) {
-        errors.Stock = "El stock debe ser un número positivo"
-        isValid = false
-      }
+    
+    if (!formData.stock || formData.stock < 0) {
+      errors.stock = "El stock debe ser un número positivo"
     }
-
-    // Validar que tenga al menos un atributo
-    if (variantData.Atributos.length === 0) {
-      errors.Atributos = "Debe agregar al menos un atributo para la variante"
-      isValid = false
+    
+    if (selectedAttributes.length === 0) {
+      errors.attributes = "Debe seleccionar al menos un atributo para la variante"
     }
-
+    
+    if (images.length === 0) {
+      errors.images = "Debe agregar al menos una imagen para la variante"
+    }
+    
     setFormErrors(errors)
-    return isValid
+    return Object.keys(errors).length === 0
   }
 
-  // Manejador para guardar la variante
-  const handleSaveVariant = () => {
+  // Manejar el envío del formulario
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    
     if (!validateForm()) {
-      // Mostrar mensaje de error
-      toast.error("Por favor, corrija los errores del formulario")
+      window.scrollTo({ top: 0, behavior: "smooth" })
       return
     }
-
-    // Preparar datos para enviar
-    const variantToSave = {
-      ...variantData,
-      Precio: parseFloat(variantData.Precio),
-      Costo: parseFloat(variantData.Costo || 0),
-      MargenGanancia: parseFloat(variantData.MargenGanancia || 0),
-      PorcentajeIVA: parseFloat(variantData.PorcentajeIVA || 0),
-      Stock: parseInt(variantData.Stock),
-      StockMinimo: parseInt(variantData.StockMinimo || 0)
-    }
-
-    onSave(variantToSave)
-  }
-
-  // Función para formatear números
-  const formatNumber = (number) => {
-    const num = typeof number === "string" ? Number.parseFloat(number) : number
-    if (isNaN(num)) return "0"
-    return num.toLocaleString("es-CO", {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    })
-  }
-
-  // Limpiar recursos al desmontar el componente
-  useEffect(() => {
-    return () => {
-      // Revocar URL de la vista previa de la imagen si existe
-      if (variantData.imagenPreview) {
-        URL.revokeObjectURL(variantData.imagenPreview)
+    
+    try {
+      setLoading(true)
+      setError(null)
+      
+      // Preparar datos para enviar
+      const varianteData = {
+        sku: formData.sku.trim(),
+        precio: parseFloat(formData.precio),
+        precioOferta: formData.precioOferta ? parseFloat(formData.precioOferta) : null,
+        stock: parseInt(formData.stock),
+        estado: formData.estado,
+        atributos: selectedAttributes.map(attr => ({
+          tipoId: attr.tipoId,
+          valorId: attr.valorId
+        }))
       }
+      
+      // Si tenemos una función onSave en las props, usarla en lugar de hacer la llamada API directamente
+      if (onSave) {
+        onSave(varianteData);
+        return;
+      }
+      
+      let response
+      
+      if (isEditing) {
+        // Actualizar variante existente
+        response = await ProductosService.updateVariante(varianteId, varianteData)
+      } else {
+        // Crear nueva variante
+        response = await ProductosService.createVariante(productoBaseId, varianteData)
+      }
+      
+      // Subir imágenes nuevas
+      const nuevasImagenes = images.filter(img => !img.isExisting)
+      
+      if (nuevasImagenes.length > 0) {
+        // Determinar la imagen principal
+        const imagenPrincipal = images.find(img => img.isPrincipal)
+        
+        // Subir cada imagen
+        for (const imagen of nuevasImagenes) {
+          const formDataImg = new FormData()
+          formDataImg.append("file", imagen.file)
+          formDataImg.append("EsPrincipal", imagen.id === imagenPrincipal?.id ? "true" : "false")
+          
+          await ProductosService.uploadVarianteImage(
+            isEditing ? varianteId : response.id, 
+            formDataImg
+          )
+        }
+      }
+      
+      // Actualizar imágenes existentes (solo para edición)
+      if (isEditing) {
+        const imagenesExistentes = images.filter(img => img.isExisting)
+        
+        for (const imagen of imagenesExistentes) {
+          await ProductosService.updateVarianteImage(imagen.id, {
+            EsPrincipal: imagen.isPrincipal
+          })
+        }
+      }
+      
+      // Redirigir a la página del producto base
+      navigate(`/admin/productos/editar/${productoBaseId}`)
+      
+    } catch (err) {
+      console.error("Error al guardar la variante:", err)
+      setError(err.response?.data?.message || "No se pudo guardar la variante. Por favor, intente nuevamente.")
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    } finally {
+      setLoading(false)
     }
-  }, [variantData.imagenPreview])
+  }
+
+  // Manejar la creación de un nuevo tipo de atributo
+  const handleAttributeTypeCreated = (nuevoTipo) => {
+    setShowAttributeTypeModal(false)
+    // Recargar tipos de atributos
+    // Esto se manejará automáticamente en el componente AttributesAndSpecificationsSection
+    
+    // Usar nuevoTipo para mostrar información en la consola
+    console.log("Nuevo tipo de atributo creado:", nuevoTipo)
+    
+    // También podríamos actualizar la UI con información del nuevo tipo
+    if (nuevoTipo && nuevoTipo.nombre) {
+      // Mostrar mensaje temporal de éxito
+      const mensajeExito = `Tipo de atributo "${nuevoTipo.nombre}" creado correctamente`;
+      console.log(mensajeExito);
+      // Opcionalmente, actualizar algún estado para mostrar este mensaje en la UI
+    }
+  }
+
+  // Manejar la creación de nuevos valores de atributo
+  const handleAttributeValueCreated = (nuevosValores) => {
+    setShowAttributeValueModal(false)
+    setSelectedTipoAtributoId(null)
+    // Recargar valores de atributos
+    // Esto se manejará automáticamente en el componente AttributesAndSpecificationsSection
+    
+    // Usar nuevosValores para mostrar información en la consola
+    console.log("Nuevos valores de atributo creados:", nuevosValores)
+    
+    // También podríamos actualizar la UI con información de los nuevos valores
+    if (Array.isArray(nuevosValores) && nuevosValores.length > 0) {
+      // Mostrar mensaje temporal de éxito
+      const mensajeExito = `Se han creado ${nuevosValores.length} nuevos valores de atributo`;
+      console.log(mensajeExito);
+      // Opcionalmente, actualizar algún estado para mostrar este mensaje en la UI
+    }
+  }
+
+  // Abrir modal para crear nuevo valor de atributo
+  const handleOpenAttributeValueModal = (tipoId) => {
+    setSelectedTipoAtributoId(tipoId)
+    setShowAttributeValueModal(true)
+  }
+
+  // Función para manejar la cancelación
+  const handleCancel = () => {
+    if (onCancel) {
+      onCancel();
+      return;
+    }
+    navigate(`/admin/productos/editar/${productoBaseId}`);
+  }
 
   return (
     <div className="container-fluid py-4">
       <div className="d-flex justify-content-between align-items-center mb-4">
-        <h2>{isEditing ? "Editar Variante de Producto" : "Crear Variante de Producto"}</h2>
-        <button 
+        <h2 className="h4 mb-0">
+          {isEditing ? "Editar Variante" : "Crear Nueva Variante"}
+        </h2>
+        <button
           type="button"
-          className="btn btn-outline-secondary d-flex align-items-center" 
-          onClick={onCancel}
+          className="btn btn-outline-secondary"
+          onClick={handleCancel}
         >
           <ArrowLeft size={18} className="me-1" />
-          Volver
+          Volver al Producto
         </button>
       </div>
-
-      <div className="card">
-        <div className="card-body">
-          <h5 className="card-title mb-4">Producto Base</h5>
-          <div className="bg-light p-3 rounded mb-4">
-            <div className="row">
-              <div className="col-md-4">
-                <p className="mb-1 text-muted">Nombre:</p>
-                <p className="fw-bold">{baseProduct.NombreProducto}</p>
-              </div>
-              <div className="col-md-4">
-                <p className="mb-1 text-muted">Categoría:</p>
-                <p className="fw-bold">{baseProduct.Categoria?.NombreCategoria || "No especificada"}</p>
-              </div>
-              <div className="col-md-4">
-                <p className="mb-1 text-muted">Precio Base:</p>
-                <p className="fw-bold">${formatNumber(baseProduct.Precio)}</p>
-              </div>
-            </div>
+      
+      {loadingData ? (
+        <div className="text-center py-5">
+          <div className="spinner-border text-primary" role="status">
+            <span className="visually-hidden">Cargando...</span>
           </div>
-
-          <form>
-            <div className="row mb-4">
-              <div className="col-md-6">
-                <label htmlFor="NombreProducto" className="form-label">
-                  Nombre de la Variante <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="text"
-                  className={`form-control ${formErrors.NombreProducto ? "is-invalid" : ""}`}
-                  id="NombreProducto"
-                  name="NombreProducto"
-                  value={variantData.NombreProducto}
-                  onChange={handleInputChange}
-                  required
+          <p className="mt-3">Cargando datos, por favor espere...</p>
+        </div>
+      ) : (
+        <>
+          {error && (
+            <div className="alert alert-danger d-flex align-items-center mb-4">
+              <AlertCircle size={18} className="me-2" />
+              <div>{error}</div>
+              <button 
+                className="btn-close ms-auto" 
+                onClick={() => setError(null)}
+                aria-label="Cerrar"
+              ></button>
+            </div>
+          )}
+          
+          {productoBase && (
+            <div className="alert alert-info mb-4">
+              <h6 className="alert-heading">Producto Base: {productoBase.nombre}</h6>
+              <p className="mb-0">
+                Está creando una variante para el producto "{productoBase.nombre}". 
+                Las variantes comparten la información básica del producto base, pero pueden tener 
+                diferentes atributos, precios y stock.
+              </p>
+            </div>
+          )}
+          
+          <form onSubmit={handleSubmit}>
+            <div className="card mb-4">
+              <div className="card-body">
+                {/* Información básica */}
+                <BasicInfoSection 
+                  formData={formData} 
+                  setFormData={setFormData} 
+                  errors={formErrors}
+                  isVariant={true}
                 />
-                {formErrors.NombreProducto && <div className="invalid-feedback">{formErrors.NombreProducto}</div>}
-              </div>
-              <div className="col-md-6">
-                <label htmlFor="ImagenVariante" className="form-label">
-                  Imagen de la Variante
-                </label>
-                <div className="input-group">
-                  <input
-                    type="file"
-                    className="form-control"
-                    id="ImagenVariante"
-                    name="ImagenVariante"
-                    accept="image/*"
-                    onChange={handleInputChange}
-                  />
-                  <label className="input-group-text" htmlFor="ImagenVariante">
-                    <Image size={18} />
-                  </label>
-                </div>
-                {variantData.imagenPreview && (
-                  <div className="mt-2">
-                    <img 
-                      src={variantData.imagenPreview || "/placeholder.svg"} 
-                      alt="Vista previa" 
-                      className="img-thumbnail" 
-                      style={{ maxHeight: "100px" }} 
-                    />
-                  </div>
-                )}
+                
+                <hr className="my-4" />
+                
+                {/* Atributos y especificaciones */}
+                <AttributesAndSpecificationsSection 
+                  selectedAttributes={selectedAttributes}
+                  setSelectedAttributes={setSelectedAttributes}
+                  isVariant={true}
+                  parentProductAttributes={productoBase?.atributos}
+                  onOpenAttributeTypeModal={() => setShowAttributeTypeModal(true)}
+                  onOpenAttributeValueModal={handleOpenAttributeValueModal}
+                />
+                
+                <hr className="my-4" />
+                
+                {/* Imágenes */}
+                <VariantImageSection 
+                  images={images}
+                  setImages={setImages}
+                  errors={formErrors}
+                />
               </div>
             </div>
-
-            <div className="row mb-4">
-              <div className="col-md-4">
-                <label htmlFor="Costo" className="form-label">
-                  Costo
-                </label>
-                <div className="input-group">
-                  <span className="input-group-text">$</span>
-                  <input
-                    type="number"
-                    className="form-control"
-                    id="Costo"
-                    name="Costo"
-                    value={variantData.Costo}
-                    onChange={handleInputChange}
-                    min="0"
-                  />
-                </div>
-              </div>
-              <div className="col-md-4">
-                <label htmlFor="MargenGanancia" className="form-label">
-                  Margen de Ganancia (%)
-                </label>
-                <div className="input-group">
-                  <input
-                    type="number"
-                    className="form-control"
-                    id="MargenGanancia"
-                    name="MargenGanancia"
-                    value={variantData.MargenGanancia}
-                    onChange={handleInputChange}
-                    min="0"
-                    max="500"
-                    step="0.1"
-                  />
-                  <span className="input-group-text">%</span>
-                  <button
-                    type="button"
-                    className="btn btn-outline-secondary"
-                    onClick={() => {
-                      const costo = parseFloat(variantData.Costo) || 0
-                      const margen = parseFloat(variantData.MargenGanancia) || 0
-                      
-                      if (costo > 0 && margen >= 0) {
-                        const precio = costo * (1 + margen / 100)
-                        setVariantData({
-                          ...variantData,
-                          Precio: Math.round(precio).toString()
-                        })
-                      } else {
-                        toast.warning("El costo debe ser mayor que cero y el margen no puede ser negativo")
-                      }
-                    }}
-                    title="Calcular precio"
-                  >
-                    <Calculator size={18} />
-                  </button>
-                </div>
-              </div>
-              <div className="col-md-4">
-                <label htmlFor="Precio" className="form-label">
-                  Precio <span className="text-danger">*</span>
-                </label>
-                <div className="input-group">
-                  <span className="input-group-text">$</span>
-                  <input
-                    type="number"
-                    className={`form-control ${formErrors.Precio ? "is-invalid" : ""}`}
-                    id="Precio"
-                    name="Precio"
-                    value={variantData.Precio}
-                    onChange={handleInputChange}
-                    min="0"
-                    required
-                  />
-                  {formErrors.Precio && <div className="invalid-feedback">{formErrors.Precio}</div>}
-                </div>
-              </div>
-            </div>
-
-            <div className="row mb-4">
-              <div className="col-md-4">
-                <label htmlFor="Stock" className="form-label">
-                  Stock <span className="text-danger">*</span>
-                </label>
-                <input
-                  type="number"
-                  className={`form-control ${formErrors.Stock ? "is-invalid" : ""}`}
-                  id="Stock"
-                  name="Stock"
-                  value={variantData.Stock}
-                  onChange={handleInputChange}
-                  min="0"
-                  required
-                />
-                {formErrors.Stock && <div className="invalid-feedback">{formErrors.Stock}</div>}
-              </div>
-              <div className="col-md-4">
-                <label htmlFor="StockMinimo" className="form-label">
-                  Stock Mínimo
-                </label>
-                <input
-                  type="number"
-                  className="form-control"
-                  id="StockMinimo"
-                  name="StockMinimo"
-                  value={variantData.StockMinimo}
-                  onChange={handleInputChange}
-                  min="0"
-                />
-              </div>
-              <div className="col-md-4">
-                <label htmlFor="Activo" className="form-label d-block">
-                  Estado
-                </label>
-                <div className="form-check form-switch mt-2">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="Activo"
-                    name="Activo"
-                    checked={variantData.Activo}
-                    onChange={handleInputChange}
-                  />
-                  <label className="form-check-label" htmlFor="Activo">
-                    {variantData.Activo ? "Activo" : "Inactivo"}
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            <h5 className="card-title mb-3">Atributos de la Variante</h5>
-            {formErrors.Atributos && (
-              <div className="alert alert-danger">{formErrors.Atributos}</div>
-            )}
-            <div className="row mb-3">
-              <div className="col-md-5">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Nombre (ej: Color)"
-                  value={nuevoAtributo.nombre}
-                  onChange={(e) => setNuevoAtributo({ ...nuevoAtributo, nombre: e.target.value })}
-                />
-              </div>
-              <div className="col-md-5">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Valor (ej: Rojo)"
-                  value={nuevoAtributo.valor}
-                  onChange={(e) => setNuevoAtributo({ ...nuevoAtributo, valor: e.target.value })}
-                />
-              </div>
-              <div className="col-md-2">
-                <button
-                  type="button"
-                  className="btn btn-primary w-100"
-                  onClick={handleAddAtributo}
-                  disabled={!nuevoAtributo.nombre.trim() || !nuevoAtributo.valor.trim()}
-                >
-                  <Plus size={18} />
-                </button>
-              </div>
-            </div>
-
-            {variantData.Atributos.length > 0 ? (
-              <div className="table-responsive mb-4">
-                <table className="table table-bordered">
-                  <thead className="table-light">
-                    <tr>
-                      <th>Nombre</th>
-                      <th>Valor</th>
-                      <th className="text-center" style={{ width: "80px" }}>
-                        Acción
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {variantData.Atributos.map((atributo, index) => (
-                      <tr key={index}>
-                        <td>{atributo.nombre}</td>
-                        <td>{atributo.valor}</td>
-                        <td className="text-center">
-                          <button
-                            type="button"
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => handleRemoveAtributo(index)}
-                          >
-                            <X size={16} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="alert alert-info mb-4">
-                No hay atributos agregados. Debe agregar al menos un atributo (como color, talla, etc.)
-              </div>
-            )}
-
-            <div className="d-flex justify-content-end gap-2">
-              <button type="button" className="btn btn-outline-secondary" onClick={onCancel}>
-                <X size={18} className="me-1" />
+            
+            {/* Botones de acción */}
+            <div className="d-flex justify-content-end gap-2 mb-4">
+              <button
+                type="button"
+                className="btn btn-outline-secondary"
+                onClick={handleCancel}
+                disabled={loading}
+              >
                 Cancelar
               </button>
-              <button type="button" className="btn btn-primary" onClick={handleSaveVariant}>
-                <Save size={18} className="me-1" />
-                {isEditing ? "Actualizar Variante" : "Guardar Variante"}
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                    Guardando...
+                  </>
+                ) : (
+                  <>
+                    <Save size={18} className="me-1" />
+                    {isEditing ? "Actualizar Variante" : "Crear Variante"}
+                  </>
+                )}
               </button>
             </div>
           </form>
-        </div>
-      </div>
+          
+          {/* Modales */}
+          <AttributeTypeModal 
+            show={showAttributeTypeModal}
+            onClose={() => setShowAttributeTypeModal(false)}
+            onSuccess={handleAttributeTypeCreated}
+          />
+          
+          <AttributeValueModal 
+            show={showAttributeValueModal}
+            tipoAtributoId={selectedTipoAtributoId}
+            onClose={() => {
+              setShowAttributeValueModal(false)
+              setSelectedTipoAtributoId(null)
+            }}
+            onSuccess={handleAttributeValueCreated}
+          />
+        </>
+      )}
     </div>
   )
 }
