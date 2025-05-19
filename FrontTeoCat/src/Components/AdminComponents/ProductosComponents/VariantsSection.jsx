@@ -1,10 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { Plus, Edit, ChevronDown, ChevronRight } from "lucide-react"
-import { Link } from "react-router-dom"
+import { Plus, Edit, ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
+import { useNavigate } from "react-router-dom" // Cambiado de next/navigation a react-router-dom
 
-const VariantsSection = ({ productId, variants }) => {
+const VariantsSection = ({ productId, variants, onDeleteVariant, onEditVariant }) => {
+  const navigate = useNavigate() // Cambiado de useRouter a useNavigate
   const [showVariants, setShowVariants] = useState(true)
   const [loading] = useState(false)
 
@@ -21,13 +22,32 @@ const VariantsSection = ({ productId, variants }) => {
 
   // Función para obtener una representación de texto de los atributos de una variante
   const getVariantAttributesText = (variant) => {
-    if (!variant.atributos || variant.atributos.length === 0) return "Sin atributos"
+    // Manejar tanto el formato antiguo como el nuevo formato de atributos
+    const atributos = variant.atributos || variant.Atributos
+    
+    if (!atributos || atributos.length === 0) return "Sin atributos"
 
-    return variant.atributos
+    return atributos
       .map((attr) => {
-        return `${attr.NombreAtributo}: ${attr.Valor}`
+        return `${attr.tipoNombre || attr.NombreAtributo}: ${attr.valorNombre || attr.Valor}`
       })
       .join(", ")
+  }
+
+  // Manejar la navegación a la página de creación de variante
+  const handleAddVariant = () => {
+    navigate(`/admin/productos/variante/nueva/${productId}`)
+  }
+
+  // Manejar la navegación a la página de edición de variante
+  const handleEditVariant = (variantId) => {
+    // Si se proporciona una función onEditVariant, usarla
+    if (onEditVariant) {
+      onEditVariant(variantId);
+      return;
+    }
+    // De lo contrario, navegar a la página de edición
+    navigate(`/admin/productos/variante/editar/${variantId}`)
   }
 
   return (
@@ -47,10 +67,13 @@ const VariantsSection = ({ productId, variants }) => {
         <>
           {productId ? (
             <div className="mb-3">
-              <Link to={`/admin/productos/variante/nueva/${productId}`} className="btn btn-primary">
+              <button 
+                onClick={handleAddVariant} 
+                className="btn btn-primary"
+              >
                 <Plus size={18} className="me-1" />
                 Agregar Variante
-              </Link>
+              </button>
             </div>
           ) : (
             <div className="alert alert-info">Guarde el producto primero para poder agregar variantes.</div>
@@ -67,7 +90,7 @@ const VariantsSection = ({ productId, variants }) => {
               <table className="table table-hover">
                 <thead>
                   <tr>
-                    <th>Nombre</th>
+                    <th>SKU</th>
                     <th>Atributos</th>
                     <th>Precio</th>
                     <th>Stock</th>
@@ -77,25 +100,34 @@ const VariantsSection = ({ productId, variants }) => {
                 </thead>
                 <tbody>
                   {variants.map((variant) => (
-                    <tr key={variant.IdProducto}>
-                      <td>{variant.NombreProducto}</td>
+                    <tr key={variant.id || variant.IdProducto}>
+                      <td>{variant.sku || variant.SKU}</td>
                       <td>{getVariantAttributesText(variant)}</td>
-                      <td>{formatCurrency(variant.Precio)}</td>
-                      <td>{variant.Stock}</td>
+                      <td>{formatCurrency(variant.precio || variant.Precio)}</td>
+                      <td>{variant.stock || variant.Stock}</td>
                       <td>
-                        <span className={`badge ${variant.Activo ? "bg-success" : "bg-danger"}`}>
-                          {variant.Activo ? "Activo" : "Inactivo"}
+                        <span className={`badge ${(variant.estado || variant.Activo) ? "bg-success" : "bg-danger"}`}>
+                          {(variant.estado || variant.Activo) ? "Activo" : "Inactivo"}
                         </span>
                       </td>
                       <td>
                         <div className="btn-group">
-                          <Link
-                            to={`/admin/productos/variante/editar/${variant.IdProducto}`}
+                          <button
+                            onClick={() => handleEditVariant(variant.id || variant.IdProducto)}
                             className="btn btn-sm btn-outline-primary"
                             title="Editar variante"
                           >
                             <Edit size={16} />
-                          </Link>
+                          </button>
+                          {onDeleteVariant && (
+                            <button
+                              onClick={() => onDeleteVariant(variant.id || variant.IdProducto)}
+                              className="btn btn-sm btn-outline-danger"
+                              title="Eliminar variante"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

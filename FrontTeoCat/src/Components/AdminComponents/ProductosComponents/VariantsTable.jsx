@@ -46,7 +46,7 @@ const VariantsTable = ({ variants = [], onDelete, onEdit, loading = false }) => 
       <table className="table table-hover">
         <thead className="table-light">
           <tr>
-            <th scope="col">Nombre</th>
+            <th scope="col">SKU</th>
             <th scope="col">Atributos</th>
             <th scope="col">Precio</th>
             <th scope="col">Stock</th>
@@ -57,27 +57,30 @@ const VariantsTable = ({ variants = [], onDelete, onEdit, loading = false }) => 
         <tbody>
           {variants.map((variant) => (
             <tr key={variant.id || variant.IdProducto}>
-              <td>{variant.NombreVariante || variant.NombreProducto}</td>
+              <td>{variant.sku || variant.SKU}</td>
               <td>
                 <div className="d-flex flex-wrap gap-1">
-                  {variant.Atributos?.map((attr, index) => (
+                  {/* Manejar tanto el formato antiguo como el nuevo formato de atributos */}
+                  {(variant.atributos || variant.Atributos)?.map((attr, index) => (
                     <span
                       key={index}
                       className="badge bg-light text-dark border"
                     >
-                      {attr.nombre || attr.NombreAtributo}: {attr.valor || attr.Valor}
+                      {attr.tipoNombre || attr.NombreAtributo}: {attr.valorNombre || attr.Valor}
                     </span>
                   ))}
-                  {(!variant.Atributos || variant.Atributos.length === 0) && (
+                  {(!variant.atributos && !variant.Atributos) || 
+                   (variant.atributos && variant.atributos.length === 0) || 
+                   (variant.Atributos && variant.Atributos.length === 0) ? (
                     <span className="text-muted">Sin atributos</span>
-                  )}
+                  ) : null}
                 </div>
               </td>
-              <td>${formatNumber(variant.Precio)}</td>
-              <td>{formatNumber(variant.Stock)}</td>
+              <td>${formatNumber(variant.precio || variant.Precio)}</td>
+              <td>{formatNumber(variant.stock || variant.Stock)}</td>
               <td>
-                <span className={`badge ${variant.Activo ? 'bg-success' : 'bg-danger'}`}>
-                  {variant.Activo ? 'Activo' : 'Inactivo'}
+                <span className={`badge ${(variant.estado || variant.Activo) ? 'bg-success' : 'bg-danger'}`}>
+                  {(variant.estado || variant.Activo) ? 'Activo' : 'Inactivo'}
                 </span>
               </td>
               <td className="text-end">
