@@ -7,8 +7,7 @@ import { es } from "date-fns/locale"
 /**
  * Componente para mostrar una tarjeta de comprobante de pago
  */
-// Modificar la definición de props para incluir id y className
-const PaymentReceiptCard = ({ notificacion, onChangeStatus, id, className = "" }) => {
+const PaymentReceiptCard = ({ notificacion, onChangeStatus }) => {
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [rejectReason, setRejectReason] = useState("")
 
@@ -110,47 +109,40 @@ const PaymentReceiptCard = ({ notificacion, onChangeStatus, id, className = "" }
   /**
    * Manejador para aprobar el comprobante
    */
-  const handleApprove = (e) => {
-    e.preventDefault(); // Prevenir comportamiento por defecto
-    onChangeStatus(IdNotificacion, "Aprobado");
+  const handleApprove = () => {
+    onChangeStatus(IdNotificacion, "Aprobado")
   }
 
   /**
    * Manejador para mostrar el formulario de rechazo
    */
-  const handleShowRejectForm = (e) => {
-    e.preventDefault(); // Prevenir comportamiento por defecto
-    setShowRejectForm(true);
+  const handleShowRejectForm = () => {
+    setShowRejectForm(true)
   }
 
   /**
    * Manejador para cancelar el rechazo
    */
-  const handleCancelReject = (e) => {
-    e.preventDefault(); // Prevenir comportamiento por defecto
-    setShowRejectForm(false);
-    setRejectReason("");
+  const handleCancelReject = () => {
+    setShowRejectForm(false)
+    setRejectReason("")
   }
 
   /**
    * Manejador para confirmar el rechazo
    */
-  const handleConfirmReject = (e) => {
-    e.preventDefault(); // Prevenir comportamiento por defecto
+  const handleConfirmReject = () => {
     if (rejectReason.trim() === "") {
-      alert("Por favor, ingrese un motivo para el rechazo");
-      return;
+      alert("Por favor, ingrese un motivo para el rechazo")
+      return
     }
-    onChangeStatus(IdNotificacion, "Rechazado", rejectReason);
-    setShowRejectForm(false);
-    setRejectReason("");
+    onChangeStatus(IdNotificacion, "Rechazado", rejectReason)
+    setShowRejectForm(false)
+    setRejectReason("")
   }
 
   return (
-    <div
-      id={id}
-      className={`card h-100 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""} ${className}`}
-    >
+    <div className={`card h-100 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""}`}>
       <div className="card-header d-flex justify-content-between align-items-start">
         <div className="d-flex align-items-center">
           <i className="bi bi-file-earmark-text text-primary me-2"></i>

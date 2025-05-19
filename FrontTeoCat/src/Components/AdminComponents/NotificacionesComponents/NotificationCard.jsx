@@ -6,7 +6,7 @@ import { es } from "date-fns/locale"
 /**
  * Componente para mostrar una tarjeta de notificación de producto
  */
-const NotificationCard = ({ notificacion, onChangeStatus, id, className = "" }) => {
+const NotificationCard = ({ notificacion, onChangeStatus }) => {
   // Usar los campos correctos según la tabla Notificaciones
   const { IdNotificacion, TipoNotificacion, Titulo, Mensaje, Prioridad, FechaCreacion, Estado, producto } = notificacion
 
@@ -85,10 +85,7 @@ const NotificationCard = ({ notificacion, onChangeStatus, id, className = "" }) 
   // Verificar si el producto existe antes de intentar acceder a sus propiedades
   if (!producto) {
     return (
-      <div
-        id={id}
-        className={`card h-100 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""} ${className}`}
-      >
+      <div className={`card h-100 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""}`}>
         <div className="card-header d-flex justify-content-between align-items-start">
           <div className="d-flex align-items-center">
             <i className={`${getNotificationIcon(TipoNotificacion)} me-2`}></i>
@@ -104,25 +101,16 @@ const NotificationCard = ({ notificacion, onChangeStatus, id, className = "" }) 
           <small className="text-muted d-block mb-2">{formatRelativeTime(FechaCreacion)}</small>
           <div className="d-flex flex-column gap-2">
             {Estado === "Pendiente" && (
-              <button 
-                className="btn btn-outline-primary btn-sm" 
-                onClick={(e) => {
-                  e.preventDefault(); // Prevenir comportamiento por defecto
-                  onChangeStatus(IdNotificacion, "Vista");
-                }}
+              <button
+                className="btn btn-outline-primary btn-sm"
+                onClick={() => onChangeStatus(IdNotificacion, "Vista")}
               >
                 <i className="bi bi-eye me-1"></i>
                 Marcar como vista
               </button>
             )}
             {(Estado === "Pendiente" || Estado === "Vista") && (
-              <button 
-                className="btn btn-primary btn-sm" 
-                onClick={(e) => {
-                  e.preventDefault(); // Prevenir comportamiento por defecto
-                  onChangeStatus(IdNotificacion, "Resuelta");
-                }}
-              >
+              <button className="btn btn-primary btn-sm" onClick={() => onChangeStatus(IdNotificacion, "Resuelta")}>
                 <i className="bi bi-check-circle me-1"></i>
                 Marcar como resuelta
               </button>
@@ -137,34 +125,37 @@ const NotificationCard = ({ notificacion, onChangeStatus, id, className = "" }) 
   const renderContent = () => {
     if (TipoNotificacion === "StockBajo") {
       return (
-        <div className="d-flex gap-3">
-          <div style={{ width: "64px", height: "64px" }} className="flex-shrink-0">
-            <img
-              src={producto.imagen || "/placeholder.svg?height=200&width=200"}
-              alt={producto.nombre}
-              className="img-fluid rounded"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          </div>
-          <div>
-            <h5 className="card-title">{producto.nombre}</h5>
-            <div className="d-flex align-items-center gap-2">
+        <>
+          <div className="d-flex gap-3 mb-3">
+            <div style={{ width: "64px", height: "64px" }} className="flex-shrink-0">
+              <img
+                src={producto.imagen || "/placeholder.svg?height=200&width=200"}
+                alt={producto.nombre}
+                className="img-fluid rounded"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            </div>
+            <div>
+              <h5 className="card-title">{producto.nombre}</h5>
               <div className="text-muted small">
                 Stock: <span className="fw-bold">{producto.stock}</span> / {producto.stockMinimo}
               </div>
-              <div className="progress flex-grow-1" style={{ height: "8px" }}>
-                <div
-                  className={`progress-bar ${producto.stock === 0 ? "bg-danger" : "bg-warning"}`}
-                  role="progressbar"
-                  style={{ width: `${(producto.stock / producto.stockMinimo) * 100}%` }}
-                  aria-valuenow={(producto.stock / producto.stockMinimo) * 100}
-                  aria-valuemin="0"
-                  aria-valuemax="100"
-                ></div>
-              </div>
             </div>
           </div>
-        </div>
+
+          <div className="progress mb-3" style={{ height: "8px" }}>
+            <div
+              className={`progress-bar ${producto.stock === 0 ? "bg-danger" : "bg-warning"}`}
+              role="progressbar"
+              style={{ width: `${(producto.stock / producto.stockMinimo) * 100}%` }}
+              aria-valuenow={(producto.stock / producto.stockMinimo) * 100}
+              aria-valuemin="0"
+              aria-valuemax="100"
+            ></div>
+          </div>
+
+          <p className="card-text">{Mensaje}</p>
+        </>
       )
     } else if (TipoNotificacion === "Vencimiento") {
       const diasRestantes = producto.fechaVencimiento
@@ -174,18 +165,18 @@ const NotificationCard = ({ notificacion, onChangeStatus, id, className = "" }) 
       const vencido = diasRestantes <= 0
 
       return (
-        <div className="d-flex gap-3">
-          <div style={{ width: "64px", height: "64px" }} className="flex-shrink-0">
-            <img
-              src={producto.imagen || "/placeholder.svg?height=200&width=200"}
-              alt={producto.nombre}
-              className="img-fluid rounded"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-          </div>
-          <div>
-            <h5 className="card-title">{producto.nombre}</h5>
-            <div className="d-flex align-items-center gap-3">
+        <>
+          <div className="d-flex gap-3 mb-3">
+            <div style={{ width: "64px", height: "64px" }} className="flex-shrink-0">
+              <img
+                src={producto.imagen || "/placeholder.svg?height=200&width=200"}
+                alt={producto.nombre}
+                className="img-fluid rounded"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            </div>
+            <div>
+              <h5 className="card-title">{producto.nombre}</h5>
               <div className="text-muted small">
                 Vence: <span className="fw-bold">{formatDate(producto.fechaVencimiento)}</span>
               </div>
@@ -194,33 +185,35 @@ const NotificationCard = ({ notificacion, onChangeStatus, id, className = "" }) 
               </div>
             </div>
           </div>
-        </div>
+
+          <p className="card-text">{Mensaje}</p>
+        </>
       )
     } else {
       return (
-        <div className="d-flex gap-3">
-          <div style={{ width: "64px", height: "64px" }} className="flex-shrink-0">
-            <img
-              src={producto.imagen || "/placeholder.svg?height=200&width=200"}
-              alt={producto.nombre}
-              className="img-fluid rounded"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
+        <>
+          <div className="d-flex gap-3 mb-3">
+            <div style={{ width: "64px", height: "64px" }} className="flex-shrink-0">
+              <img
+                src={producto.imagen || "/placeholder.svg?height=200&width=200"}
+                alt={producto.nombre}
+                className="img-fluid rounded"
+                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              />
+            </div>
+            <div>
+              <h5 className="card-title">{producto.nombre}</h5>
+            </div>
           </div>
-          <div>
-            <h5 className="card-title">{producto.nombre}</h5>
-            <p className="card-text text-muted">{Mensaje}</p>
-          </div>
-        </div>
+
+          <p className="card-text">{Mensaje}</p>
+        </>
       )
     }
   }
 
   return (
-    <div
-      id={id}
-      className={`card h-100 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""} ${className}`}
-    >
+    <div className={`card h-100 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""}`}>
       <div className="card-header d-flex justify-content-between align-items-start">
         <div className="d-flex align-items-center">
           <i className={`${getNotificationIcon(TipoNotificacion)} me-2`}></i>
@@ -232,38 +225,14 @@ const NotificationCard = ({ notificacion, onChangeStatus, id, className = "" }) 
       <div className="card-footer">
         <small className="text-muted d-block mb-2">{formatRelativeTime(FechaCreacion)}</small>
         <div className="d-flex flex-column gap-2">
-          {producto.url && (
-            <a
-              href={producto.url}
-              className="btn btn-outline-secondary btn-sm"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <i className="bi bi-box-arrow-up-right me-1"></i>
-              Ver Producto
-            </a>
-          )}
-
           {Estado === "Pendiente" && (
-            <button 
-              className="btn btn-outline-primary btn-sm" 
-              onClick={(e) => {
-                e.preventDefault(); // Prevenir comportamiento por defecto
-                onChangeStatus(IdNotificacion, "Vista");
-              }}
-            >
+            <button className="btn btn-outline-primary btn-sm" onClick={() => onChangeStatus(IdNotificacion, "Vista")}>
               <i className="bi bi-eye me-1"></i>
               Marcar como vista
             </button>
           )}
           {(Estado === "Pendiente" || Estado === "Vista") && (
-            <button 
-              className="btn btn-primary btn-sm" 
-              onClick={(e) => {
-                e.preventDefault(); // Prevenir comportamiento por defecto
-                onChangeStatus(IdNotificacion, "Resuelta");
-              }}
-            >
+            <button className="btn btn-primary btn-sm" onClick={() => onChangeStatus(IdNotificacion, "Resuelta")}>
               <i className="bi bi-check-circle me-1"></i>
               Marcar como resuelta
             </button>

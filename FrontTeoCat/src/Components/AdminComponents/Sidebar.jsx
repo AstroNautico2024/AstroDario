@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation } from "react-router-dom"
 import PropTypes from "prop-types"
-import { Home, Settings, Package, ShoppingCart, DollarSign, Scissors, PawPrint, ChevronRight } from 'lucide-react'
+import { Home, Settings, Package, ShoppingCart, DollarSign, Scissors, PawPrint, ChevronRight, Bell } from "lucide-react"
 import { motion, AnimatePresence } from "framer-motion"
 import logo from "../../assets/Logo2.jpg"
 import "./Sidebar.scss"
@@ -20,6 +20,12 @@ const getMenuItems = () => {
       path: "/",
       // Dashboard is visible to everyone
       visible: true,
+    },
+    {
+      title: "Notificaciones",
+      icon: Bell,
+      path: "/inventario/notificaciones",
+      visible: authService.hasPermiso("Visualizar Notificaciones Stock"),
     },
     {
       title: "Configuración",
@@ -41,10 +47,7 @@ const getMenuItems = () => {
     {
       title: "Stock",
       icon: Package,
-      visible:
-        authService.hasPermiso("Visualizar Categorias") ||
-        authService.hasPermiso("Visualizar Productos") ||
-        authService.hasPermiso("Visualizar Notificaciones Stock"),
+      visible: authService.hasPermiso("Visualizar Categorias") || authService.hasPermiso("Visualizar Productos"),
       submenu: [
         {
           title: "Categorías",
@@ -57,11 +60,7 @@ const getMenuItems = () => {
           visible: authService.hasPermiso("Visualizar Productos"),
         },
         // Se eliminó "Registrar Nuevo Producto"
-        {
-          title: "Notificaciones",
-          path: "/inventario/notificaciones",
-          visible: authService.hasPermiso("Visualizar Notificaciones Stock"),
-        },
+        // Se eliminó "Notificaciones" de aquí
       ],
     },
     {

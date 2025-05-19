@@ -7,7 +7,7 @@ import { es } from "date-fns/locale"
 /**
  * Componente para mostrar una fila de comprobante de pago (vista de lista)
  */
-const PaymentReceiptRow = ({ notificacion, onChangeStatus, id, className = "" }) => {
+const PaymentReceiptRow = ({ notificacion, onChangeStatus }) => {
   const [showRejectForm, setShowRejectForm] = useState(false)
   const [rejectReason, setRejectReason] = useState("")
 
@@ -132,10 +132,7 @@ const PaymentReceiptRow = ({ notificacion, onChangeStatus, id, className = "" })
   }
 
   return (
-    <div
-      id={id}
-      className={`card mb-3 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""} ${className}`}
-    >
+    <div className={`card mb-3 ${Estado === "Pendiente" ? "border-warning border-start border-4" : ""}`}>
       <div className="card-body">
         <div className="d-flex align-items-center gap-2 mb-3">
           <i className="bi bi-file-earmark-text text-primary"></i>
