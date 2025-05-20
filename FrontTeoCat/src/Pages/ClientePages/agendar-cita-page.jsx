@@ -8,6 +8,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import "react-calendar/dist/Calendar.css"
 import "../../Pages/ClientePages/agendar-cita-page.scss"
 
+import CitasClienteService from "../../Services/ConsumoCliente/CitasClienteService"
+
+
 // Componentes
 import CalendarWithAvailability from "../../Components/ClienteComponents/AgendarCitasComponents/calendar-with-availability"
 import TimeSlots from "../../Components/ClienteComponents/AgendarCitasComponents/time-slots"
@@ -425,6 +428,13 @@ const AgendarCitaPage = () => {
     }
   }
 
+
+
+
+
+
+
+
   // Manejar cambios en el formulario de mascota
   const handlePetFormChange = (e) => {
     const { name, value, type, files } = e.target;
@@ -593,18 +603,30 @@ const AgendarCitaPage = () => {
     }
   }
 
-  // Manejar envío del formulario
-  const handleSubmit = (e) => {
-    if (e) e.preventDefault()
 
-    // Validar que se hayan seleccionado todos los campos requeridos
-    if (!validateCurrentStep()) {
-      return
-    }
+// Manejar envío del formulario
+const handleSubmit = async (e) => {
+  if (e) e.preventDefault()
 
-    // Aquí iría la lógica para enviar los datos a la API
-    // En este ejemplo, solo mostramos un mensaje de éxito
+  // Validar que se hayan seleccionado todos los campos requeridos
+  if (!validateCurrentStep()) {
+    return
+  }
 
+  // Construir el objeto de cita para la API
+  const citaPayload = {
+    IdCliente: clientForm.documento,
+    IdMascota: selectedPet || (selectedPets.length > 0 ? selectedPets[0] : null),
+    Fecha: selectedDate && selectedTime
+      ? `${selectedDate.toISOString().split("T")[0]} ${selectedTime}:00`
+      : "",
+    NotasAdicionales: "",
+    servicios: selectedServices.map((s) => ({ IdServicio: s.id })),
+  }
+
+  try {
+    // Aquí se hace el consumo real de la API
+    await CitasClienteService.crearCita(citaPayload)
     toast.success("¡Cita agendada con éxito! Pronto recibirás un correo de confirmación.")
 
     // Resetear formulario
@@ -637,7 +659,26 @@ const AgendarCitaPage = () => {
       edad: "",
       fechaNacimiento: "",
     })
+  } catch (error) {
+    toast.error("Error al agendar la cita. Intenta nuevamente.")
   }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   // Renderizar el paso actual
   const renderCurrentStep = () => {

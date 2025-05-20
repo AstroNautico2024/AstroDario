@@ -11,22 +11,22 @@ const ProfileSidebar = ({ user, activeTab, setActiveTab, updateUser }) => {
   const fileInputRef = useRef(null)
 
   const handleFotoChange = async (e) => {
-    const file = e.target.files[0]
-    if (!file) return
-    const reader = new FileReader()
-    reader.onloadend = async () => {
-      try {
-        const fotoBase64 = reader.result
-        const updated = await PerfilClienteService.updateFoto(user.id, { foto: fotoBase64 })
-        if (updateUser) {
-          updateUser({ ...user, foto: updated.foto || fotoBase64 })
-        }
-        toast.success("Foto actualizada correctamente")
-      } catch (err) {
-        toast.error("Error al actualizar la foto")
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      // Sube el archivo directamente usando FormData
+      await PerfilClienteService.updateFoto(user.id, file);
+      // Refresca el usuario desde el backend
+      const refreshed = await PerfilClienteService.getPerfil();
+      // Depuración: muestra el usuario refrescado en consola
+      console.log("Usuario refrescado:", refreshed);
+      if (updateUser) {
+        updateUser(refreshed);
       }
+      toast.success("Foto actualizada correctamente");
+    } catch (err) {
+      toast.error("Error al actualizar la foto");
     }
-    reader.readAsDataURL(file)
   }
 
   return (
@@ -38,11 +38,24 @@ const ProfileSidebar = ({ user, activeTab, setActiveTab, updateUser }) => {
             style={{ cursor: "pointer" }}
             onClick={() => fileInputRef.current && fileInputRef.current.click()}
           >
+
+
             <img
-              src={user.foto || user.profileImage || "/placeholder.svg"}
-              alt={user.nombre}
-              className="tc-profile-image"
-            />
+  src={
+    user.foto
+      ? `${user.foto}?t=${Date.now()}`
+      : user.Foto
+      ? `${user.Foto}?t=${Date.now()}`
+      : user.profileImage
+      ? `${user.profileImage}?t=${Date.now()}`
+      : "/placeholder.svg"
+  }
+  alt={user.nombre}
+  className="tc-profile-image"
+/>
+
+
+
             <div className="tc-profile-image-overlay">
               <i className="bi bi-camera"></i>
             </div>

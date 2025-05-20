@@ -13,20 +13,21 @@ const axiosInstance = axios.create({
 axiosInstance.interceptors.request.use(
   (config) => {
     // Busca el token directamente en localStorage
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("token")
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`
     }
-    return config;
+    return config
   },
   (error) => Promise.reject(error)
-);
+)
 
 // Interceptor para manejar errores de respuesta
 axiosInstance.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
+      localStorage.removeItem("token")
       localStorage.removeItem("userData")
       window.dispatchEvent(new Event("logout"))
       window.dispatchEvent(new Event("storage"))
