@@ -172,7 +172,8 @@ const AgendarCitaPage = () => {
           raza: m.Raza || m.raza,
           tamaño: m.Tamaño || m.tamaño,
           fechaNacimiento: m.FechaNacimiento || m.fechaNacimiento,
-          imagen: m.Foto || m.imagen || "/placeholder.svg",
+          // Decodificar la imagen Base64
+          imagen: m.Foto ? `data:image/jpeg;base64,${m.Foto}` : "/placeholder.svg",
           ...m,
         }))
       );
@@ -217,18 +218,20 @@ const AgendarCitaPage = () => {
 
   useEffect(() => {
     if (!clienteId) return;
+
     const cargarMascotas = async () => {
       try {
         const mascotas = await MascotasClienteService.getMascotasByCliente(clienteId);
         setUserPets(
-          mascotas.map(m => ({
+          mascotas.map((m) => ({
             id: m.IdMascota || m.id,
             nombre: m.Nombre || m.nombre,
             especie: m.Especie || m.especie,
             raza: m.Raza || m.raza,
             tamaño: m.Tamaño || m.tamaño,
             fechaNacimiento: m.FechaNacimiento || m.fechaNacimiento,
-            imagen: m.Foto || m.imagen || "/placeholder.svg",
+            // Decodificar la imagen Base64
+            imagen: m.Foto ? `data:image/jpeg;base64,${m.Foto}` : "/placeholder.svg",
             ...m,
           }))
         );
@@ -236,6 +239,7 @@ const AgendarCitaPage = () => {
         setUserPets([]);
       }
     };
+
     cargarMascotas();
   }, [clienteId]);
 
@@ -485,7 +489,8 @@ const AgendarCitaPage = () => {
 
   // Calcular el total de la cita
   const calculateTotal = () => {
-    return selectedServices.reduce((total, service) => total + service.price, 0)
+    const total = selectedServices.reduce((total, service) => total + Number(service.price || 0), 0)
+    return total.toFixed(2)
   }
 
   // Calcular la duración total de la cita
@@ -576,29 +581,7 @@ const AgendarCitaPage = () => {
         return true
 
       case 4: // Información de la mascota
-        const hasWalkingServiceOnly = hasWalkingService() && selectedServices.length === 1
-        const hasWalkingAndOtherServices = hasWalkingService() && selectedServices.length > 1
 
-        // Si solo hay servicio de paseo
-        if (hasWalkingServiceOnly) {
-          if (selectedPets.length === 0) {
-            toast.error("Por favor seleccione al menos una mascota para el paseo")
-            return false
-          }
-        }
-        // Si hay servicio de paseo y otros servicios
-        else if (hasWalkingAndOtherServices) {
-          if (selectedPets.length === 0) {
-            toast.error("Por favor seleccione al menos una mascota para el paseo")
-            return false
-          }
-          if (!selectedPet) {
-            toast.error("Por favor seleccione una mascota para los demás servicios")
-            return false
-          }
-        }
-        // Si solo hay otros servicios (no paseo)
-        else {
           if (!selectedPet && !showNewPetForm) {
             toast.error("Por favor seleccione una mascota o registre una nueva")
             return false
@@ -610,7 +593,6 @@ const AgendarCitaPage = () => {
               return false
             }
           }
-        }
         return true
 
       default:
@@ -1050,201 +1032,167 @@ const AgendarCitaPage = () => {
                 <h4 className="mb-0">Información de la Mascota</h4>
               </Card.Header>
               <Card.Body>
-                {hasWalkingService() ? (
-                  // Si hay servicio de paseo, mostrar selector múltiple de mascotas solo para ese servicio
-                  <>
-                    <div className="alert alert-info">
-                      <i className="bi bi-info-circle me-2"></i>
-                      Has seleccionado el servicio de paseo, puedes elegir múltiples mascotas para este servicio.
-                    </div>
-                    <MultiPetSelector pets={userPets} selectedPets={selectedPets} setSelectedPets={setSelectedPets} />
-
-                    {/* Si hay otros servicios además del paseo, mostrar selector de una mascota para esos servicios */}
-                    {selectedServices.some((service) => service.id !== 3) && (
-                      <div className="mt-4 pt-3 border-top">
-                        <h5 className="mb-3">Selecciona una mascota para los demás servicios:</h5>
-                        <Row className="g-3">
-                          {userPets.map((pet) => (
-                            <Col md={6} key={pet.id}>
-                              <PetCard
-                                pet={pet}
-                                isSelected={selectedPet === pet.id}
-                                onClick={() => {
-                                  setSelectedPet(pet.id)
-                                  setShowNewPetForm(false)
-                                }}
-                              />
-                            </Col>
-                          ))}
-                        </Row>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  // Para otros servicios, mostrar selector de una mascota
-                  <>
-                    {userPets.length > 0 && (
-                      <div className="mb-4">
-                        <h5 className="mb-3">Selecciona una mascota registrada:</h5>
-                        <Row className="g-3">
-                          {userPets.map((pet) => (
-                            <Col md={6} key={pet.id}>
-                              <PetCard
-                                pet={pet}
-                                isSelected={selectedPet === pet.id}
-                                onClick={() => {
-                                  setSelectedPet(pet.id)
-                                  setShowNewPetForm(false)
-                                }}
-                              />
-                            </Col>
-                          ))}
-                        </Row>
-
-                        <div className="mt-3">
-                          <Button
-                            variant="link"
-                            className="text-decoration-none p-0"
+                {userPets.length > 0 && (
+                  <div className="mb-4">
+                    <h5 className="mb-3">Selecciona una mascota registrada:</h5>
+                    <Row className="g-3">
+                      {userPets.map((pet) => (
+                        <Col md={6} key={pet.id}>
+                          <PetCard
+                            pet={pet}
+                            isSelected={selectedPet === pet.id}
                             onClick={() => {
-                              setShowNewPetForm(!showNewPetForm)
-                              if (!showNewPetForm) setSelectedPet("")
+                              setSelectedPet(pet.id);
+                              setShowNewPetForm(false);
                             }}
-                          >
-                            {showNewPetForm ? "Cancelar registro de nueva mascota" : "Registrar nueva mascota"}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-
-<Collapse in={showNewPetForm || userPets.length === 0}>
-  <div>
-    {userPets.length > 0 && <h5 className="mb-3">Registrar nueva mascota:</h5>}
-
-    <Row className="mb-3">
-      <Col md={6}>
-        <Form.Group controlId="petNombre">
-          <Form.Label>Nombre de la mascota *</Form.Label>
-          <Form.Control
-            type="text"
-            placeholder="Nombre"
-            name="nombre"
-            value={petForm.nombre}
-            onChange={handlePetFormChange}
-            required
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group controlId="petEspecie">
-          <Form.Label>Especie *</Form.Label>
-          <Form.Select
-            name="especie"
-            value={petForm.especie}
-            onChange={handlePetFormChange}
-            required
-          >
-            <option value="">Seleccionar...</option>
-            {especies.map(e => (
-              <option key={e.IdEspecie} value={e.IdEspecie}>{e.NombreEspecie}</option>
-            ))}
-          </Form.Select>
-        </Form.Group>
-      </Col>
-    </Row>
-
-    <Row className="mb-3">
-      <Col md={6}>
-        <Form.Group controlId="petRaza">
-          <Form.Label>Raza *</Form.Label>
-          <Form.Control
-            type="text"
-            placeholder="Raza"
-            name="raza"
-            value={petForm.raza}
-            onChange={handlePetFormChange}
-            required
-          />
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group controlId="petFoto">
-          <Form.Label>Foto</Form.Label>
-          <Form.Control
-            type="file"
-            name="foto"
-            onChange={handlePetFormChange}
-            accept="image/*"
-          />
-        </Form.Group>
-      </Col>
-    </Row>
-
-    <Row className="mb-3">
-      <Col md={6}>
-        <Form.Group controlId="petTamaño">
-          <Form.Label>Tamaño *</Form.Label>
-          <Form.Select
-            name="tamaño"
-            value={petForm.tamaño}
-            onChange={handlePetFormChange}
-            required
-          >
-            <option value="">Seleccionar...</option>
-            <option value="Pequeño">Pequeño</option>
-            <option value="Mediano">Mediano</option>
-            <option value="Grande">Grande</option>
-          </Form.Select>
-        </Form.Group>
-      </Col>
-      <Col md={6}>
-        <Form.Group controlId="petPelaje">
-          <Form.Label>Pelaje *</Form.Label>
-          <Form.Select
-            name="pelaje"
-            value={petForm.pelaje}
-            onChange={handlePetFormChange}
-            required
-          >
-            <option value="">Seleccionar...</option>
-            <option value="Corto">Corto</option>
-            <option value="Medio">Medio</option>
-            <option value="Largo">Largo</option>
-            <option value="Sin Pelaje">Sin Pelaje</option>
-          </Form.Select>
-        </Form.Group>
-      </Col>
-    </Row>
-
-    <Row>
-      <Col md={6}>
-        <Form.Group controlId="petFechaNacimiento">
-          <Form.Label>Fecha de nacimiento *</Form.Label>
-          <Form.Control
-            type="date"
-            name="fechaNacimiento"
-            value={petForm.fechaNacimiento}
-            onChange={handlePetFormChange}
-            required
-          />
-        </Form.Group>
-      </Col>
-    </Row>
-        <Row>
-      <Col className="d-flex justify-content-end mt-3">
-        <Button variant="success" onClick={handleSaveNewPet}>
-          Guardar
-        </Button>
-      </Col>
-    </Row>
-  </div>
-</Collapse>
-                  </>
+                          />
+                        </Col>
+                      ))}
+                    </Row>
+      
+                    <div className="mt-3">
+                      <Button
+                        variant="link"
+                        className="text-decoration-none p-0"
+                        onClick={() => {
+                          setShowNewPetForm(!showNewPetForm);
+                          if (!showNewPetForm) setSelectedPet("");
+                        }}
+                      >
+                        {showNewPetForm ? "Cancelar registro de nueva mascota" : "Registrar nueva mascota"}
+                      </Button>
+                    </div>
+                  </div>
                 )}
+      
+                <Collapse in={showNewPetForm || userPets.length === 0}>
+                  <div>
+                    {userPets.length > 0 && <h5 className="mb-3">Registrar nueva mascota:</h5>}
+      
+                    <Row className="mb-3">
+                      <Col md={6}>
+                        <Form.Group controlId="petNombre">
+                          <Form.Label>Nombre de la mascota *</Form.Label>
+                          <Form.Control
+                            type="text"
+                            placeholder="Nombre"
+                            name="nombre"
+                            value={petForm.nombre}
+                            onChange={handlePetFormChange}
+                            required
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group controlId="petEspecie">
+                          <Form.Label>Especie *</Form.Label>
+                          <Form.Select
+                            name="especie"
+                            value={petForm.especie}
+                            onChange={handlePetFormChange}
+                            required
+                          >
+                            <option value="">Seleccionar...</option>
+                            {especies.map((e) => (
+                              <option key={e.IdEspecie} value={e.IdEspecie}>
+                                {e.NombreEspecie}
+                              </option>
+                            ))}
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                    </Row>
+      
+                    <Row className="mb-3">
+                      <Col md={6}>
+                        <Form.Group controlId="petRaza">
+                          <Form.Label>Raza *</Form.Label>
+                          <Form.Control
+                            type="text"
+                            placeholder="Raza"
+                            name="raza"
+                            value={petForm.raza}
+                            onChange={handlePetFormChange}
+                            required
+                          />
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group controlId="petFoto">
+                          <Form.Label>Foto</Form.Label>
+                          <Form.Control
+                            type="file"
+                            name="foto"
+                            onChange={handlePetFormChange}
+                            accept="image/*"
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+      
+                    <Row className="mb-3">
+                      <Col md={6}>
+                        <Form.Group controlId="petTamaño">
+                          <Form.Label>Tamaño *</Form.Label>
+                          <Form.Select
+                            name="tamaño"
+                            value={petForm.tamaño}
+                            onChange={handlePetFormChange}
+                            required
+                          >
+                            <option value="">Seleccionar...</option>
+                            <option value="Pequeño">Pequeño</option>
+                            <option value="Mediano">Mediano</option>
+                            <option value="Grande">Grande</option>
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                      <Col md={6}>
+                        <Form.Group controlId="petPelaje">
+                          <Form.Label>Pelaje *</Form.Label>
+                          <Form.Select
+                            name="pelaje"
+                            value={petForm.pelaje}
+                            onChange={handlePetFormChange}
+                            required
+                          >
+                            <option value="">Seleccionar...</option>
+                            <option value="Corto">Corto</option>
+                            <option value="Medio">Medio</option>
+                            <option value="Largo">Largo</option>
+                            <option value="Sin Pelaje">Sin Pelaje</option>
+                          </Form.Select>
+                        </Form.Group>
+                      </Col>
+                    </Row>
+      
+                    <Row>
+                      <Col md={6}>
+                        <Form.Group controlId="petFechaNacimiento">
+                          <Form.Label>Fecha de nacimiento *</Form.Label>
+                          <Form.Control
+                            type="date"
+                            name="fechaNacimiento"
+                            value={petForm.fechaNacimiento}
+                            onChange={handlePetFormChange}
+                            required
+                          />
+                        </Form.Group>
+                      </Col>
+                    </Row>
+                    <Row>
+                      <Col className="d-flex justify-content-end mt-3">
+                        <Button variant="success" onClick={handleSaveNewPet}>
+                          Guardar
+                        </Button>
+                      </Col>
+                    </Row>
+                  </div>
+                </Collapse>
               </Card.Body>
             </Card>
           </motion.div>
-        )
-
+        );
       default:
         return null
     }
