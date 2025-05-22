@@ -135,7 +135,7 @@ const PerfilPage = () => {
             raza: m.Raza || m.raza,
             tamaño: m.Tamaño || m.tamaño,
             fechaNacimiento: m.FechaNacimiento || m.fechaNacimiento,
-            image: m.Foto || m.imagen || "/placeholder.svg",
+            imagen: m.Foto ? `data:image/jpeg;base64,${m.Foto}` : "/placeholder.svg",
             ...m,
           }))
         )
@@ -151,7 +151,7 @@ const PerfilPage = () => {
     if (!user) return
     const fetchCitas = async () => {
       try {
-        const citas = await CitasClienteService.getCitasPorCliente(user.IdCliente || user.idCliente || user.id)
+        const citas = await CitasClienteService.getCitasPorCliente(user.cliente.id || user.idCliente || user.id)
         setAppointments(
           citas.map((cita) => ({
             id: cita.IdCita || cita.id,

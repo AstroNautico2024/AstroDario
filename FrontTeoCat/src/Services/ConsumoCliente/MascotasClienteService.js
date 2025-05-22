@@ -1,4 +1,5 @@
 import axios from "axios";
+import imageCompression from "browser-image-compression";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -33,7 +34,6 @@ const MascotasService = {
    * @returns {Promise<Object>} Mascota creada
    */
   createMascota: async (idCliente, mascotaData) => {
-
     try {
       const token = getToken();
       let dataToSend;
@@ -41,40 +41,50 @@ const MascotasService = {
         Authorization: `Bearer ${token}`,
       };
 
+      // Si la foto es un archivo, comprímela y conviértela a base64
+      let fotoBase64 = mascotaData.Foto;
       if (mascotaData.Foto instanceof File) {
-        dataToSend = new FormData();
-        dataToSend.append("IdCliente", idCliente);
-        dataToSend.append("Nombre", mascotaData.Nombre);
-        dataToSend.append("IdEspecie", mascotaData.IdEspecie);
-        dataToSend.append("Raza", mascotaData.Raza);
-        dataToSend.append("Tamaño", mascotaData.Tamaño);
-        dataToSend.append("FechaNacimiento", mascotaData.FechaNacimiento);
-        dataToSend.append("foto", mascotaData.Foto);
-        headers["Content-Type"] = "multipart/form-data";
-      } else {
-        dataToSend = {
-          IdCliente: idCliente,
-          Nombre: mascotaData.Nombre,
-          IdEspecie: mascotaData.IdEspecie,
-          Raza: mascotaData.Raza,
-          Tamaño: mascotaData.Tamaño,
-          FechaNacimiento: mascotaData.FechaNacimiento,
+        // Opciones para la compresión
+        const options = {
+          maxSizeMB: 0.1, // Reducir el tamaño máximo a 0.5 MB
+          maxWidthOrHeight: 400, // Reducir las dimensiones máximas
+          useWebWorker: true, // Usar Web Workers para mejorar el rendimiento
         };
+
+        // Comprimir la imagen
+        const compressedFile = await imageCompression(mascotaData.Foto, options);
+
+        // Convertir la imagen comprimida a base64
+        const reader = new FileReader();
+        fotoBase64 = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result.split(",")[1]); // Solo el contenido base64
+          reader.onerror = reject;
+          reader.readAsDataURL(compressedFile);
+        });
       }
 
-      // AJUSTA AQUÍ la ruta según tu backend
-      const response = await axios.post(
-        `/api/customers/mascotas`,
-        dataToSend,
-        { headers }
-      );
+      // Crear el objeto de datos para enviar
+      dataToSend = {
+        IdCliente: idCliente,
+        Nombre: mascotaData.Nombre,
+        IdEspecie: mascotaData.IdEspecie,
+        Raza: mascotaData.Raza,
+        Tamaño: mascotaData.Tamaño,
+        FechaNacimiento: mascotaData.FechaNacimiento,
+        Foto: fotoBase64, // Foto comprimida en base64
+      };
+
+      // Enviar la solicitud al backend
+      const response = await axios.post(`/api/customers/mascotas`, dataToSend, {
+        headers,
+      });
+
       return response.data;
     } catch (error) {
       console.error("Error al crear mascota:", error);
       throw error;
     }
   },
-
   /**
    * Actualiza una mascota existente
    * @param {number|string} idMascota
@@ -84,12 +94,46 @@ const MascotasService = {
   updateMascota: async (idMascota, mascotaData) => {
     try {
       const token = getToken();
-      console.log("Token usado para actualizar mascota:", token); // <-- Agrega esto
       let dataToSend;
       let headers = {
         Authorization: `Bearer ${token}`,
       };
-      const response = await axios.put(`/api/customers/mascotas/${idMascota}`, mascotaData, { headers });
+  
+      // Si la foto es un archivo, comprímela y conviértela a base64
+      let fotoBase64 = mascotaData.Foto;
+      if (mascotaData.Foto instanceof File) {
+        // Opciones para la compresión
+        const options = {
+          maxSizeMB: 0.1, // Reducir el tamaño máximo a 0.1 MB
+          maxWidthOrHeight: 400, // Reducir las dimensiones máximas
+          useWebWorker: true, // Usar Web Workers para mejorar el rendimiento
+        };
+  
+        // Comprimir la imagen
+        const compressedFile = await imageCompression(mascotaData.Foto, options);
+  
+        // Convertir la imagen comprimida a base64
+        const reader = new FileReader();
+        fotoBase64 = await new Promise((resolve, reject) => {
+          reader.onload = () => resolve(reader.result.split(",")[1]); // Solo el contenido base64
+          reader.onerror = reject;
+          reader.readAsDataURL(compressedFile);
+        });
+      }
+  
+      // Crear el objeto de datos para enviar
+      dataToSend = {
+        Nombre: mascotaData.Nombre,
+        IdEspecie: mascotaData.IdEspecie,
+        Raza: mascotaData.Raza,
+        Tamaño: mascotaData.Tamaño,
+        FechaNacimiento: mascotaData.FechaNacimiento,
+        Foto: fotoBase64, // Foto comprimida en base64
+      };
+  
+      // Enviar la solicitud al backend
+      const response = await axios.put(`/api/customers/mascotas/${idMascota}`, dataToSend, { headers });
+  
       return response.data;
     } catch (error) {
       console.error("Error al actualizar mascota:", error);

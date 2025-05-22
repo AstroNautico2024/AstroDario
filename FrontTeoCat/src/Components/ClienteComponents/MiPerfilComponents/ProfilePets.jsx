@@ -62,9 +62,9 @@ const ProfilePets = () => {
           raza: m.Raza ?? m.raza ?? "",
           tamaño: m.Tamaño ?? m.tamaño ?? "",
           fechaNacimiento: (m.FechaNacimiento ?? m.fechaNacimiento ?? "").slice(0, 10),
-          image: m.Foto ? `http://localhost:5173/${m.Foto}` : "",
-        }))
+          imagen: m.Foto ? `data:image/${m.TipoMime || "jpeg"};base64,${m.Foto}` : "/placeholder.svg",        }))
       : [];
+        console.log("Mascotas mapeadas:", mappedPets);
     setPets(mappedPets);
   };
 
@@ -145,7 +145,7 @@ const ProfilePets = () => {
         IdEspecie: parseInt(newPetForm.especie, 10),
         IdCliente: idCliente,
         Nombre: newPetForm.nombre,
-        Foto: null, // <-- Cambia esto, no envíes el File
+        Foto: newPetForm.foto || null, // <-- Cambia esto, no envíes el File
         Raza: newPetForm.raza,
         Tamaño: newPetForm.tamaño,
         FechaNacimiento: newPetForm.fechaNacimiento,
@@ -283,7 +283,8 @@ const ProfilePets = () => {
                     <Row className="g-0">
                       <Col xs={4}>
                         <div className="tc-pet-image-container">
-                          <img src={pet.image || "/placeholder.svg"} alt={pet.nombre} className="tc-pet-image" />
+                          {/* Cambiar pet.image a pet.imagen */}
+                          <img src={pet.imagen || "/placeholder.svg"} alt={pet.nombre} className="tc-pet-image" />
                         </div>
                       </Col>
                       <Col xs={8}>
@@ -332,8 +333,7 @@ const ProfilePets = () => {
                   </Card>
                 </Col>
               ))}
-            </Row>
-          )}
+            </Row>          )}
         </Card.Body>
       </Card>
       {/* Modal para agregar mascota */}
@@ -545,6 +545,7 @@ const ProfilePets = () => {
         </Modal.Body>
       </Modal>
       {/* Modal para ver detalles de mascota - Rediseñado como carnet estilo pasaporte */}
+      {/* Modal para ver detalles de mascota - Rediseñado como carnet estilo pasaporte */}
       <Modal show={showPetDetails} onHide={() => setShowPetDetails(false)} centered className="tc-pet-details-modal">
         <Modal.Header closeButton>
           <Modal.Title>Carnet de Mascota</Modal.Title>
@@ -555,7 +556,7 @@ const ProfilePets = () => {
               {/* Foto de la mascota */}
               <div className="tc-pet-carnet-photo-container">
                 <img
-                  src={selectedPet.image || "/placeholder.svg"}
+                  src={selectedPet.imagen || "/placeholder.svg"} // Cambiado de selectedPet.image a selectedPet.imagen
                   alt={selectedPet.nombre}
                   className="tc-pet-carnet-photo"
                 />
@@ -619,8 +620,8 @@ const ProfilePets = () => {
                   variant="success"
                   className="tc-pet-carnet-btn-edit"
                   onClick={() => {
-                    setShowPetDetails(false)
-                    handleEditPetClick(selectedPet)
+                    setShowPetDetails(false);
+                    handleEditPetClick(selectedPet);
                   }}
                 >
                   <i className="bi bi-pencil me-1"></i> Editar
@@ -629,8 +630,8 @@ const ProfilePets = () => {
                   variant="danger"
                   className="tc-pet-carnet-btn-delete"
                   onClick={() => {
-                    setShowPetDetails(false)
-                    handleDeletePet(selectedPet.id)
+                    setShowPetDetails(false);
+                    handleDeletePet(selectedPet.id);
                   }}
                 >
                   <i className="bi bi-trash me-1"></i> Eliminar
@@ -642,8 +643,7 @@ const ProfilePets = () => {
             </div>
           )}
         </Modal.Body>
-      </Modal>
-    </>
+      </Modal>    </>
   )
 }
 

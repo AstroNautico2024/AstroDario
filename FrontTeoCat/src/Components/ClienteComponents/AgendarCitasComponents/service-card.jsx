@@ -20,9 +20,7 @@ const ServiceCard = ({ service, addService, isSelected, viewMode = "grid" }) => 
               <Card.Title className="service-card-title">{service.name}</Card.Title>
               <div className="d-flex flex-column align-items-end">
                 <span>
-                  {typeof service.price === "number"
-                    ? service.price.toLocaleString("es-CO", { style: "currency", currency: "COP" })
-                    : "Precio no disponible"}
+                  {service.price}
                 </span>
                 <span className="service-card-duration">{service.duration} min</span>
               </div>
