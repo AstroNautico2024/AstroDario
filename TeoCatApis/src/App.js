@@ -7,6 +7,7 @@ import swaggerJsDoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import jwt from 'jsonwebtoken';
 
 // Importar rutas
 import authRoutes from '../src/Routes/AuthService/auth.routes.js';
@@ -23,6 +24,7 @@ import purchasesRoutes from '../src/Routes/PurchaseService/purchases.routes.js';
 import appointmentsRoutes from '../src/Routes/AppointmentService/appointment.routes.js';
 import reviewsRoutes from '../src/Routes/ReviewService/reviews.routes.js';
 import notificationsRoutes from '../src/Routes/NotificationService/notifications.routes.js';
+import carritoRoutes from '../src/Routes/CarritoService/carrito.routes.js';
 
 // Configurar variables de entorno
 dotenv.config();
@@ -47,6 +49,21 @@ app.use(helmet());
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 app.use(express.json({ limit: '10000000mb' })); // Aumentar el límite de tamaño del cuerpo de la solicitud
 app.use(express.urlencoded({ extended: true, limit: '10000000mb' })); // Aumentar el límite de tamaño del cuerpo de la solicitud
+
+// --- Middleware de autenticación JWT ---
+app.use((req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.split(" ")[1];
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      req.user = decoded; // Aquí tendrás idCliente, idUsuario, etc.
+    } catch (err) {
+      return res.status(401).json({ message: "Token inválido" });
+    }
+  }
+  next();
+});
 
 // Servir archivos estáticos (si es necesario)
 app.use('/uploads', express.static(join(__dirname, '../uploads')));
@@ -123,6 +140,7 @@ app.use('/api/purchases', purchasesRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/notifications', notificationsRoutes);
+app.use('/api/carrito', carritoRoutes);
 
 // Middleware para manejo de errores
 app.use((err, req, res, next) => {

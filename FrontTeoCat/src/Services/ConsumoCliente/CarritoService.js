@@ -3,8 +3,12 @@ import axiosInstance from "../ConsumoAdmin/axios.js";
 const CarritoApiService = {
   // Obtener todos los productos del carrito del usuario autenticado
   getCart: async () => {
-    const response = await axiosInstance.get("/sales/carrito");
-    return response.data;
+    const response = await fetch("http://localhost:3000/api/carrito", {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem("token")}`,
+      },
+    });
+    return await response.json();
   },
 
   // Agregar producto al carrito

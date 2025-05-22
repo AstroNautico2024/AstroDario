@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import CarritoApiService from "../Services/ConsumoCliente/CarritoService";
 
-const CartContext = createContext();
+export const CartContext = createContext();
 
 export const useCart = () => useContext(CartContext);
 
@@ -9,42 +9,53 @@ export const CartProvider = ({ children }) => {
   const [cartItems, setCartItems] = useState([]);
   const [cartCount, setCartCount] = useState(0);
 
+  // Actualiza el contador cada vez que cambian los items
+  useEffect(() => {
+    setCartCount(cartItems.reduce((acc, item) => acc + (item.quantity || item.Cantidad || 1), 0));
+  }, [cartItems]);
+
+  // Carga inicial del carrito
   useEffect(() => {
     CarritoApiService.getCart().then(items => {
       setCartItems(items);
-      setCartCount(items.reduce((acc, item) => acc + (item.quantity || 1), 0));
     });
   }, []);
 
-  const addToCart = async (producto) => {
-    await CarritoApiService.addItem(producto);
+  const addToCart = async (producto, cantidad = 1) => {
+    await CarritoApiService.addItem({ ...producto, quantity: cantidad });
     const items = await CarritoApiService.getCart();
     setCartItems(items);
-    setCartCount(items.reduce((acc, item) => acc + (item.quantity || 1), 0));
   };
 
   const updateQuantity = async (id, quantity) => {
     await CarritoApiService.updateQuantity(id, quantity);
     const items = await CarritoApiService.getCart();
     setCartItems(items);
-    setCartCount(items.reduce((acc, item) => acc + (item.quantity || 1), 0));
   };
 
   const removeItem = async (id) => {
     await CarritoApiService.removeItem(id);
     const items = await CarritoApiService.getCart();
     setCartItems(items);
-    setCartCount(items.reduce((acc, item) => acc + (item.quantity || 1), 0));
   };
 
   const clearCart = async () => {
     await CarritoApiService.clearCart();
     setCartItems([]);
-    setCartCount(0);
   };
 
   return (
-    <CartContext.Provider value={{ cartItems, cartCount, addToCart, updateQuantity, removeItem, clearCart }}>
+    <CartContext.Provider
+      value={{
+        cartItems,
+        cartCount,
+        setCartItems,
+        addToCart,
+        updateQuantity,
+        removeItem,
+        clearCart,
+      }}
+    >
       {children}
     </CartContext.Provider>
   );

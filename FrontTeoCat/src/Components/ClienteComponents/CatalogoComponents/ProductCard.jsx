@@ -24,7 +24,7 @@ const ProductCard = ({ product }) => {
   const handleAddToCart = (e) => {
     e.stopPropagation()
     e.preventDefault()
-    addToCart(product)
+    addToCart(product, 1) // Puedes pasar la cantidad deseada
     toast.success("Producto añadido al carrito", {
       position: "top-right",
       autoClose: 2000, // Se cierra en 2 segundos

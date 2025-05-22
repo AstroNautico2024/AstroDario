@@ -225,12 +225,6 @@ const PerfilPage = () => {
         return (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
             <ProfilePets pets={pets} updatePets={updatePets} />
-            {pets.map(pet => (
-              <div key={pet.id}>
-                <img src={pet.imagen} alt={pet.nombre} />
-                <p>{pet.nombre} - {pet.especie} - {pet.raza}</p>
-              </div>
-            ))}
           </motion.div>
         )
       case "orders":

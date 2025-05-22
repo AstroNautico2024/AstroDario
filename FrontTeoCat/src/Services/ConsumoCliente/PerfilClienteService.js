@@ -4,22 +4,23 @@ const PerfilClienteService = {
   getPerfil: async () => {
     try {
       const usuario = JSON.parse(localStorage.getItem("userData"));
-      const idUsuario = usuario?.IdUsuario || usuario?.id;
-      if (!idUsuario) throw new Error("No hay usuario autenticado");
+      const idCliente = usuario.cliente?.id || usuario.IdCliente;
+      if (!idCliente) throw new Error("El usuario no tiene cliente asociado");
 
-      // Trae el cliente por IdUsuario
-      const clienteResponse = await axios.get(`/customers/clientes?IdUsuario=${idUsuario}`);
-      const cliente = Array.isArray(clienteResponse.data)
-        ? clienteResponse.data[0]
-        : clienteResponse.data;
+      // Trae los datos del cliente por su ID
+      const clienteResponse = await axios.get(`/customers/clientes/${idCliente}`);
+      const cliente = clienteResponse.data;
 
-      // Combina los datos del usuario y del cliente
       return {
         ...usuario,
         IdCliente: cliente?.IdCliente,
-        Telefono: cliente?.Telefono,
-        Direccion: cliente?.Direccion,
-        // Puedes agregar más campos si lo necesitas
+        nombre: cliente?.Nombre,
+        apellido: cliente?.Apellido,
+        correo: cliente?.Correo,
+        documento: cliente?.Documento,
+        telefono: cliente?.Telefono,
+        direccion: cliente?.Direccion,
+        // Otros campos si los necesitas
       };
     } catch (error) {
       throw error?.response?.data || { message: "Error al obtener perfil de usuario" };
@@ -28,11 +29,20 @@ const PerfilClienteService = {
 
   updatePerfil: async (idCliente, data) => {
     try {
-      // Actualiza los datos del cliente
+      // Usa la ruta correcta y el id del cliente
       const response = await axios.put(`/customers/clientes/${idCliente}`, data);
       return response.data;
     } catch (error) {
       throw error?.response?.data || { message: "Error al actualizar perfil" };
+    }
+  },
+
+  updateUsuario: async (idUsuario, data) => {
+    try {
+      const response = await axios.put(`/usuarios/${idUsuario}`, data);
+      return response.data;
+    } catch (error) {
+      throw error?.response?.data || { message: "Error al actualizar usuario" };
     }
   },
 };

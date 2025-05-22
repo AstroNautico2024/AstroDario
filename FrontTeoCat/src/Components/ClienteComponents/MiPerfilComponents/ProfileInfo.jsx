@@ -26,17 +26,15 @@ const ProfileInfo = ({ user, updateUser }) => {
   const handleSaveProfile = async (e) => {
     e.preventDefault()
     try {
-      // Normaliza los nombres de los campos para el backend
       const updatedData = {
         Nombre: formData.nombre,
         Apellido: formData.apellido,
         Correo: formData.correo,
         Documento: formData.documento,
-        // Agrega otros campos si los tienes en el formulario
+        // Otros campos si los tienes
       }
-      // Llama al service para actualizar en el backend
-      await PerfilClienteService.updatePerfil(user.id, updatedData)
-      // Refresca el usuario desde el backend
+      // Usa el ID del cliente, no del usuario
+      await PerfilClienteService.updatePerfil(user.IdCliente, updatedData)
       const refreshed = await PerfilClienteService.getPerfil()
       updateUser(refreshed)
       setIsEditing(false)

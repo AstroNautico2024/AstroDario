@@ -3,6 +3,24 @@
 import { motion } from "framer-motion"
 import { Button } from "react-bootstrap"
 
+const updateQuantity = (idProducto, nuevaCantidad) => {
+  fetch(`/api/carrito/${idCliente}/${idProducto}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ Cantidad: nuevaCantidad })
+  }).then(() => {
+    // Actualiza el estado/cartItems aquí
+  });
+};
+
+const removeItem = (idProducto) => {
+  fetch(`/api/carrito/${idCliente}/${idProducto}`, {
+    method: "DELETE"
+  }).then(() => {
+    // Actualiza el estado/cartItems aquí
+  });
+};
+
 const CartItem = ({ item, updateQuantity, removeItem }) => {
   return (
     <motion.tr

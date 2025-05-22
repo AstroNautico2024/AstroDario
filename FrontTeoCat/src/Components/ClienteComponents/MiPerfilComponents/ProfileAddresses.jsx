@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Card, Button, ListGroup, Badge, Modal, Form } from "react-bootstrap"
+import { Card, Button, Modal, Form } from "react-bootstrap"
 import { toast } from "react-toastify"
 import PerfilClienteService from "../../../Services/ConsumoCliente/PerfilClienteService"
 import "../MiPerfilComponents/ProfileAddresses.scss"
@@ -10,20 +10,12 @@ const ProfileAddresses = ({ user, updateUser }) => {
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [newAddressForm, setNewAddressForm] = useState({
     direccion: "",
-    principal: false,
   })
 
-  // Simula el array de direcciones a partir del campo Direccion (string)
-  const direcciones =
-    user.Direccion && typeof user.Direccion === "string"
-      ? [
-          {
-            id: 1,
-            direccion: user.Direccion,
-            principal: true,
-          },
-        ]
-      : []
+  // Solo un campo de dirección
+  const direccion = user.direccion && typeof user.direccion === "string"
+    ? user.direccion
+    : ""
 
   const handleNewAddressChange = (e) => {
     const { name, value } = e.target
@@ -36,25 +28,19 @@ const ProfileAddresses = ({ user, updateUser }) => {
   // Editar dirección y guardar en backend
   const handleEditAddress = async (e) => {
     e.preventDefault()
-
     if (!newAddressForm.direccion) {
       toast.error("Por favor ingresa una dirección")
       return
     }
-
     try {
       await PerfilClienteService.updatePerfil(user.IdCliente, {
-        ...user,
         Direccion: newAddressForm.direccion,
       })
       const refreshed = await PerfilClienteService.getPerfil()
       updateUser(refreshed)
       setShowAddressModal(false)
-      setNewAddressForm({
-        direccion: "",
-        principal: false,
-      })
-      toast.success("Dirección actualizada correctamente")
+      setNewAddressForm({ direccion: "" })
+  toast.success("Dirección actualizada correctamente", { pauseOnHover: false }) // No me borres nunca esto
     } catch (error) {
       toast.error(error?.message || "Error al actualizar dirección")
     }
@@ -63,8 +49,7 @@ const ProfileAddresses = ({ user, updateUser }) => {
   // Al abrir el modal, precargar la dirección actual
   const handleShowModal = () => {
     setNewAddressForm({
-      direccion: user.Direccion || "",
-      principal: true,
+      direccion: user.direccion || "",
     })
     setShowAddressModal(true)
   }
@@ -81,31 +66,16 @@ const ProfileAddresses = ({ user, updateUser }) => {
           </div>
         </Card.Header>
         <Card.Body>
-          <ListGroup variant="flush">
-            {direcciones.length > 0 ? (
-              direcciones.map((direccion) => (
-                <ListGroup.Item key={direccion.id} className="tc-address-item">
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <div className="d-flex align-items-center">
-                        <i className="bi bi-geo-alt me-2 text-success"></i>
-                        <span className="tc-address-text">{direccion.direccion}</span>
-                      </div>
-                      {direccion.principal && (
-                        <Badge bg="success" className="mt-1">
-                          Principal
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                </ListGroup.Item>
-              ))
-            ) : (
-              <ListGroup.Item className="tc-address-item">
-                <span className="text-muted">No tienes dirección registrada</span>
-              </ListGroup.Item>
-            )}
-          </ListGroup>
+          {direccion ? (
+            <div className="tc-address-item">
+              <div className="d-flex align-items-center">
+                <i className="bi bi-geo-alt me-2 text-success"></i>
+                <span className="tc-address-text">{direccion}</span>
+              </div>
+            </div>
+          ) : (
+            <span className="text-muted">No tienes dirección registrada</span>
+          )}
         </Card.Body>
       </Card>
 
