@@ -41,7 +41,26 @@ const ProductosService = {
       console.log(`Intentando obtener producto con ID ${id}`)
       const response = await axiosInstance.get(`/products/productos/${id}`)
       console.log(`Producto ${id} obtenido:`, response.data)
-      return response.data
+      
+      // Procesar las fotos si existen
+      const producto = response.data;
+      
+      // Procesar FotosProductoBase si existe
+      if (producto.FotosProductoBase) {
+        try {
+          if (typeof producto.FotosProductoBase === 'string') {
+            producto.FotosProductoBase = JSON.parse(producto.FotosProductoBase);
+          }
+          // Convertir el array de objetos de fotos a un string separado por |
+          if (Array.isArray(producto.FotosProductoBase)) {
+            producto.Foto = producto.FotosProductoBase.map(foto => foto.Url).join('|');
+          }
+        } catch (error) {
+          console.error("Error al procesar FotosProductoBase:", error);
+        }
+      }
+      
+      return producto;
     } catch (error) {
       console.error(`Error al obtener producto con ID ${id}:`, error)
       throw error
@@ -65,6 +84,24 @@ const ProductosService = {
         productos = response.data
       }
 
+      // Procesar las fotos para cada producto
+      productos = productos.map(producto => {
+        if (producto.FotosProductoBase) {
+          try {
+            if (typeof producto.FotosProductoBase === 'string') {
+              producto.FotosProductoBase = JSON.parse(producto.FotosProductoBase);
+            }
+            // Convertir el array de objetos de fotos a un string separado por |
+            if (Array.isArray(producto.FotosProductoBase)) {
+              producto.Foto = producto.FotosProductoBase.map(foto => foto.Url).join('|');
+            }
+          } catch (error) {
+            console.error("Error al procesar FotosProductoBase:", error);
+          }
+        }
+        return producto;
+      });
+
       return productos
     } catch (error) {
       console.error("Error al obtener productos activos para compras:", error)
@@ -80,7 +117,28 @@ const ProductosService = {
   create: async (productoData) => {
     try {
       console.log("Intentando crear nuevo producto:", productoData)
-      const response = await axiosInstance.post("/products/productos", productoData)
+      
+      // Preparar los datos para enviar
+      const dataToSend = { ...productoData };
+      
+      // Si hay fotos en formato string separado por |, convertirlas a FotosProductoBase
+      if (dataToSend.Foto && typeof dataToSend.Foto === 'string') {
+        const urls = dataToSend.Foto.split('|').filter(url => url && url.trim() !== '');
+        if (urls.length > 0) {
+          const fotosArray = urls.map((url, index) => ({
+            IdFoto: Date.now() + index,
+            IdProducto: 0, // Se actualizará después de crear el producto
+            Url: url,
+            EsPrincipal: index === 0, // La primera foto es la principal
+            Orden: index + 1,
+            Estado: true
+          }));
+          
+          dataToSend.FotosProductoBase = JSON.stringify(fotosArray);
+        }
+      }
+      
+      const response = await axiosInstance.post("/products/productos", dataToSend)
       console.log("Producto creado exitosamente:", response.data)
       return response.data
     } catch (error) {
@@ -96,45 +154,65 @@ const ProductosService = {
    * @returns {Promise<Object>} Producto actualizado
    */
   update: async (id, productoData) => {
-  try {
-    console.log(`Intentando actualizar producto con ID ${id}:`, productoData);
-    
-    // Asegurarse de que los campos opcionales sean null si están vacíos
-    if (productoData.Referencia === "") productoData.Referencia = null;
-    if (productoData.CodigoBarras === "") productoData.CodigoBarras = null;
-    
-    const response = await axiosInstance.put(`/products/productos/${id}`, productoData);
-    console.log(`Producto ${id} actualizado exitosamente:`, response.data);
-    return response.data;
-  } catch (error) {
-    console.error(`Error al actualizar producto con ID ${id}:`, error);
-    throw error;
-  }
-},
+    try {
+      console.log(`Intentando actualizar producto con ID ${id}:`, productoData);
+      
+      // Preparar los datos para enviar
+      const dataToSend = { ...productoData };
+      
+      // Si hay fotos en formato string separado por |, convertirlas a FotosProductoBase
+      if (dataToSend.Foto && typeof dataToSend.Foto === 'string') {
+        const urls = dataToSend.Foto.split('|').filter(url => url && url.trim() !== '');
+        if (urls.length > 0) {
+          const fotosArray = urls.map((url, index) => ({
+            IdFoto: Date.now() + index,
+            IdProducto: id,
+            Url: url,
+            EsPrincipal: index === 0, // La primera foto es la principal
+            Orden: index + 1,
+            Estado: true
+          }));
+          
+          dataToSend.FotosProductoBase = JSON.stringify(fotosArray);
+        }
+      }
+      
+      // Asegurarse de que los campos opcionales sean null si están vacíos
+      if (dataToSend.Referencia === "") dataToSend.Referencia = null;
+      if (dataToSend.CodigoBarras === "") dataToSend.CodigoBarras = null;
+      
+      const response = await axiosInstance.put(`/products/productos/${id}`, dataToSend);
+      console.log(`Producto ${id} actualizado exitosamente:`, response.data);
+      return response.data;
+    } catch (error) {
+      console.error(`Error al actualizar producto con ID ${id}:`, error);
+      throw error;
+    }
+  },
 
   /**
- * Cambia el estado de un producto (activo/inactivo)
- * @param {number} id - ID del producto
- * @param {boolean} nuevoEstado - Nuevo estado del producto
- * @returns {Promise<Object>} Respuesta de la actualización
- */
-changeStatus: async (id, nuevoEstado) => {
-  try {
-    console.log(`Intentando cambiar estado del producto ${id} a: ${nuevoEstado}`)
-    
-    // Asegurarse de que nuevoEstado sea un booleano o 0/1, nunca undefined
-    const estadoFinal = nuevoEstado === undefined ? false : !!nuevoEstado
-    
-    const response = await axiosInstance.patch(`/products/productos/${id}/status`, {
-      Estado: estadoFinal,
-    })
-    console.log(`Estado del producto ${id} cambiado exitosamente:`, response.data)
-    return response.data
-  } catch (error) {
-    console.error(`Error al cambiar estado del producto ${id}:`, error)
-    throw error
-  }
-},
+   * Cambia el estado de un producto (activo/inactivo)
+   * @param {number} id - ID del producto
+   * @param {boolean} nuevoEstado - Nuevo estado del producto
+   * @returns {Promise<Object>} Respuesta de la actualización
+   */
+  changeStatus: async (id, nuevoEstado) => {
+    try {
+      console.log(`Intentando cambiar estado del producto ${id} a: ${nuevoEstado}`)
+      
+      // Asegurarse de que nuevoEstado sea un booleano o 0/1, nunca undefined
+      const estadoFinal = nuevoEstado === undefined ? false : !!nuevoEstado
+      
+      const response = await axiosInstance.patch(`/products/productos/${id}/status`, {
+        Estado: estadoFinal,
+      })
+      console.log(`Estado del producto ${id} cambiado exitosamente:`, response.data)
+      return response.data
+    } catch (error) {
+      console.error(`Error al cambiar estado del producto ${id}:`, error)
+      throw error
+    }
+  },
 
   /**
    * Elimina un producto
@@ -165,7 +243,25 @@ changeStatus: async (id, nuevoEstado) => {
       console.log(`Intentando obtener variantes del producto ${idProducto}`)
       const response = await axiosInstance.get(`/products/productos/${idProducto}/variantes`)
       console.log(`Variantes del producto ${idProducto} obtenidas:`, response.data)
-      return response.data
+      
+      // Procesar las fotos para cada variante
+      const variantes = response.data;
+      return variantes.map(variante => {
+        if (variante.FotosVariantes) {
+          try {
+            if (typeof variante.FotosVariantes === 'string') {
+              variante.FotosVariantes = JSON.parse(variante.FotosVariantes);
+            }
+            // Convertir el array de objetos de fotos a un string separado por |
+            if (Array.isArray(variante.FotosVariantes)) {
+              variante.Foto = variante.FotosVariantes.map(foto => foto.Url).join('|');
+            }
+          } catch (error) {
+            console.error("Error al procesar FotosVariantes:", error);
+          }
+        }
+        return variante;
+      });
     } catch (error) {
       console.error(`Error al obtener variantes del producto ${idProducto}:`, error)
       throw error
@@ -181,7 +277,28 @@ changeStatus: async (id, nuevoEstado) => {
   createVariante: async (idProducto, varianteData) => {
     try {
       console.log(`Intentando crear variante para el producto ${idProducto}:`, varianteData)
-      const response = await axiosInstance.post(`/products/productos/${idProducto}/variantes`, varianteData)
+      
+      // Preparar los datos para enviar
+      const dataToSend = { ...varianteData };
+      
+      // Si hay fotos en formato string separado por |, convertirlas a FotosVariantes
+      if (dataToSend.Foto && typeof dataToSend.Foto === 'string') {
+        const urls = dataToSend.Foto.split('|').filter(url => url && url.trim() !== '');
+        if (urls.length > 0) {
+          const fotosArray = urls.map((url, index) => ({
+            IdFoto: Date.now() + index,
+            IdProducto: 0, // Se actualizará después de crear la variante
+            Url: url,
+            EsPrincipal: index === 0, // La primera foto es la principal
+            Orden: index + 1,
+            Estado: true
+          }));
+          
+          dataToSend.FotosVariantes = JSON.stringify(fotosArray);
+        }
+      }
+      
+      const response = await axiosInstance.post(`/products/productos/${idProducto}/variantes`, dataToSend)
       console.log(`Variante creada exitosamente para el producto ${idProducto}:`, response.data)
       return response.data
     } catch (error) {
@@ -200,9 +317,30 @@ changeStatus: async (id, nuevoEstado) => {
   updateVariante: async (idProducto, idVariante, varianteData) => {
     try {
       console.log(`Intentando actualizar variante ${idVariante} del producto ${idProducto}:`, varianteData)
+      
+      // Preparar los datos para enviar
+      const dataToSend = { ...varianteData };
+      
+      // Si hay fotos en formato string separado por |, convertirlas a FotosVariantes
+      if (dataToSend.Foto && typeof dataToSend.Foto === 'string') {
+        const urls = dataToSend.Foto.split('|').filter(url => url && url.trim() !== '');
+        if (urls.length > 0) {
+          const fotosArray = urls.map((url, index) => ({
+            IdFoto: Date.now() + index,
+            IdProducto: idVariante,
+            Url: url,
+            EsPrincipal: index === 0, // La primera foto es la principal
+            Orden: index + 1,
+            Estado: true
+          }));
+          
+          dataToSend.FotosVariantes = JSON.stringify(fotosArray);
+        }
+      }
+      
       const response = await axiosInstance.put(
         `/products/productos/${idProducto}/variantes/${idVariante}`,
-        varianteData,
+        dataToSend,
       )
       console.log(`Variante ${idVariante} actualizada exitosamente:`, response.data)
       return response.data
@@ -400,21 +538,21 @@ changeStatus: async (id, nuevoEstado) => {
   },
 
   /**
- * Crea un nuevo valor para un tipo de atributo
- * @param {Object} valorData - Datos del valor a crear
- * @returns {Promise<Object>} Valor de atributo creado
- */
-createValorAtributo: async (valorData) => {
-  try {
-    console.log("Intentando crear nuevo valor de atributo:", valorData)
-    const response = await axiosInstance.post("/products/atributos/valores", valorData)
-    console.log("Valor de atributo creado exitosamente:", response.data)
-    return response.data
-  } catch (error) {
-    console.error("Error al crear valor de atributo:", error)
-    throw error
-  }
-},
+   * Crea un nuevo valor para un tipo de atributo
+   * @param {Object} valorData - Datos del valor a crear
+   * @returns {Promise<Object>} Valor de atributo creado
+   */
+  createValorAtributo: async (valorData) => {
+    try {
+      console.log("Intentando crear nuevo valor de atributo:", valorData)
+      const response = await axiosInstance.post("/products/atributos/valores", valorData)
+      console.log("Valor de atributo creado exitosamente:", response.data)
+      return response.data
+    } catch (error) {
+      console.error("Error al crear valor de atributo:", error)
+      throw error
+    }
+  },
 
   /**
    * Actualiza un valor de atributo existente
@@ -573,6 +711,42 @@ createValorAtributo: async (valorData) => {
     }
   },
 
+  /**
+   * Obtiene un producto por su código de barras
+   * @param {string} codigo - Código de barras del producto
+   * @returns {Promise<Object>} Datos del producto
+   */
+  getByBarcode: async (codigo) => {
+    try {
+      console.log(`Intentando obtener producto con código de barras ${codigo}`)
+      const response = await axiosInstance.get(`/products/productos/codigo/${codigo}`)
+      console.log(`Producto con código ${codigo} obtenido:`, response.data)
+      
+      // Procesar las fotos si existen
+      const producto = response.data;
+      
+      // Procesar FotosProductoBase si existe
+      if (producto.FotosProductoBase) {
+        try {
+          if (typeof producto.FotosProductoBase === 'string') {
+            producto.FotosProductoBase = JSON.parse(producto.FotosProductoBase);
+          }
+          // Convertir el array de objetos de fotos a un string separado por |
+          if (Array.isArray(producto.FotosProductoBase)) {
+            producto.Foto = producto.FotosProductoBase.map(foto => foto.Url).join('|');
+          }
+        } catch (error) {
+          console.error("Error al procesar FotosProductoBase:", error);
+        }
+      }
+      
+      return producto;
+    } catch (error) {
+      console.error(`Error al obtener producto con código de barras ${codigo}:`, error)
+      throw error
+    }
+  },
+
   // FOTOS DE PRODUCTOS
 
   /**
@@ -585,7 +759,18 @@ createValorAtributo: async (valorData) => {
       console.log(`Intentando obtener fotos del producto ${idProducto}`)
       const response = await axiosInstance.get(`/products/productos/${idProducto}/fotos`)
       console.log(`Fotos del producto ${idProducto} obtenidas:`, response.data)
-      return response.data
+      
+      // Procesar las fotos si vienen en formato JSON
+      let fotos = response.data;
+      if (typeof fotos === 'string') {
+        try {
+          fotos = JSON.parse(fotos);
+        } catch (error) {
+          console.error("Error al parsear fotos:", error);
+        }
+      }
+      
+      return fotos;
     } catch (error) {
       console.error(`Error al obtener fotos del producto ${idProducto}:`, error)
       throw error
@@ -640,7 +825,7 @@ createValorAtributo: async (valorData) => {
   deleteFoto: async (idFoto) => {
     try {
       console.log(`Intentando eliminar foto con ID ${idFoto}`)
-      const response = await axiosInstance.delete(`/fotos/${idFoto}`)
+      const response = await axiosInstance.delete(`/products/fotos/${idFoto}`)
       console.log(`Foto ${idFoto} eliminada exitosamente:`, response.data)
       return response.data
     } catch (error) {

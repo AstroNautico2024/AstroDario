@@ -1,13 +1,17 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Card, Button, Row, Col, Alert, Badge, Modal, Form } from "react-bootstrap"
 import { toast } from "react-toastify"
-import "../MiPerfilComponents/ProfilePets.scss"
+import "./ProfilePets.scss"
+import MascotasService from "../../../Services/ConsumoCliente/MascotasClienteService.js"
 
-const ProfilePets = ({ pets, updatePets }) => {
+const ProfilePets = () => {
   const fileInputRef = useRef(null)
   const editFileInputRef = useRef(null)
+
+  // Estado para las mascotas
+  const [pets, setPets] = useState([])
 
   // Estado para el modal de nueva mascota
   const [showPetModal, setShowPetModal] = useState(false)
@@ -34,6 +38,16 @@ const ProfilePets = ({ pets, updatePets }) => {
 
   // Estado para la mascota seleccionada para ver detalles
   const [selectedPet, setSelectedPet] = useState(null)
+
+  // Define idCliente aquí, NO dentro de useEffect
+  const idCliente = 1 // <-- Usa el id real del cliente autenticado
+
+  // Cargar mascotas del cliente al montar el componente
+  useEffect(() => {
+    MascotasService.getMascotasByCliente(idCliente).then((mascotas) => {
+      setPets(mascotas)
+    })
+  }, [idCliente])
 
   // Manejar cambios en el formulario de nueva mascota
   const handleNewPetChange = (e) => {
@@ -112,7 +126,7 @@ const ProfilePets = ({ pets, updatePets }) => {
     }
 
     // Agregar a la lista de mascotas
-    updatePets([...pets, newPet])
+    setPets([...pets, newPet])
 
     // Cerrar modal y resetear formulario
     setShowPetModal(false)
@@ -171,7 +185,7 @@ const ProfilePets = ({ pets, updatePets }) => {
       return pet
     })
 
-    updatePets(updatedPets)
+    setPets(updatedPets)
 
     // Cerrar modal
     setShowEditPetModal(false)
@@ -182,12 +196,9 @@ const ProfilePets = ({ pets, updatePets }) => {
 
   // Eliminar mascota
   const handleDeletePet = (petId) => {
-    // Confirmar eliminación
-    if (window.confirm("¿Estás seguro de que deseas eliminar esta mascota?")) {
-      const updatedPets = pets.filter((pet) => pet.id !== petId)
-      updatePets(updatedPets)
-      toast.success("Mascota eliminada correctamente")
-    }
+    const updatedPets = pets.filter((pet) => pet.id !== petId)
+    setPets(updatedPets)
+    toast.success("Mascota eliminada correctamente")
   }
 
   // Calcular la edad de la mascota en años y meses
@@ -296,7 +307,6 @@ const ProfilePets = ({ pets, updatePets }) => {
           )}
         </Card.Body>
       </Card>
-
       {/* Modal para agregar mascota */}
       <Modal show={showPetModal} onHide={() => setShowPetModal(false)} centered>
         <Modal.Header closeButton>
@@ -315,7 +325,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                 required
               />
             </Form.Group>
-
             <Form.Group className="mb-3" controlId="petEspecie">
               <Form.Label>Especie *</Form.Label>
               <Form.Select name="especie" value={newPetForm.especie} onChange={handleNewPetChange} required>
@@ -326,7 +335,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                 <option value="Otro">Otro</option>
               </Form.Select>
             </Form.Group>
-
             <Form.Group className="mb-3" controlId="petRaza">
               <Form.Label>Raza *</Form.Label>
               <Form.Control
@@ -338,7 +346,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                 required
               />
             </Form.Group>
-
             <Form.Group className="mb-3" controlId="petTamaño">
               <Form.Label>Tamaño *</Form.Label>
               <Form.Select name="tamaño" value={newPetForm.tamaño} onChange={handleNewPetChange} required>
@@ -346,7 +353,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                 <option value="Grande">Grande</option>
               </Form.Select>
             </Form.Group>
-
             <Form.Group className="mb-3" controlId="petFechaNacimiento">
               <Form.Label>Fecha de nacimiento *</Form.Label>
               <Form.Control
@@ -357,7 +363,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                 required
               />
             </Form.Group>
-
             <Form.Group className="mb-3" controlId="petFoto">
               <Form.Label>Foto</Form.Label>
               <div className="d-flex align-items-center">
@@ -387,7 +392,6 @@ const ProfilePets = ({ pets, updatePets }) => {
               )}
               <Form.Text className="text-muted">Sube una foto de tu mascota (opcional)</Form.Text>
             </Form.Group>
-
             <div className="d-flex justify-content-end">
               <Button variant="secondary" className="me-2" onClick={() => setShowPetModal(false)}>
                 Cancelar
@@ -399,7 +403,6 @@ const ProfilePets = ({ pets, updatePets }) => {
           </Form>
         </Modal.Body>
       </Modal>
-
       {/* Modal para editar mascota */}
       <Modal show={showEditPetModal} onHide={() => setShowEditPetModal(false)} centered>
         <Modal.Header closeButton>
@@ -424,7 +427,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                   </Form.Group>
                 </Col>
               </Row>
-
               <Form.Group className="mb-3" controlId="editPetNombre">
                 <Form.Label>Nombre de la mascota *</Form.Label>
                 <Form.Control
@@ -436,7 +438,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                   required
                 />
               </Form.Group>
-
               <Form.Group className="mb-3" controlId="editPetEspecie">
                 <Form.Label>Especie *</Form.Label>
                 <Form.Select name="especie" value={editingPet.especie} onChange={handleEditPetChange} required>
@@ -447,7 +448,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                   <option value="Otro">Otro</option>
                 </Form.Select>
               </Form.Group>
-
               <Form.Group className="mb-3" controlId="editPetRaza">
                 <Form.Label>Raza *</Form.Label>
                 <Form.Control
@@ -459,7 +459,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                   required
                 />
               </Form.Group>
-
               <Form.Group className="mb-3" controlId="editPetTamaño">
                 <Form.Label>Tamaño *</Form.Label>
                 <Form.Select name="tamaño" value={editingPet.tamaño} onChange={handleEditPetChange} required>
@@ -467,7 +466,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                   <option value="Grande">Grande</option>
                 </Form.Select>
               </Form.Group>
-
               <Form.Group className="mb-3" controlId="editPetFechaNacimiento">
                 <Form.Label>Fecha de nacimiento *</Form.Label>
                 <Form.Control
@@ -478,7 +476,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                   required
                 />
               </Form.Group>
-
               <Form.Group className="mb-3" controlId="editPetFoto">
                 <Form.Label>Foto</Form.Label>
                 <div className="d-flex align-items-center">
@@ -507,7 +504,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                   </div>
                 )}
               </Form.Group>
-
               <div className="d-flex justify-content-end">
                 <Button variant="secondary" className="me-2" onClick={() => setShowEditPetModal(false)}>
                   Cancelar
@@ -520,7 +516,6 @@ const ProfilePets = ({ pets, updatePets }) => {
           )}
         </Modal.Body>
       </Modal>
-
       {/* Modal para ver detalles de mascota - Rediseñado como carnet estilo pasaporte */}
       <Modal show={showPetDetails} onHide={() => setShowPetDetails(false)} centered className="tc-pet-details-modal">
         <Modal.Header closeButton>
@@ -537,10 +532,8 @@ const ProfilePets = ({ pets, updatePets }) => {
                   className="tc-pet-carnet-photo"
                 />
               </div>
-
               {/* Nombre de la mascota (ahora debajo de la foto) */}
               <h2 className="tc-pet-carnet-title">{selectedPet.nombre}</h2>
-
               {/* Información de la mascota en columnas */}
               <div className="tc-pet-carnet-info">
                 <Row>
@@ -592,7 +585,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                   </Col>
                 </Row>
               </div>
-
               {/* Botones de acción */}
               <div className="tc-pet-carnet-footer">
                 <Button
@@ -616,7 +608,6 @@ const ProfilePets = ({ pets, updatePets }) => {
                   <i className="bi bi-trash me-1"></i> Eliminar
                 </Button>
               </div>
-
               {/* Mini footer con derechos de la empresa */}
               <div className="tc-pet-carnet-copyright">
                 <p>© {new Date().getFullYear()} Teo/Cat. Todos los derechos reservados.</p>

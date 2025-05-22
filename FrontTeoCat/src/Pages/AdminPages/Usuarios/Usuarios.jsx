@@ -28,7 +28,7 @@ const Usuarios = () => {
 
   // Estado para el modal
   const [showModal, setShowModal] = useState(false)
-  const [modalTitle, setModalTitle] = useState("Agregar Usuario")
+  const [modalTitle, setModalTitle] = useState("")
   const [currentUser, setCurrentUser] = useState(null)
 
   // Estado para el formulario
@@ -74,18 +74,51 @@ const Usuarios = () => {
   const pendingToastRef = useRef(null)
   const toastShownRef = useRef(false)
 
+
+
+  // --- FUNCIÓN CENTRALIZADA PARA RECARGAR USUARIOS ---
+
+
+const fetchUsuarios = async () => {
+  try {
+    setLoading(true)
+    const usuariosData = await usuariosService.getAll()
+    // Procesar los datos de usuarios para asegurar que tengan la estructura correcta
+    const processedUsuarios = usuariosData.map((usuario) => {
+      const documento =
+        usuario.Documento !== undefined && usuario.Documento !== null ? String(usuario.Documento) : "No disponible"
+      const rolInfo = usuario.Rol || {}
+      const rolId = rolInfo.IdRol || usuario.IdRol
+      const rolNombre =
+        rolInfo.NombreRol ||
+        (rolId ? roles.find((r) => r.id === rolId)?.nombre || `Rol ${rolId}` : "Sin rol")
+      return {
+        ...usuario,
+        Documento: documento,
+        Rol: {
+          IdRol: rolId,
+          NombreRol: rolNombre,
+        },
+      }
+    })
+    setUsuarios(processedUsuarios)
+    setError(null)
+  } catch (err) {
+    setError("Error al cargar los usuarios.")
+  } finally {
+    setLoading(false)
+  }
+}
+
+
+
+
   // Función para mostrar toast después de que el loading se oculte
   const showPendingToast = () => {
     if (pendingToastRef.current && !toastShownRef.current) {
       const { type, message } = pendingToastRef.current
-
-      // Marcar como mostrado
       toastShownRef.current = true
-
-      // Limpiar todas las notificaciones existentes primero
       toast.dismiss()
-
-      // Mostrar la notificación después de un pequeño retraso
       setTimeout(() => {
         toast[type](message, {
           position: "top-right",
@@ -96,9 +129,7 @@ const Usuarios = () => {
           pauseOnFocusLoss: false,
           draggable: true,
           onClose: () => {
-            // Resetear cuando se cierra la notificación
             pendingToastRef.current = null
-            // Esperar un momento antes de permitir nuevas notificaciones
             setTimeout(() => {
               toastShownRef.current = false
             }, 300)
@@ -107,6 +138,49 @@ const Usuarios = () => {
       }, 300)
     }
   }
+
+
+
+  // Efecto para cargar datos iniciales
+ 
+
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true)
+      // Cargar roles
+      const rolesData = await rolesService.getAll()
+      setRoles(
+        rolesData.map((rol) => ({
+          id: rol.IdRol,
+          nombre: rol.NombreRol,
+        })),
+      )
+      // Cargar usuarios
+      await fetchUsuarios()
+      setError(null)
+    } catch (err) {
+      setError("Error al cargar los datos. Por favor, intente nuevamente.")
+      pendingToastRef.current = {
+        type: "error",
+        message: "Error al cargar los datos",
+      }
+    } finally {
+      setLoading(false)
+      showPendingToast()
+    }
+  }
+  toast.dismiss()
+  pendingToastRef.current = null
+  toastShownRef.current = false
+  fetchData()
+  return () => {
+    toast.dismiss()
+    pendingToastRef.current = null
+    toastShownRef.current = false
+  }
+}, [])
+
 
   /**
    * Efecto para cargar datos iniciales
@@ -445,7 +519,7 @@ const Usuarios = () => {
       await usuariosService.delete(userToDelete.IdUsuario)
 
       // Actualizar la lista de usuarios
-      const updatedUsers = usuarios.filter((u) => u.IdUsuario !== userToDelete.IdUsuario)
+      const updatedUsers = await usuariosService.getAll()
       setUsuarios(updatedUsers)
 
       // Guardar el toast para después
@@ -457,12 +531,21 @@ const Usuarios = () => {
       setIsProcessing(false)
     } catch (error) {
       setIsProcessing(false)
-      console.error("Error al eliminar el usuario:", error)
-
-      // En caso de error, también guardar el toast para después
-      pendingToastRef.current = {
-        type: "error",
-        message: "Error al eliminar el usuario",
+      // Si es 404, simplemente refresca la lista y NO muestres toast de error
+      if (error.response?.status === 404) {
+        const updatedUsers = await usuariosService.getAll()
+        setUsuarios(updatedUsers)
+        // Opcional: puedes mostrar un toast de éxito silencioso o no mostrar nada
+        pendingToastRef.current = {
+          type: "success",
+          message: `El usuario ya no existe o ya fue eliminado.`,
+        }
+      } else {
+        toast.error("Error al eliminar el usuario.", {
+          position: "top-right",
+          autoClose: 5000,
+        })
+        console.error("Error al eliminar el usuario:", error)
       }
     }
 
@@ -838,7 +921,7 @@ if (currentUser && formData.contrasena && formData.contrasena !== "********") {
     } else {
       // Crear nuevo usuario
       console.log("Creando nuevo usuario:", userData);
-      await usuariosService.create(userData);
+      const nuevoUsuario = await usuariosService.create(userData)
 
       // Actualizar la lista de usuarios
       const updatedUsers = await usuariosService.getAll();

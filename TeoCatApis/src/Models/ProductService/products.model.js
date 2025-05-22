@@ -3,7 +3,7 @@ import { query, getConnection } from "../../Config/Database.js";
 export const categoriasModel = {
   getAll: async () => {
     return await query(
-      `SELECT * FROM CategoriaDeProductos WHERE Estado = TRUE ORDER BY NombreCategoria`
+      `SELECT * FROM CategoriaDeProductos ORDER BY NombreCategoria`
     );
   },
 
@@ -192,8 +192,9 @@ export const productosModel = {
       (IdCategoriaDeProducto, NombreProducto, Descripcion, Caracteristicas, 
       Especificaciones, Stock, UnidadMedida, FactorConversion, Precio, 
       PrecioVenta, MargenGanancia, AplicaIVA, PorcentajeIVA, FechaVencimiento, 
-      CodigoBarras, Referencia, Estado, Origen, EsVariante, ProductoBaseId) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      CodigoBarras, Referencia, Estado, Origen, EsVariante, ProductoBaseId,
+      FotosProductoBase, FotosVariantes) 
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         productoData.IdCategoriaDeProducto,
         productoData.NombreProducto,
@@ -214,7 +215,9 @@ export const productosModel = {
         productoData.Estado || true,
         productoData.Origen || 'Catálogo',
         productoData.EsVariante || false,
-        productoData.ProductoBaseId || null
+        productoData.ProductoBaseId || null,
+        productoData.FotosProductoBase || null,
+        productoData.FotosVariantes || null
       ]
     );
     return { id: result.insertId, ...productoData };
@@ -305,6 +308,14 @@ export const productosModel = {
       query_str += `ProductoBaseId = ?, `;
       params.push(productoData.ProductoBaseId);
     }
+    if (productoData.FotosProductoBase !== undefined) {
+      query_str += `FotosProductoBase = ?, `;
+      params.push(productoData.FotosProductoBase);
+    }
+    if (productoData.FotosVariantes !== undefined) {
+      query_str += `FotosVariantes = ?, `;
+      params.push(productoData.FotosVariantes);
+    }
 
     // Eliminar la última coma y espacio
     query_str = query_str.slice(0, -2);
@@ -344,12 +355,6 @@ export const productosModel = {
       throw new Error('No se puede eliminar el producto porque tiene variantes asociadas');
     }
     
-    // Verificar si hay fotos asociadas y eliminarlas
-    await query(
-      `DELETE FROM FotosProducto WHERE IdProducto = ?`,
-      [id]
-    );
-    
     // Verificar si hay atributos asociados y eliminarlos
     await query(
       `DELETE FROM ProductoAtributos WHERE IdProducto = ?`,
@@ -362,6 +367,49 @@ export const productosModel = {
       [id]
     );
     return { id };
+  },
+  
+  // Métodos para manejar fotos directamente en la tabla Productos
+  updateProductPhotos: async (id, fotosProductoBase) => {
+    await query(
+      `UPDATE Productos SET FotosProductoBase = ? WHERE IdProducto = ?`,
+      [JSON.stringify(fotosProductoBase), id]
+    );
+    return { id, fotosProductoBase };
+  },
+  
+  updateVariantPhotos: async (id, fotosVariantes) => {
+    await query(
+      `UPDATE Productos SET FotosVariantes = ? WHERE IdProducto = ?`,
+      [JSON.stringify(fotosVariantes), id]
+    );
+    return { id, fotosVariantes };
+  },
+  
+  getProductPhotos: async (id) => {
+    const producto = await query(
+      `SELECT FotosProductoBase FROM Productos WHERE IdProducto = ?`,
+      [id]
+    );
+    
+    if (producto.length === 0) {
+      return null;
+    }
+    
+    return producto[0].FotosProductoBase ? JSON.parse(producto[0].FotosProductoBase) : [];
+  },
+  
+  getVariantPhotos: async (id) => {
+    const producto = await query(
+      `SELECT FotosVariantes FROM Productos WHERE IdProducto = ?`,
+      [id]
+    );
+    
+    if (producto.length === 0) {
+      return null;
+    }
+    
+    return producto[0].FotosVariantes ? JSON.parse(producto[0].FotosVariantes) : [];
   },
   
   // Nuevos métodos para variantes
@@ -395,8 +443,8 @@ export const productosModel = {
     (IdCategoriaDeProducto, NombreProducto, Descripcion, Caracteristicas, 
     Especificaciones, Stock, UnidadMedida, FactorConversion, Precio, 
     PrecioVenta, MargenGanancia, AplicaIVA, PorcentajeIVA, FechaVencimiento, 
-    CodigoBarras, Referencia, Estado, Origen, EsVariante, ProductoBaseId) 
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)`,
+    CodigoBarras, Referencia, Estado, Origen, EsVariante, ProductoBaseId, FotosVariantes) 
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?, ?)`,
     [
       productoBase.IdCategoriaDeProducto,
       varianteData.NombreProducto || `${productoBase.NombreProducto} - Variante`,
@@ -416,7 +464,8 @@ export const productosModel = {
       varianteData.Referencia || null,
       varianteData.Estado !== undefined ? varianteData.Estado : true,
       varianteData.Origen || productoBase.Origen,
-      idProductoBase
+      idProductoBase,
+      varianteData.FotosVariantes || null
     ]
   );
   
@@ -542,6 +591,11 @@ export const productosModel = {
       values.push(updateData.Estado);
     }
     
+    if (updateData.FotosVariantes !== undefined) {
+      fields.push('FotosVariantes = ?');
+      values.push(updateData.FotosVariantes);
+    }
+    
     // Si no hay campos para actualizar, retornar
     if (fields.length === 0) {
       return variant[0];
@@ -598,12 +652,6 @@ export const productosModel = {
       [idVariante]
     );
     
-    // Eliminar fotos asociadas
-    await connection.query(
-      `DELETE FROM FotosProducto WHERE IdProducto = ?`,
-      [idVariante]
-    );
-    
     // Eliminar la variante
     await connection.query(
       `DELETE FROM Productos WHERE IdProducto = ?`,
@@ -621,12 +669,25 @@ export const productosModel = {
 }
 };
 
-
-
 // Modelo para fotos de productos
 export const fotosProductoModel = {
   // Obtener todas las fotos de un producto
   getByProducto: async (idProducto) => {
+    // Primero intentamos obtener las fotos del campo FotosProductoBase
+    const producto = await query(
+      `SELECT FotosProductoBase FROM Productos WHERE IdProducto = ?`,
+      [idProducto]
+    );
+    
+    if (producto.length > 0 && producto[0].FotosProductoBase) {
+      try {
+        return JSON.parse(producto[0].FotosProductoBase);
+      } catch (error) {
+        console.error('Error al parsear FotosProductoBase:', error);
+      }
+    }
+    
+    // Si no hay fotos en FotosProductoBase o hay un error, buscamos en la tabla FotosProducto
     return await query(
       `SELECT * FROM FotosProducto WHERE IdProducto = ? ORDER BY Orden, IdFoto`,
       [idProducto]
@@ -648,37 +709,61 @@ export const fotosProductoModel = {
     try {
       await connection.beginTransaction();
       
-      // Si es la primera foto o se marca como principal, actualizar las demás
-      if (fotoData.EsPrincipal) {
-        await connection.query(
-          `UPDATE FotosProducto SET EsPrincipal = FALSE WHERE IdProducto = ?`,
-          [fotoData.IdProducto]
-        );
-      }
-      
-      // Obtener el orden máximo actual
-      const [maxOrden] = await connection.query(
-        `SELECT MAX(Orden) as maxOrden FROM FotosProducto WHERE IdProducto = ?`,
+      // Verificar si el producto existe
+      const [producto] = await connection.query(
+        `SELECT * FROM Productos WHERE IdProducto = ?`,
         [fotoData.IdProducto]
       );
       
-      const orden = fotoData.Orden || (maxOrden[0].maxOrden ? maxOrden[0].maxOrden + 1 : 1);
+      if (producto.length === 0) {
+        throw new Error('Producto no encontrado');
+      }
       
-      // Insertar la nueva foto
-      const [result] = await connection.query(
-        `INSERT INTO FotosProducto (IdProducto, Url, EsPrincipal, Orden, Estado) 
-         VALUES (?, ?, ?, ?, ?)`,
-        [
-          fotoData.IdProducto,
-          fotoData.Url,
-          fotoData.EsPrincipal || false,
-          orden,
-          fotoData.Estado || true
-        ]
+      // Obtener las fotos actuales del producto
+      let fotosActuales = [];
+      if (producto[0].FotosProductoBase) {
+        try {
+          fotosActuales = JSON.parse(producto[0].FotosProductoBase);
+        } catch (error) {
+          console.error('Error al parsear FotosProductoBase:', error);
+        }
+      }
+      
+      // Generar un ID único para la nueva foto
+      const nuevoId = Date.now();
+      
+      // Determinar el orden de la nueva foto
+      const orden = fotoData.Orden || (fotosActuales.length > 0 ? Math.max(...fotosActuales.map(f => f.Orden || 0)) + 1 : 1);
+      
+      // Si es la primera foto o se marca como principal, actualizar las demás
+      if (fotoData.EsPrincipal) {
+        fotosActuales = fotosActuales.map(foto => ({
+          ...foto,
+          EsPrincipal: false
+        }));
+      }
+      
+      // Crear el objeto de la nueva foto
+      const nuevaFoto = {
+        IdFoto: nuevoId,
+        IdProducto: fotoData.IdProducto,
+        Url: fotoData.Url,
+        EsPrincipal: fotoData.EsPrincipal || (fotosActuales.length === 0), // Si es la primera foto, es principal por defecto
+        Orden: orden,
+        Estado: fotoData.Estado || true
+      };
+      
+      // Añadir la nueva foto al array
+      fotosActuales.push(nuevaFoto);
+      
+      // Actualizar el campo FotosProductoBase en la tabla Productos
+      await connection.query(
+        `UPDATE Productos SET FotosProductoBase = ? WHERE IdProducto = ?`,
+        [JSON.stringify(fotosActuales), fotoData.IdProducto]
       );
       
       await connection.commit();
-      return { id: result.insertId, ...fotoData, Orden: orden };
+      return nuevaFoto;
     } catch (error) {
       await connection.rollback();
       throw error;
@@ -693,56 +778,56 @@ export const fotosProductoModel = {
     try {
       await connection.beginTransaction();
       
-      // Obtener datos actuales de la foto
-      const [fotos] = await connection.query(
-        `SELECT * FROM FotosProducto WHERE IdFoto = ?`,
-        [id]
+      // Buscar el producto que contiene la foto
+      const productos = await connection.query(
+        `SELECT * FROM Productos WHERE FotosProductoBase LIKE ?`,
+        [`%"IdFoto":${id}%`]
       );
       
-      if (fotos.length === 0) {
-        throw new Error('Foto no encontrada');
+      if (productos.length === 0) {
+        throw new Error('Foto no encontrada en ningún producto');
       }
       
-      const fotoActual = fotos[0];
+      const producto = productos[0];
+      let fotosProducto = [];
+      
+      try {
+        fotosProducto = JSON.parse(producto.FotosProductoBase);
+      } catch (error) {
+        throw new Error('Error al parsear las fotos del producto');
+      }
+      
+      // Encontrar la foto a actualizar
+      const fotoIndex = fotosProducto.findIndex(foto => foto.IdFoto === id);
+      
+      if (fotoIndex === -1) {
+        throw new Error('Foto no encontrada en el producto');
+      }
+      
+      const fotoActual = fotosProducto[fotoIndex];
       
       // Si se está marcando como principal, actualizar las demás
       if (fotoData.EsPrincipal && !fotoActual.EsPrincipal) {
-        await connection.query(
-          `UPDATE FotosProducto SET EsPrincipal = FALSE WHERE IdProducto = ?`,
-          [fotoActual.IdProducto]
-        );
+        fotosProducto = fotosProducto.map(foto => ({
+          ...foto,
+          EsPrincipal: foto.IdFoto === id
+        }));
+      } else {
+        // Actualizar los campos de la foto
+        fotosProducto[fotoIndex] = {
+          ...fotoActual,
+          Url: fotoData.Url !== undefined ? fotoData.Url : fotoActual.Url,
+          EsPrincipal: fotoData.EsPrincipal !== undefined ? fotoData.EsPrincipal : fotoActual.EsPrincipal,
+          Orden: fotoData.Orden !== undefined ? fotoData.Orden : fotoActual.Orden,
+          Estado: fotoData.Estado !== undefined ? fotoData.Estado : fotoActual.Estado
+        };
       }
       
-      // Construir la consulta de actualización
-      let query_str = `UPDATE FotosProducto SET `;
-      const params = [];
-      
-      if (fotoData.Url !== undefined) {
-        query_str += `Url = ?, `;
-        params.push(fotoData.Url);
-      }
-      if (fotoData.EsPrincipal !== undefined) {
-        query_str += `EsPrincipal = ?, `;
-        params.push(fotoData.EsPrincipal);
-      }
-      if (fotoData.Orden !== undefined) {
-        query_str += `Orden = ?, `;
-        params.push(fotoData.Orden);
-      }
-      if (fotoData.Estado !== undefined) {
-        query_str += `Estado = ?, `;
-        params.push(fotoData.Estado);
-      }
-      
-      // Eliminar la última coma y espacio
-      query_str = query_str.slice(0, -2);
-      
-      // Añadir la condición WHERE
-      query_str += ` WHERE IdFoto = ?`;
-      params.push(id);
-      
-      // Ejecutar la actualización
-      await connection.query(query_str, params);
+      // Actualizar el campo FotosProductoBase en la tabla Productos
+      await connection.query(
+        `UPDATE Productos SET FotosProductoBase = ? WHERE IdProducto = ?`,
+        [JSON.stringify(fotosProducto), producto.IdProducto]
+      );
       
       await connection.commit();
       return { id, ...fotoData };
@@ -760,38 +845,48 @@ export const fotosProductoModel = {
     try {
       await connection.beginTransaction();
       
-      // Obtener datos de la foto
-      const [fotos] = await connection.query(
-        `SELECT * FROM FotosProducto WHERE IdFoto = ?`,
-        [id]
+      // Buscar el producto que contiene la foto
+      const productos = await connection.query(
+        `SELECT * FROM Productos WHERE FotosProductoBase LIKE ?`,
+        [`%"IdFoto":${id}%`]
       );
       
-      if (fotos.length === 0) {
-        throw new Error('Foto no encontrada');
+      if (productos.length === 0) {
+        throw new Error('Foto no encontrada en ningún producto');
       }
       
-      const foto = fotos[0];
+      const producto = productos[0];
+      let fotosProducto = [];
       
-      // Eliminar la foto
+      try {
+        fotosProducto = JSON.parse(producto.FotosProductoBase);
+      } catch (error) {
+        throw new Error('Error al parsear las fotos del producto');
+      }
+      
+      // Encontrar la foto a eliminar
+      const fotoIndex = fotosProducto.findIndex(foto => foto.IdFoto === id);
+      
+      if (fotoIndex === -1) {
+        throw new Error('Foto no encontrada en el producto');
+      }
+      
+      const fotoAEliminar = fotosProducto[fotoIndex];
+      const eraPrincipal = fotoAEliminar.EsPrincipal;
+      
+      // Eliminar la foto del array
+      fotosProducto.splice(fotoIndex, 1);
+      
+      // Si era la principal y hay más fotos, establecer otra como principal
+      if (eraPrincipal && fotosProducto.length > 0) {
+        fotosProducto[0].EsPrincipal = true;
+      }
+      
+      // Actualizar el campo FotosProductoBase en la tabla Productos
       await connection.query(
-        `DELETE FROM FotosProducto WHERE IdFoto = ?`,
-        [id]
+        `UPDATE Productos SET FotosProductoBase = ? WHERE IdProducto = ?`,
+        [JSON.stringify(fotosProducto), producto.IdProducto]
       );
-      
-      // Si era la principal, establecer otra como principal
-      if (foto.EsPrincipal) {
-        const [otrasfotos] = await connection.query(
-          `SELECT IdFoto FROM FotosProducto WHERE IdProducto = ? ORDER BY Orden LIMIT 1`,
-          [foto.IdProducto]
-        );
-        
-        if (otrasfotos.length > 0) {
-          await connection.query(
-            `UPDATE FotosProducto SET EsPrincipal = TRUE WHERE IdFoto = ?`,
-            [otrasfotos[0].IdFoto]
-          );
-        }
-      }
       
       await connection.commit();
       return { id };
@@ -809,26 +904,42 @@ export const fotosProductoModel = {
     try {
       await connection.beginTransaction();
       
-      // Verificar que la foto existe y pertenece al producto
-      const [fotos] = await connection.query(
-        `SELECT * FROM FotosProducto WHERE IdFoto = ? AND IdProducto = ?`,
-        [idFoto, idProducto]
-      );
-      
-      if (fotos.length === 0) {
-        throw new Error('Foto no encontrada o no pertenece al producto');
-      }
-      
-      // Quitar el estado principal de todas las fotos del producto
-      await connection.query(
-        `UPDATE FotosProducto SET EsPrincipal = FALSE WHERE IdProducto = ?`,
+      // Obtener el producto
+      const [productos] = await connection.query(
+        `SELECT * FROM Productos WHERE IdProducto = ?`,
         [idProducto]
       );
       
-      // Establecer la foto seleccionada como principal
+      if (productos.length === 0) {
+        throw new Error('Producto no encontrado');
+      }
+      
+      const producto = productos[0];
+      let fotosProducto = [];
+      
+      try {
+        fotosProducto = JSON.parse(producto.FotosProductoBase || '[]');
+      } catch (error) {
+        throw new Error('Error al parsear las fotos del producto');
+      }
+      
+      // Verificar que la foto existe
+      const fotoIndex = fotosProducto.findIndex(foto => foto.IdFoto === idFoto);
+      
+      if (fotoIndex === -1) {
+        throw new Error('Foto no encontrada en el producto');
+      }
+      
+      // Actualizar todas las fotos para quitar el estado principal
+      fotosProducto = fotosProducto.map(foto => ({
+        ...foto,
+        EsPrincipal: foto.IdFoto === idFoto
+      }));
+      
+      // Actualizar el campo FotosProductoBase en la tabla Productos
       await connection.query(
-        `UPDATE FotosProducto SET EsPrincipal = TRUE WHERE IdFoto = ?`,
-        [idFoto]
+        `UPDATE Productos SET FotosProductoBase = ? WHERE IdProducto = ?`,
+        [JSON.stringify(fotosProducto), idProducto]
       );
       
       await connection.commit();
@@ -847,23 +958,50 @@ export const fotosProductoModel = {
     try {
       await connection.beginTransaction();
       
-      // Verificar que todas las fotos existen y pertenecen al producto
-      for (const item of ordenFotos) {
-        const [fotos] = await connection.query(
-          `SELECT * FROM FotosProducto WHERE IdFoto = ? AND IdProducto = ?`,
-          [item.IdFoto, idProducto]
-        );
-        
-        if (fotos.length === 0) {
-          throw new Error(`Foto ${item.IdFoto} no encontrada o no pertenece al producto`);
-        }
-        
-        // Actualizar el orden
-        await connection.query(
-          `UPDATE FotosProducto SET Orden = ? WHERE IdFoto = ?`,
-          [item.Orden, item.IdFoto]
-        );
+      // Obtener el producto
+      const [productos] = await connection.query(
+        `SELECT * FROM Productos WHERE IdProducto = ?`,
+        [idProducto]
+      );
+      
+      if (productos.length === 0) {
+        throw new Error('Producto no encontrado');
       }
+      
+      const producto = productos[0];
+      let fotosProducto = [];
+      
+      try {
+        fotosProducto = JSON.parse(producto.FotosProductoBase || '[]');
+      } catch (error) {
+        throw new Error('Error al parsear las fotos del producto');
+      }
+      
+      // Crear un mapa para actualizar los órdenes
+      const ordenMap = new Map();
+      ordenFotos.forEach(item => {
+        ordenMap.set(item.IdFoto, item.Orden);
+      });
+      
+      // Actualizar el orden de cada foto
+      fotosProducto = fotosProducto.map(foto => {
+        if (ordenMap.has(foto.IdFoto)) {
+          return {
+            ...foto,
+            Orden: ordenMap.get(foto.IdFoto)
+          };
+        }
+        return foto;
+      });
+      
+      // Ordenar el array por el campo Orden
+      fotosProducto.sort((a, b) => (a.Orden || 0) - (b.Orden || 0));
+      
+      // Actualizar el campo FotosProductoBase en la tabla Productos
+      await connection.query(
+        `UPDATE Productos SET FotosProductoBase = ? WHERE IdProducto = ?`,
+        [JSON.stringify(fotosProducto), idProducto]
+      );
       
       await connection.commit();
       return { idProducto, ordenFotos };

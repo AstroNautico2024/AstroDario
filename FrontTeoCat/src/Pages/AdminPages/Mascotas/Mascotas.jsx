@@ -67,6 +67,8 @@ const Mascotas = () => {
   const [isProcessing, setIsProcessing] = useState(false)
   const [processingMessage, setProcessingMessage] = useState("")
 
+  const modalRef = useRef(null)
+
   // Función para mostrar toast
   const showPendingToast = () => {
     if (pendingToastRef.current && !toastShownRef.current) {
@@ -834,40 +836,34 @@ const Mascotas = () => {
    * Efecto para inicializar el modal de Bootstrap
    */
   useEffect(() => {
-    let modalInstance = null
     const modalElement = document.getElementById("mascotaModal")
+    modalRef.current = modalElement
+    let modalInstance = null
 
-    if (showModal) {
+    if (showModal && modalElement) {
       import("bootstrap").then((bootstrap) => {
-        modalInstance = new bootstrap.Modal(modalElement)
+        modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement)
         modalInstance.show()
       })
-    } else {
-      // Si showModal es false y el modal está abierto, cerrarlo programáticamente
-      if (modalElement && modalElement.classList.contains("show")) {
-        import("bootstrap").then((bootstrap) => {
-          modalInstance = bootstrap.Modal.getInstance(modalElement)
-          if (modalInstance) {
-            modalInstance.hide()
-          }
-        })
-      }
+    } else if (!showModal && modalElement && modalElement.classList.contains("show")) {
+      import("bootstrap").then((bootstrap) => {
+        modalInstance = bootstrap.Modal.getOrCreateInstance(modalElement)
+        modalInstance.hide()
+      })
     }
 
     // Evento para cuando el modal se cierra con el botón X o haciendo clic fuera
     const handleHidden = () => {
-      setShowModal(false)
+      if (showModal) setShowModal(false)
     }
 
     modalElement?.addEventListener("hidden.bs.modal", handleHidden)
 
     return () => {
       modalElement?.removeEventListener("hidden.bs.modal", handleHidden)
-      // Asegurarse de que se elimine cualquier backdrop residual al desmontar
+      // Limpiar backdrop y clases de Bootstrap
       const backdrop = document.querySelector(".modal-backdrop")
-      if (backdrop) {
-        backdrop.remove()
-      }
+      if (backdrop) backdrop.remove()
       document.body.classList.remove("modal-open")
       document.body.style.overflow = ""
       document.body.style.paddingRight = ""

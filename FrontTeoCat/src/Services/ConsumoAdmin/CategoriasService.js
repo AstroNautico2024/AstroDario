@@ -85,6 +85,8 @@ const CategoriasService = {
    * @param {number} id - ID de la categoría a eliminar
    * @returns {Promise<Object>} Resultado de la operación
    */
+
+  
   delete: async (id) => {
     try {
       const response = await axiosInstance.delete(`/products/categorias/${id}`)
@@ -105,6 +107,9 @@ const CategoriasService = {
       const response = await axiosInstance.get(`/products/categorias/${id}/products`)
       return response.data
     } catch (error) {
+      if (error.response?.status === 404) {
+        return [] // No hay productos asociados o la categoría no existe
+      }
       console.error(`Error al obtener productos de categoría con ID ${id}:`, error)
       throw error
     }

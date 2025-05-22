@@ -1,5 +1,5 @@
 import axiosInstance from "../ConsumoAdmin/axios.js"
-import { sincronizarClienteAUsuario } from "../ConsumoAdmin/sincronizador.js"
+//import { sincronizarClienteAUsuario } from "../ConsumoAdmin/sincronizador.js"
 
 /**
  * Servicio para consumir la API de clientes

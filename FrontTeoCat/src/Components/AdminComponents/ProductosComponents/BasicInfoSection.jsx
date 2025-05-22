@@ -416,23 +416,47 @@ const BasicInfoSection = ({
             {formErrors.Stock && <div className="invalid-feedback small">{formErrors.Stock}</div>}
           </div>
 
-          <div className="col-md-2">
-            <label htmlFor="FechaVencimiento" className="form-label" style={labelStyle}>
-              Fecha de Vencimiento
-            </label>
-          </div>
-          <div className="col-md-2">
-            <input
-              type="date"
-              className={`form-control ${formErrors.FechaVencimiento ? "is-invalid" : ""}`}
-              id="FechaVencimiento"
-              name="FechaVencimiento"
-              value={formData.FechaVencimiento || ""}
-              onChange={handleInputChange}
-              style={inputStyle}
-            />
-            {formErrors.FechaVencimiento && <div className="invalid-feedback small">{formErrors.FechaVencimiento}</div>}
-          </div>
+
+
+
+
+         <div className="col-md-2">
+  <label htmlFor="FechaVencimiento" className="form-label" style={labelStyle}>
+    Fecha de Vencimiento
+  </label>
+</div>
+<div className="col-md-2">
+  <input
+    type="date"
+    className={`form-control ${formErrors.FechaVencimiento ? "is-invalid" : ""}`}
+    id="FechaVencimiento"
+    name="FechaVencimiento"
+    value={formData.FechaVencimiento || ""}
+    onChange={handleInputChange}
+    style={inputStyle}
+    disabled={formData.NoVence}
+  />
+  {formErrors.FechaVencimiento && <div className="invalid-feedback small">{formErrors.FechaVencimiento}</div>}
+  <div className="form-check mt-2">
+    <input
+      className="form-check-input"
+      type="checkbox"
+      id="NoVence"
+      name="NoVence"
+      checked={formData.NoVence}
+      onChange={handleInputChange}
+    />
+    <label className="form-check-label" htmlFor="NoVence">
+      Este producto no vence
+    </label>
+  </div>
+</div>
+
+
+
+
+
+
 
           <div className="col-md-2">
             <div className="form-check mt-1">

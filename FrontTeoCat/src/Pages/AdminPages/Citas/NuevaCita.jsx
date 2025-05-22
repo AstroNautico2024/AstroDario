@@ -483,7 +483,8 @@ const NuevaCita = () => {
   const handleSaveMascota = async () => {
     try {
       // Validar datos mínimos
-      if (!mascotaFormData.nombre || !mascotaFormData.especie) {
+      if (!mascotaFormData.nombre || !mascotaFormData.NombreEspecie
+) {
         toast.error("Nombre y Especie son campos obligatorios")
         return
       }
@@ -496,7 +497,8 @@ const NuevaCita = () => {
       // Preparar datos para crear mascota
       const mascotaData = {
         Nombre: mascotaFormData.nombre,
-        Especie: mascotaFormData.especie,
+        Especie: mascotaFormData.NombreEspecie
+,
         Raza: mascotaFormData.raza,
         Tamaño: mascotaFormData.tamaño,
         FechaNacimiento: mascotaFormData.fechaNacimiento,

@@ -34,12 +34,14 @@ router.delete('/atributos/valores/:id', authMiddleware, validatePermission('Elim
 router.patch('/atributos/valores/:id/status', authMiddleware, validatePermission('Cambiar Estado Productos'), valoresAtributosController.changeStatus);
 
 // Rutas para productos (existentes y actualizadas)
+// Las rutas específicas deben ir antes de las rutas con parámetros genéricos
 router.get('/productos', authMiddleware, validatePermission('Visualizar Productos'), productosController.getAll);
+router.get('/productos/codigo/:codigo', authMiddleware, validatePermission('Visualizar Productos'), productosController.getByBarcode);
 router.get('/productos/search', authMiddleware, validatePermission('Visualizar Productos'), productosController.search);
 router.get('/productos/low-stock', authMiddleware, validatePermission('Visualizar Productos'), productosController.getLowStock);
 router.get('/productos/near-expiry', authMiddleware, validatePermission('Visualizar Productos'), productosController.getNearExpiry);
-router.get('/productos/:id', authMiddleware, validatePermission('Visualizar Productos'), productosController.getById);
 router.get('/productos/categoria/:id', authMiddleware, validatePermission('Visualizar Productos'), productosController.getByCategoria);
+router.get('/productos/:id', authMiddleware, validatePermission('Visualizar Productos'), productosController.getById);
 router.post('/productos', authMiddleware, validatePermission('Crear Productos'), uploadMiddleware.single('imagen'), productosController.create);
 router.put('/productos/:id', authMiddleware, validatePermission('Modificar Productos'), uploadMiddleware.single('imagen'), productosController.update);
 router.patch('/productos/:id/status', authMiddleware, validatePermission('Cambiar Estado Productos'), productosController.changeStatus);
@@ -69,6 +71,4 @@ router.patch('/productos/:id/precio-venta', authMiddleware, validatePermission('
 router.put('/productos/:id/variantes/:variantId', authMiddleware, validatePermission('Modificar Productos'), uploadMiddleware.single('imagen'), productosController.updateVariant);
 router.delete('/productos/:id/variantes/:variantId', authMiddleware, validatePermission('Eliminar Productos'), productosController.deleteVariant);
 
-// Añadir esta ruta junto con las demás rutas de productos
-router.get('/productos/codigo/:codigo', authMiddleware, validatePermission('Visualizar Productos'), productosController.getByBarcode);
 export default router;

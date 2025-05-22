@@ -176,9 +176,21 @@ export const productosController = {
       const fotos = await fotosProductoModel.getByProducto(id)
       const atributos = await productoAtributosModel.getByProducto(id)
 
+      // Procesar fotos almacenadas en JSON
+      let fotosProducto = [];
+      if (producto.FotosProductoBase) {
+        try {
+          fotosProducto = typeof producto.FotosProductoBase === 'string' 
+            ? JSON.parse(producto.FotosProductoBase) 
+            : producto.FotosProductoBase;
+        } catch (error) {
+          console.error("Error al parsear FotosProductoBase:", error);
+        }
+      }
+
       res.status(200).json({
         ...producto,
-        fotos,
+        fotos: fotosProducto.length > 0 ? fotosProducto : fotos,
         atributos,
       })
     } catch (error) {
@@ -242,6 +254,47 @@ export const productosController = {
     }
   },
 
+  getByBarcode: async (req, res) => {
+    try {
+      const { codigo } = req.params
+
+      if (!codigo) {
+        return res.status(400).json({ message: "Se debe proporcionar un código de barras" })
+      }
+
+      const producto = await productosModel.getByBarcode(codigo)
+
+      if (!producto) {
+        return res.status(404).json({ message: "No se encontró ningún producto con ese código de barras" })
+      }
+
+      // Obtener fotos y atributos
+      const fotos = await fotosProductoModel.getByProducto(producto.IdProducto)
+      const atributos = await productoAtributosModel.getByProducto(producto.IdProducto)
+
+      // Procesar fotos almacenadas en JSON
+      let fotosProducto = [];
+      if (producto.FotosProductoBase) {
+        try {
+          fotosProducto = typeof producto.FotosProductoBase === 'string' 
+            ? JSON.parse(producto.FotosProductoBase) 
+            : producto.FotosProductoBase;
+        } catch (error) {
+          console.error("Error al parsear FotosProductoBase:", error);
+        }
+      }
+
+      res.status(200).json({
+        ...producto,
+        fotos: fotosProducto.length > 0 ? fotosProducto : fotos,
+        atributos,
+      })
+    } catch (error) {
+      console.error("Error al obtener producto por código de barras:", error)
+      res.status(500).json({ message: "Error en el servidor", error: error.message })
+    }
+  },
+
   create: async (req, res) => {
     try {
       const productoData = req.body
@@ -252,35 +305,6 @@ export const productosController = {
         return res.status(404).json({ message: "Categoría no encontrada" })
       }
 
-      // Añadir este método al objeto productosController
-getByBarcode: async (req, res) => {
-  try {
-    const { codigo } = req.params;
-    
-    if (!codigo) {
-      return res.status(400).json({ message: 'Se debe proporcionar un código de barras' });
-    }
-    
-    const producto = await productosModel.getByBarcode(codigo);
-    
-    if (!producto) {
-      return res.status(404).json({ message: 'Producto no encontrado' });
-    }
-    
-    // Obtener fotos y atributos
-    const fotos = await fotosProductoModel.getByProducto(producto.IdProducto);
-    const atributos = await productoAtributosModel.getByProducto(producto.IdProducto);
-    
-    res.status(200).json({
-      ...producto,
-      fotos,
-      atributos
-    });
-  } catch (error) {
-    console.error('Error al buscar producto por código de barras:', error);
-    res.status(500).json({ message: 'Error en el servidor', error: error.message });
-  }
-}
       // Verificar si el código de barras ya existe
       if (productoData.CodigoBarras) {
         const existingBarcode = await productosModel.getByBarcode(productoData.CodigoBarras)
@@ -338,21 +362,41 @@ getByBarcode: async (req, res) => {
         productoData.PrecioVenta = precioVenta
       }
 
-      // Crear el producto
-      const newProducto = await productosModel.create(productoData)
-
-      // Procesar la imagen si existe y guardarla como foto principal
+      // Procesar la imagen si existe y prepararla para guardar en FotosProductoBase
       if (req.file) {
         const result = await uploadToCloudinary(req.file.path)
-
-        // Crear la foto en la tabla FotosProducto
-        await fotosProductoModel.create({
-          IdProducto: newProducto.id,
+        
+        // Crear estructura para FotosProductoBase
+        const fotoObj = {
+          IdFoto: Date.now(),
+          IdProducto: 0, // Se actualizará después de crear el producto
           Url: result.secure_url,
           EsPrincipal: true,
           Orden: 1,
-          Estado: true,
-        })
+          Estado: true
+        };
+        
+        productoData.FotosProductoBase = JSON.stringify([fotoObj]);
+      }
+
+      // Crear el producto
+      const newProducto = await productosModel.create(productoData)
+
+      // Actualizar el IdProducto en las fotos si existen
+      if (productoData.FotosProductoBase) {
+        try {
+          let fotos = JSON.parse(productoData.FotosProductoBase);
+          fotos = fotos.map(foto => ({
+            ...foto,
+            IdProducto: newProducto.id
+          }));
+          
+          await productosModel.update(newProducto.id, {
+            FotosProductoBase: JSON.stringify(fotos)
+          });
+        } catch (error) {
+          console.error("Error al actualizar IdProducto en fotos:", error);
+        }
       }
 
       // Procesar atributos si se proporcionan
@@ -367,12 +411,24 @@ getByBarcode: async (req, res) => {
 
       // Obtener el producto completo con sus relaciones
       const productoCompleto = await productosModel.getById(newProducto.id)
-      const fotos = await fotosProductoModel.getByProducto(newProducto.id)
+      
+      // Procesar fotos almacenadas en JSON
+      let fotosProducto = [];
+      if (productoCompleto.FotosProductoBase) {
+        try {
+          fotosProducto = typeof productoCompleto.FotosProductoBase === 'string' 
+            ? JSON.parse(productoCompleto.FotosProductoBase) 
+            : productoCompleto.FotosProductoBase;
+        } catch (error) {
+          console.error("Error al parsear FotosProductoBase:", error);
+        }
+      }
+      
       const atributos = await productoAtributosModel.getByProducto(newProducto.id)
 
       res.status(201).json({
         ...productoCompleto,
-        fotos,
+        fotos: fotosProducto,
         atributos,
       })
     } catch (error) {
@@ -469,23 +525,38 @@ getByBarcode: async (req, res) => {
         productoData.PrecioVenta = precioVenta
       }
 
-      // Actualizar el producto
-      const updatedProducto = await productosModel.update(id, productoData)
-
       // Procesar la imagen si existe
       if (req.file) {
         const result = await uploadToCloudinary(req.file.path)
-
+        
+        // Obtener fotos actuales
+        let fotosActuales = [];
+        if (existingProducto.FotosProductoBase) {
+          try {
+            fotosActuales = typeof existingProducto.FotosProductoBase === 'string' 
+              ? JSON.parse(existingProducto.FotosProductoBase) 
+              : existingProducto.FotosProductoBase;
+          } catch (error) {
+            console.error("Error al parsear FotosProductoBase:", error);
+            fotosActuales = [];
+          }
+        }
+        
         // Buscar si ya tiene una foto principal
-        const fotos = await fotosProductoModel.getByProducto(id)
-        const fotoPrincipal = fotos.find((f) => f.EsPrincipal)
-
+        const fotoPrincipal = fotosActuales.find(f => f.EsPrincipal);
+        
         if (fotoPrincipal) {
           // Actualizar la foto principal
-          await fotosProductoModel.update(fotoPrincipal.IdFoto, {
-            Url: result.secure_url,
-          })
-
+          fotosActuales = fotosActuales.map(foto => {
+            if (foto.EsPrincipal) {
+              return {
+                ...foto,
+                Url: result.secure_url
+              };
+            }
+            return foto;
+          });
+          
           // Intentar eliminar la imagen anterior de Cloudinary
           try {
             const publicId = fotoPrincipal.Url.split("/").pop().split(".")[0]
@@ -495,15 +566,24 @@ getByBarcode: async (req, res) => {
           }
         } else {
           // Crear una nueva foto principal
-          await fotosProductoModel.create({
+          const nuevaFoto = {
+            IdFoto: Date.now(),
             IdProducto: id,
             Url: result.secure_url,
             EsPrincipal: true,
-            Orden: 1,
-            Estado: true,
-          })
+            Orden: fotosActuales.length > 0 ? Math.max(...fotosActuales.map(f => f.Orden || 0)) + 1 : 1,
+            Estado: true
+          };
+          
+          fotosActuales.push(nuevaFoto);
         }
+        
+        // Actualizar FotosProductoBase
+        productoData.FotosProductoBase = JSON.stringify(fotosActuales);
       }
+
+      // Actualizar el producto
+      const updatedProducto = await productosModel.update(id, productoData)
 
       // Procesar atributos si se proporcionan
       if (productoData.atributos && Array.isArray(productoData.atributos)) {
@@ -517,12 +597,24 @@ getByBarcode: async (req, res) => {
 
       // Obtener el producto completo con sus relaciones
       const productoCompleto = await productosModel.getById(id)
-      const fotos = await fotosProductoModel.getByProducto(id)
+      
+      // Procesar fotos almacenadas en JSON
+      let fotosProducto = [];
+      if (productoCompleto.FotosProductoBase) {
+        try {
+          fotosProducto = typeof productoCompleto.FotosProductoBase === 'string' 
+            ? JSON.parse(productoCompleto.FotosProductoBase) 
+            : productoCompleto.FotosProductoBase;
+        } catch (error) {
+          console.error("Error al parsear FotosProductoBase:", error);
+        }
+      }
+      
       const atributos = await productoAtributosModel.getByProducto(id)
 
       res.status(200).json({
         ...productoCompleto,
-        fotos,
+        fotos: fotosProducto,
         atributos,
       })
     } catch (error) {
@@ -581,6 +673,26 @@ getByBarcode: async (req, res) => {
         return res.status(404).json({ message: "Producto no encontrado" })
       }
 
+      // Eliminar fotos de Cloudinary si existen
+      if (existingProducto.FotosProductoBase) {
+        try {
+          const fotos = typeof existingProducto.FotosProductoBase === 'string'
+            ? JSON.parse(existingProducto.FotosProductoBase)
+            : existingProducto.FotosProductoBase;
+            
+          for (const foto of fotos) {
+            try {
+              const publicId = foto.Url.split("/").pop().split(".")[0];
+              await deleteFromCloudinary(publicId);
+            } catch (error) {
+              console.error("Error al eliminar imagen de Cloudinary:", error);
+            }
+          }
+        } catch (error) {
+          console.error("Error al parsear FotosProductoBase:", error);
+        }
+      }
+
       try {
         await productosModel.delete(id)
         res.status(200).json({ message: "Producto eliminado correctamente" })
@@ -610,15 +722,27 @@ getByBarcode: async (req, res) => {
       // Obtener variantes
       const variantes = await productosModel.getVariants(id)
 
-      // Para cada variante, obtener sus atributos
+      // Para cada variante, obtener sus atributos y procesar fotos
       const variantesConAtributos = await Promise.all(
         variantes.map(async (variante) => {
           const atributos = await productoAtributosModel.getByProducto(variante.IdProducto)
-          const fotos = await fotosProductoModel.getByProducto(variante.IdProducto)
+          
+          // Procesar fotos almacenadas en JSON
+          let fotosVariante = [];
+          if (variante.FotosVariantes) {
+            try {
+              fotosVariante = typeof variante.FotosVariantes === 'string' 
+                ? JSON.parse(variante.FotosVariantes) 
+                : variante.FotosVariantes;
+            } catch (error) {
+              console.error("Error al parsear FotosVariantes:", error);
+            }
+          }
+          
           return {
             ...variante,
             atributos,
-            fotos,
+            fotos: fotosVariante,
           }
         }),
       )
@@ -657,21 +781,41 @@ getByBarcode: async (req, res) => {
         }
       }
 
-      // Crear la variante
-      const newVariante = await productosModel.createVariant(id, varianteData)
-
-      // Procesar la imagen si existe
+      // Procesar la imagen si existe y prepararla para guardar en FotosVariantes
       if (req.file) {
         const result = await uploadToCloudinary(req.file.path)
-
-        // Crear la foto en la tabla FotosProducto
-        await fotosProductoModel.create({
-          IdProducto: newVariante.id,
+        
+        // Crear estructura para FotosVariantes
+        const fotoObj = {
+          IdFoto: Date.now(),
+          IdProducto: 0, // Se actualizará después de crear la variante
           Url: result.secure_url,
           EsPrincipal: true,
           Orden: 1,
-          Estado: true,
-        })
+          Estado: true
+        };
+        
+        varianteData.FotosVariantes = JSON.stringify([fotoObj]);
+      }
+
+      // Crear la variante
+      const newVariante = await productosModel.createVariant(id, varianteData)
+
+      // Actualizar el IdProducto en las fotos si existen
+      if (varianteData.FotosVariantes) {
+        try {
+          let fotos = JSON.parse(varianteData.FotosVariantes);
+          fotos = fotos.map(foto => ({
+            ...foto,
+            IdProducto: newVariante.id
+          }));
+          
+          await productosModel.update(newVariante.id, {
+            FotosVariantes: JSON.stringify(fotos)
+          });
+        } catch (error) {
+          console.error("Error al actualizar IdProducto en fotos de variante:", error);
+        }
       }
 
       // Procesar atributos si se proporcionan
@@ -686,12 +830,24 @@ getByBarcode: async (req, res) => {
 
       // Obtener la variante completa con sus relaciones
       const varianteCompleta = await productosModel.getById(newVariante.id)
-      const fotos = await fotosProductoModel.getByProducto(newVariante.id)
+      
+      // Procesar fotos almacenadas en JSON
+      let fotosVariante = [];
+      if (varianteCompleta.FotosVariantes) {
+        try {
+          fotosVariante = typeof varianteCompleta.FotosVariantes === 'string' 
+            ? JSON.parse(varianteCompleta.FotosVariantes) 
+            : varianteCompleta.FotosVariantes;
+        } catch (error) {
+          console.error("Error al parsear FotosVariantes:", error);
+        }
+      }
+      
       const atributos = await productoAtributosModel.getByProducto(newVariante.id)
 
       res.status(201).json({
         ...varianteCompleta,
-        fotos,
+        fotos: fotosVariante,
         atributos,
       })
     } catch (error) {
@@ -723,18 +879,7 @@ getByBarcode: async (req, res) => {
   updateVariant: async (req, res) => {
     try {
       const { id, variantId } = req.params
-      const {
-        NombreProducto,
-        Descripcion,
-        Stock,
-        Precio,
-        CodigoBarras,
-        Referencia,
-        MargenGanancia,
-        AplicaIVA,
-        PorcentajeIVA,
-        atributos,
-      } = req.body
+      const varianteData = req.body
 
       // Verificar si el producto base existe
       const baseProduct = await productosModel.getById(id)
@@ -742,77 +887,108 @@ getByBarcode: async (req, res) => {
         return res.status(404).json({ message: "Producto base no encontrado" })
       }
 
-      // Preparar datos para actualización
-      const updateData = {
-        NombreProducto,
-        Descripcion,
-        Stock,
-        Precio,
-        CodigoBarras,
-        Referencia,
-        MargenGanancia,
-        AplicaIVA,
-        PorcentajeIVA,
+      // Verificar si la variante existe
+      const variante = await productosModel.getById(variantId)
+      if (!variante) {
+        return res.status(404).json({ message: "Variante no encontrada" })
       }
 
-      // Actualizar la variante usando el método específico del modelo
-      try {
-        await productosModel.updateVariant(variantId, id, updateData)
-      } catch (error) {
-        if (error.message.includes("no existe o no pertenece")) {
-          return res.status(404).json({ message: error.message })
-        }
-        throw error
+      // Verificar que la variante pertenece al producto base
+      if (variante.ProductoBaseId != id || !variante.EsVariante) {
+        return res.status(400).json({ message: "La variante no pertenece al producto base especificado" })
       }
 
-      // Actualizar atributos si se proporcionaron
-      if (atributos && atributos.length > 0) {
-        // Primero eliminar atributos existentes
-        const existingAttributes = await productoAtributosModel.getByProducto(variantId)
-        for (const attr of existingAttributes) {
-          await productoAtributosModel.delete(attr.IdProductoAtributo)
-        }
-
-        // Luego asignar los nuevos atributos
-        await productoAtributosModel.assignMultiple(variantId, atributos)
-      }
-
-      // Procesar imagen si se proporcionó
+      // Procesar la imagen si existe
       if (req.file) {
-        const imageUrl = `/uploads/${req.file.filename}`
-
-        // Verificar si ya tiene una foto principal
-        const mainPhoto = await fotosProductoModel.getMainByProducto(variantId)
-
-        if (mainPhoto) {
-          // Actualizar la foto existente
-          await fotosProductoModel.update(mainPhoto.IdFoto, {
-            Url: imageUrl,
-            EsPrincipal: true,
-          })
+        const result = await uploadToCloudinary(req.file.path)
+        
+        // Obtener fotos actuales
+        let fotosActuales = [];
+        if (variante.FotosVariantes) {
+          try {
+            fotosActuales = typeof variante.FotosVariantes === 'string' 
+              ? JSON.parse(variante.FotosVariantes) 
+              : variante.FotosVariantes;
+          } catch (error) {
+            console.error("Error al parsear FotosVariantes:", error);
+            fotosActuales = [];
+          }
+        }
+        
+        // Buscar si ya tiene una foto principal
+        const fotoPrincipal = fotosActuales.find(f => f.EsPrincipal);
+        
+        if (fotoPrincipal) {
+          // Actualizar la foto principal
+          fotosActuales = fotosActuales.map(foto => {
+            if (foto.EsPrincipal) {
+              return {
+                ...foto,
+                Url: result.secure_url
+              };
+            }
+            return foto;
+          });
+          
+          // Intentar eliminar la imagen anterior de Cloudinary
+          try {
+            const publicId = fotoPrincipal.Url.split("/").pop().split(".")[0]
+            await deleteFromCloudinary(publicId)
+          } catch (error) {
+            console.error("Error al eliminar imagen anterior:", error)
+          }
         } else {
-          // Crear una nueva foto
-          await fotosProductoModel.create({
+          // Crear una nueva foto principal
+          const nuevaFoto = {
+            IdFoto: Date.now(),
             IdProducto: variantId,
-            Url: imageUrl,
+            Url: result.secure_url,
             EsPrincipal: true,
-            Orden: 1,
-          })
+            Orden: fotosActuales.length > 0 ? Math.max(...fotosActuales.map(f => f.Orden || 0)) + 1 : 1,
+            Estado: true
+          };
+          
+          fotosActuales.push(nuevaFoto);
+        }
+        
+        // Actualizar FotosVariantes
+        varianteData.FotosVariantes = JSON.stringify(fotosActuales);
+      }
+
+      // Actualizar la variante
+      await productosModel.updateVariant(variantId, id, varianteData)
+
+      // Procesar atributos si se proporcionan
+      if (varianteData.atributos && Array.isArray(varianteData.atributos)) {
+        try {
+          await productoAtributosModel.assignMultiple(variantId, varianteData.atributos)
+        } catch (error) {
+          console.error("Error al asignar atributos:", error)
+          // No fallamos la actualización de la variante si hay error en los atributos
         }
       }
 
-      // Obtener la variante actualizada con sus atributos y fotos
-      const updatedVariant = await productosModel.getById(variantId)
-      const updatedAttributes = await productoAtributosModel.getByProducto(variantId)
-      const updatedPhotos = await fotosProductoModel.getByProducto(variantId)
+      // Obtener la variante actualizada con sus relaciones
+      const varianteActualizada = await productosModel.getById(variantId)
+      
+      // Procesar fotos almacenadas en JSON
+      let fotosVariante = [];
+      if (varianteActualizada.FotosVariantes) {
+        try {
+          fotosVariante = typeof varianteActualizada.FotosVariantes === 'string' 
+            ? JSON.parse(varianteActualizada.FotosVariantes) 
+            : varianteActualizada.FotosVariantes;
+        } catch (error) {
+          console.error("Error al parsear FotosVariantes:", error);
+        }
+      }
+      
+      const atributos = await productoAtributosModel.getByProducto(variantId)
 
       res.status(200).json({
-        message: "Variante actualizada correctamente",
-        data: {
-          ...updatedVariant,
-          atributos: updatedAttributes,
-          fotos: updatedPhotos,
-        },
+        ...varianteActualizada,
+        fotos: fotosVariante,
+        atributos,
       })
     } catch (error) {
       console.error("Error al actualizar variante:", error)
@@ -841,18 +1017,27 @@ getByBarcode: async (req, res) => {
         return res.status(400).json({ message: "La variante no pertenece al producto base especificado" })
       }
 
-      // Eliminar fotos de Cloudinary
-      const fotos = await fotosProductoModel.getByProducto(variantId)
-      for (const foto of fotos) {
+      // Eliminar fotos de Cloudinary si existen
+      if (variante.FotosVariantes) {
         try {
-          const publicId = foto.Url.split("/").pop().split(".")[0]
-          await deleteFromCloudinary(publicId)
+          const fotos = typeof variante.FotosVariantes === 'string'
+            ? JSON.parse(variante.FotosVariantes)
+            : variante.FotosVariantes;
+            
+          for (const foto of fotos) {
+            try {
+              const publicId = foto.Url.split("/").pop().split(".")[0];
+              await deleteFromCloudinary(publicId);
+            } catch (error) {
+              console.error("Error al eliminar imagen de Cloudinary:", error);
+            }
+          }
         } catch (error) {
-          console.error("Error al eliminar imagen de Cloudinary:", error)
+          console.error("Error al parsear FotosVariantes:", error);
         }
       }
 
-      // Eliminar la variante usando el modelo
+      // Eliminar la variante
       await productosModel.deleteVariant(id, variantId)
 
       res.status(200).json({ message: "Variante eliminada correctamente" })
@@ -860,35 +1045,7 @@ getByBarcode: async (req, res) => {
       console.error("Error al eliminar variante:", error)
       res.status(500).json({ message: "Error en el servidor", error: error.message })
     }
-  },
-  getByBarcode: async (req, res) => {
-    try {
-      const { codigo } = req.params
-
-      if (!codigo) {
-        return res.status(400).json({ message: "Se debe proporcionar un código de barras" })
-      }
-
-      const producto = await productosModel.getByBarcode(codigo)
-
-      if (!producto) {
-        return res.status(404).json({ message: "No se encontró ningún producto con ese código de barras" })
-      }
-
-      // Obtener fotos y atributos
-      const fotos = await fotosProductoModel.getByProducto(producto.IdProducto)
-      const atributos = await productoAtributosModel.getByProducto(producto.IdProducto)
-
-      res.status(200).json({
-        ...producto,
-        fotos,
-        atributos,
-      })
-    } catch (error) {
-      console.error("Error al obtener producto por código de barras:", error)
-      res.status(500).json({ message: "Error en el servidor", error: error.message })
-    }
-  },
+  }
 }
 
 // Controlador para fotos de productos
@@ -904,7 +1061,37 @@ export const fotosProductoController = {
         return res.status(404).json({ message: "Producto no encontrado" })
       }
 
-      const fotos = await fotosProductoModel.getByProducto(idProducto)
+      // Obtener fotos del campo JSON
+      let fotos = [];
+      
+      // Determinar si es producto base o variante
+      if (producto.EsVariante) {
+        if (producto.FotosVariantes) {
+          try {
+            fotos = typeof producto.FotosVariantes === 'string'
+              ? JSON.parse(producto.FotosVariantes)
+              : producto.FotosVariantes;
+          } catch (error) {
+            console.error("Error al parsear FotosVariantes:", error);
+          }
+        }
+      } else {
+        if (producto.FotosProductoBase) {
+          try {
+            fotos = typeof producto.FotosProductoBase === 'string'
+              ? JSON.parse(producto.FotosProductoBase)
+              : producto.FotosProductoBase;
+          } catch (error) {
+            console.error("Error al parsear FotosProductoBase:", error);
+          }
+        }
+      }
+      
+      // Si no hay fotos en el campo JSON, intentar obtener de la tabla FotosProducto
+      if (fotos.length === 0) {
+        fotos = await fotosProductoModel.getByProducto(idProducto);
+      }
+
       res.status(200).json(fotos)
     } catch (error) {
       console.error("Error al obtener fotos:", error)
@@ -916,13 +1103,59 @@ export const fotosProductoController = {
   getById: async (req, res) => {
     try {
       const { id } = req.params
-      const foto = await fotosProductoModel.getById(id)
+      
+      // Buscar en todos los productos
+      const productos = await productosModel.getAll();
+      
+      let fotoEncontrada = null;
+      
+      // Buscar en FotosProductoBase y FotosVariantes
+      for (const producto of productos) {
+        // Buscar en FotosProductoBase
+        if (producto.FotosProductoBase) {
+          try {
+            const fotos = typeof producto.FotosProductoBase === 'string'
+              ? JSON.parse(producto.FotosProductoBase)
+              : producto.FotosProductoBase;
+              
+            const foto = fotos.find(f => f.IdFoto == id);
+            if (foto) {
+              fotoEncontrada = foto;
+              break;
+            }
+          } catch (error) {
+            console.error("Error al parsear FotosProductoBase:", error);
+          }
+        }
+        
+        // Buscar en FotosVariantes
+        if (producto.FotosVariantes) {
+          try {
+            const fotos = typeof producto.FotosVariantes === 'string'
+              ? JSON.parse(producto.FotosVariantes)
+              : producto.FotosVariantes;
+              
+            const foto = fotos.find(f => f.IdFoto == id);
+            if (foto) {
+              fotoEncontrada = foto;
+              break;
+            }
+          } catch (error) {
+            console.error("Error al parsear FotosVariantes:", error);
+          }
+        }
+      }
+      
+      // Si no se encuentra en los campos JSON, buscar en la tabla FotosProducto
+      if (!fotoEncontrada) {
+        fotoEncontrada = await fotosProductoModel.getById(id);
+      }
 
-      if (!foto) {
+      if (!fotoEncontrada) {
         return res.status(404).json({ message: "Foto no encontrada" })
       }
 
-      res.status(200).json(foto)
+      res.status(200).json(fotoEncontrada)
     } catch (error) {
       console.error("Error al obtener foto:", error)
       res.status(500).json({ message: "Error en el servidor", error: error.message })
@@ -948,7 +1181,7 @@ export const fotosProductoController = {
       // Subir la imagen a Cloudinary
       const result = await uploadToCloudinary(req.file.path)
 
-      // Crear la foto en la base de datos
+      // Crear la foto
       const fotoData = {
         IdProducto: idProducto,
         Url: result.secure_url,
@@ -957,9 +1190,88 @@ export const fotosProductoController = {
         Estado: req.body.Estado === "false" ? false : true,
       }
 
-      const newFoto = await fotosProductoModel.create(fotoData)
-
-      res.status(201).json(newFoto)
+      // Determinar si es producto base o variante
+      if (producto.EsVariante) {
+        // Es una variante, actualizar FotosVariantes
+        let fotosActuales = [];
+        if (producto.FotosVariantes) {
+          try {
+            fotosActuales = typeof producto.FotosVariantes === 'string'
+              ? JSON.parse(producto.FotosVariantes)
+              : producto.FotosVariantes;
+          } catch (error) {
+            console.error("Error al parsear FotosVariantes:", error);
+            fotosActuales = [];
+          }
+        }
+        
+        // Si es principal, actualizar las demás
+        if (fotoData.EsPrincipal) {
+          fotosActuales = fotosActuales.map(foto => ({
+            ...foto,
+            EsPrincipal: false
+          }));
+        }
+        
+        // Crear nueva foto
+        const nuevaFoto = {
+          IdFoto: Date.now(),
+          IdProducto: idProducto,
+          Url: fotoData.Url,
+          EsPrincipal: fotoData.EsPrincipal,
+          Orden: fotoData.Orden || (fotosActuales.length > 0 ? Math.max(...fotosActuales.map(f => f.Orden || 0)) + 1 : 1),
+          Estado: fotoData.Estado
+        };
+        
+        fotosActuales.push(nuevaFoto);
+        
+        // Actualizar el producto
+        await productosModel.update(idProducto, {
+          FotosVariantes: JSON.stringify(fotosActuales)
+        });
+        
+        res.status(201).json(nuevaFoto);
+      } else {
+        // Es un producto base, actualizar FotosProductoBase
+        let fotosActuales = [];
+        if (producto.FotosProductoBase) {
+          try {
+            fotosActuales = typeof producto.FotosProductoBase === 'string'
+              ? JSON.parse(producto.FotosProductoBase)
+              : producto.FotosProductoBase;
+          } catch (error) {
+            console.error("Error al parsear FotosProductoBase:", error);
+            fotosActuales = [];
+          }
+        }
+        
+        // Si es principal, actualizar las demás
+        if (fotoData.EsPrincipal) {
+          fotosActuales = fotosActuales.map(foto => ({
+            ...foto,
+            EsPrincipal: false
+          }));
+        }
+        
+        // Crear nueva foto
+        const nuevaFoto = {
+          IdFoto: Date.now(),
+          IdProducto: idProducto,
+          Url: fotoData.Url,
+          EsPrincipal: fotoData.EsPrincipal,
+          Orden: fotoData.Orden || (fotosActuales.length > 0 ? Math.max(...fotosActuales.map(f => f.Orden || 0)) + 1 : 1),
+          Estado: fotoData.Estado
+        };
+        
+        fotosActuales.push(nuevaFoto);
+        
+        // Actualizar el producto
+        await productosModel.update(idProducto, {
+          FotosProductoBase: JSON.stringify(fotosActuales)
+        });
+        
+        res.status(201).json(nuevaFoto);
+      }
     } catch (error) {
       console.error("Error al crear foto:", error)
       res.status(500).json({ message: "Error en el servidor", error: error.message })
@@ -970,14 +1282,64 @@ export const fotosProductoController = {
   update: async (req, res) => {
     try {
       const { id } = req.params
-
-      // Verificar si la foto existe
-      const existingFoto = await fotosProductoModel.getById(id)
-      if (!existingFoto) {
-        return res.status(404).json({ message: "Foto no encontrada" })
+      
+      // Buscar la foto en todos los productos
+      const productos = await productosModel.getAll();
+      
+      let productoEncontrado = null;
+      let esFotosProductoBase = false;
+      let fotosActuales = [];
+      let fotoIndex = -1;
+      
+      // Buscar en FotosProductoBase y FotosVariantes
+      for (const producto of productos) {
+        // Buscar en FotosProductoBase
+        if (producto.FotosProductoBase) {
+          try {
+            const fotos = typeof producto.FotosProductoBase === 'string'
+              ? JSON.parse(producto.FotosProductoBase)
+              : producto.FotosProductoBase;
+              
+            const index = fotos.findIndex(f => f.IdFoto == id);
+            if (index !== -1) {
+              productoEncontrado = producto;
+              esFotosProductoBase = true;
+              fotosActuales = fotos;
+              fotoIndex = index;
+              break;
+            }
+          } catch (error) {
+            console.error("Error al parsear FotosProductoBase:", error);
+          }
+        }
+        
+        // Buscar en FotosVariantes
+        if (producto.FotosVariantes) {
+          try {
+            const fotos = typeof producto.FotosVariantes === 'string'
+              ? JSON.parse(producto.FotosVariantes)
+              : producto.FotosVariantes;
+              
+            const index = fotos.findIndex(f => f.IdFoto == id);
+            if (index !== -1) {
+              productoEncontrado = producto;
+              esFotosProductoBase = false;
+              fotosActuales = fotos;
+              fotoIndex = index;
+              break;
+            }
+          } catch (error) {
+            console.error("Error al parsear FotosVariantes:", error);
+          }
+        }
       }
-
-      const fotoData = {}
+      
+      if (!productoEncontrado || fotoIndex === -1) {
+        return res.status(404).json({ message: "Foto no encontrada" });
+      }
+      
+      const fotoActual = fotosActuales[fotoIndex];
+      const fotoData = {};
 
       // Procesar la imagen si existe
       if (req.file) {
@@ -987,7 +1349,7 @@ export const fotosProductoController = {
 
         // Eliminar la imagen anterior de Cloudinary
         try {
-          const publicId = existingFoto.Url.split("/").pop().split(".")[0]
+          const publicId = fotoActual.Url.split("/").pop().split(".")[0]
           await deleteFromCloudinary(publicId)
         } catch (error) {
           console.error("Error al eliminar imagen anterior:", error)
@@ -1004,11 +1366,36 @@ export const fotosProductoController = {
       if (req.body.Estado !== undefined) {
         fotoData.Estado = req.body.Estado === "true"
       }
-
-      // Actualizar la foto
-      const updatedFoto = await fotosProductoModel.update(id, fotoData)
-
-      res.status(200).json(updatedFoto)
+      
+      // Si se está marcando como principal, actualizar las demás
+      if (fotoData.EsPrincipal && !fotoActual.EsPrincipal) {
+        fotosActuales = fotosActuales.map(foto => ({
+          ...foto,
+          EsPrincipal: foto.IdFoto == id
+        }));
+      } else {
+        // Actualizar solo la foto específica
+        fotosActuales[fotoIndex] = {
+          ...fotoActual,
+          ...fotoData
+        };
+      }
+      
+      // Actualizar el producto
+      if (esFotosProductoBase) {
+        await productosModel.update(productoEncontrado.IdProducto, {
+          FotosProductoBase: JSON.stringify(fotosActuales)
+        });
+      } else {
+        await productosModel.update(productoEncontrado.IdProducto, {
+          FotosVariantes: JSON.stringify(fotosActuales)
+        });
+      }
+      
+      res.status(200).json({
+        ...fotoActual,
+        ...fotoData
+      });
     } catch (error) {
       console.error("Error al actualizar foto:", error)
       res.status(500).json({ message: "Error en el servidor", error: error.message })
@@ -1019,25 +1406,93 @@ export const fotosProductoController = {
   delete: async (req, res) => {
     try {
       const { id } = req.params
-
-      // Verificar si la foto existe
-      const existingFoto = await fotosProductoModel.getById(id)
-      if (!existingFoto) {
-        return res.status(404).json({ message: "Foto no encontrada" })
+      
+      // Buscar la foto en todos los productos
+      const productos = await productosModel.getAll();
+      
+      let productoEncontrado = null;
+      let esFotosProductoBase = false;
+      let fotosActuales = [];
+      let fotoIndex = -1;
+      
+      // Buscar en FotosProductoBase y FotosVariantes
+      for (const producto of productos) {
+        // Buscar en FotosProductoBase
+        if (producto.FotosProductoBase) {
+          try {
+            const fotos = typeof producto.FotosProductoBase === 'string'
+              ? JSON.parse(producto.FotosProductoBase)
+              : producto.FotosProductoBase;
+              
+            const index = fotos.findIndex(f => f.IdFoto == id);
+            if (index !== -1) {
+              productoEncontrado = producto;
+              esFotosProductoBase = true;
+              fotosActuales = fotos;
+              fotoIndex = index;
+              break;
+            }
+          } catch (error) {
+            console.error("Error al parsear FotosProductoBase:", error);
+          }
+        }
+        
+        // Buscar en FotosVariantes
+        if (producto.FotosVariantes) {
+          try {
+            const fotos = typeof producto.FotosVariantes === 'string'
+              ? JSON.parse(producto.FotosVariantes)
+              : producto.FotosVariantes;
+              
+            const index = fotos.findIndex(f => f.IdFoto == id);
+            if (index !== -1) {
+              productoEncontrado = producto;
+              esFotosProductoBase = false;
+              fotosActuales = fotos;
+              fotoIndex = index;
+              break;
+            }
+          } catch (error) {
+            console.error("Error al parsear FotosVariantes:", error);
+          }
+        }
       }
-
+      
+      if (!productoEncontrado || fotoIndex === -1) {
+        return res.status(404).json({ message: "Foto no encontrada" });
+      }
+      
+      const fotoAEliminar = fotosActuales[fotoIndex];
+      const eraPrincipal = fotoAEliminar.EsPrincipal;
+      
       // Eliminar la foto de Cloudinary
       try {
-        const publicId = existingFoto.Url.split("/").pop().split(".")[0]
+        const publicId = fotoAEliminar.Url.split("/").pop().split(".")[0]
         await deleteFromCloudinary(publicId)
       } catch (error) {
         console.error("Error al eliminar imagen de Cloudinary:", error)
       }
-
-      // Eliminar la foto de la base de datos
-      await fotosProductoModel.delete(id)
-
-      res.status(200).json({ message: "Foto eliminada correctamente" })
+      
+      // Eliminar la foto del array
+      fotosActuales.splice(fotoIndex, 1);
+      
+      // Si era la principal y hay más fotos, establecer otra como principal
+      if (eraPrincipal && fotosActuales.length > 0) {
+        fotosActuales[0].EsPrincipal = true;
+      }
+      
+      // Actualizar el producto
+      if (esFotosProductoBase) {
+        await productosModel.update(productoEncontrado.IdProducto, {
+          FotosProductoBase: JSON.stringify(fotosActuales)
+        });
+      } else {
+        await productosModel.update(productoEncontrado.IdProducto, {
+          FotosVariantes: JSON.stringify(fotosActuales)
+        });
+      }
+      
+      res.status(200).json({ message: "Foto eliminada correctamente" });
     } catch (error) {
       console.error("Error al eliminar foto:", error)
       res.status(500).json({ message: "Error en el servidor", error: error.message })
@@ -1054,22 +1509,59 @@ export const fotosProductoController = {
       if (!producto) {
         return res.status(404).json({ message: "Producto no encontrado" })
       }
-
-      // Verificar si la foto existe
-      const foto = await fotosProductoModel.getById(idFoto)
-      if (!foto) {
-        return res.status(404).json({ message: "Foto no encontrada" })
+      
+      // Determinar si es producto base o variante
+      let fotosActuales = [];
+      let campoFotos = '';
+      
+      if (producto.EsVariante) {
+        // Es una variante, usar FotosVariantes
+        if (producto.FotosVariantes) {
+          try {
+            fotosActuales = typeof producto.FotosVariantes === 'string'
+              ? JSON.parse(producto.FotosVariantes)
+              : producto.FotosVariantes;
+          } catch (error) {
+            console.error("Error al parsear FotosVariantes:", error);
+            fotosActuales = [];
+          }
+        }
+        campoFotos = 'FotosVariantes';
+      } else {
+        // Es un producto base, usar FotosProductoBase
+        if (producto.FotosProductoBase) {
+          try {
+            fotosActuales = typeof producto.FotosProductoBase === 'string'
+              ? JSON.parse(producto.FotosProductoBase)
+              : producto.FotosProductoBase;
+          } catch (error) {
+            console.error("Error al parsear FotosProductoBase:", error);
+            fotosActuales = [];
+          }
+        }
+        campoFotos = 'FotosProductoBase';
       }
-
-      // Verificar que la foto pertenece al producto
-      if (foto.IdProducto != idProducto) {
-        return res.status(400).json({ message: "La foto no pertenece al producto" })
+      
+      // Verificar que la foto existe
+      const fotoIndex = fotosActuales.findIndex(foto => foto.IdFoto == idFoto);
+      
+      if (fotoIndex === -1) {
+        return res.status(404).json({ message: "Foto no encontrada en el producto" });
       }
-
-      // Establecer como principal
-      const result = await fotosProductoModel.setPrincipal(idProducto, idFoto)
-
-      res.status(200).json(result)
+      
+      // Actualizar todas las fotos para quitar el estado principal
+      fotosActuales = fotosActuales.map(foto => ({
+        ...foto,
+        EsPrincipal: foto.IdFoto == idFoto
+      }));
+      
+      // Actualizar el producto
+      const updateData = {};
+      updateData[campoFotos] = JSON.stringify(fotosActuales);
+      
+      await productosModel.update(idProducto, updateData);
+      
+      res.status(200).json({ message: "Foto establecida como principal correctamente" });
     } catch (error) {
       console.error("Error al establecer foto principal:", error)
       res.status(500).json({ message: "Error en el servidor", error: error.message })
@@ -1092,11 +1584,69 @@ export const fotosProductoController = {
       if (!ordenFotos || !Array.isArray(ordenFotos)) {
         return res.status(400).json({ message: "Se debe proporcionar un array con el orden de las fotos" })
       }
-
-      // Reordenar las fotos
-      const result = await fotosProductoModel.reordenar(idProducto, ordenFotos)
-
-      res.status(200).json(result)
+      
+      // Determinar si es producto base o variante
+      let fotosActuales = [];
+      let campoFotos = '';
+      
+      if (producto.EsVariante) {
+        // Es una variante, usar FotosVariantes
+        if (producto.FotosVariantes) {
+          try {
+            fotosActuales = typeof producto.FotosVariantes === 'string'
+              ? JSON.parse(producto.FotosVariantes)
+              : producto.FotosVariantes;
+          } catch (error) {
+            console.error("Error al parsear FotosVariantes:", error);
+            fotosActuales = [];
+          }
+        }
+        campoFotos = 'FotosVariantes';
+      } else {
+        // Es un producto base, usar FotosProductoBase
+        if (producto.FotosProductoBase) {
+          try {
+            fotosActuales = typeof producto.FotosProductoBase === 'string'
+              ? JSON.parse(producto.FotosProductoBase)
+              : producto.FotosProductoBase;
+          } catch (error) {
+            console.error("Error al parsear FotosProductoBase:", error);
+            fotosActuales = [];
+          }
+        }
+        campoFotos = 'FotosProductoBase';
+      }
+      
+      // Crear un mapa para actualizar los órdenes
+      const ordenMap = new Map();
+      ordenFotos.forEach(item => {
+        ordenMap.set(item.IdFoto, item.Orden);
+      });
+      
+      // Actualizar el orden de cada foto
+      fotosActuales = fotosActuales.map(foto => {
+        if (ordenMap.has(foto.IdFoto)) {
+          return {
+            ...foto,
+            Orden: ordenMap.get(foto.IdFoto)
+          };
+        }
+        return foto;
+      });
+      
+      // Ordenar el array por el campo Orden
+      fotosActuales.sort((a, b) => (a.Orden || 0) - (b.Orden || 0));
+      
+      // Actualizar el producto
+      const updateData = {};
+      updateData[campoFotos] = JSON.stringify(fotosActuales);
+      
+      await productosModel.update(idProducto, updateData);
+      
+      res.status(200).json({ 
+        message: "Fotos reordenadas correctamente",
+        fotos: fotosActuales
+      });
     } catch (error) {
       console.error("Error al reordenar fotos:", error)
       res.status(500).json({ message: "Error en el servidor", error: error.message })

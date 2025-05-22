@@ -352,8 +352,7 @@ const Especies = () => {
       const estadoNumerico = nuevoEstado === "Activo" ? 1 : 0
 
       // Llamar directamente al endpoint con solo el campo Estado
-      await axiosInstance.put(`/customers/especies/${especieId}`, { Estado: estadoNumerico })
-
+      await especiesService.updateStatus(especieToToggle.IdEspecie, nuevoEstado)
       // Guardar el toast para después
       const newStatus = estadoActual === "Activo" ? "inactiva" : "activa"
       pendingToastRef.current = {

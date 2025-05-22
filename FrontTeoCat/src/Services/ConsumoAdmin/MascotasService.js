@@ -347,24 +347,14 @@ const MascotasService = {
         const response = await axiosInstance.put(`/customers/mascotas/${id}`, mascotaFormateada)
 
         // Verificar si la respuesta contiene datos
-        if (!response.data) {
-          console.warn("La respuesta del servidor no contiene datos")
-          // Devolver los datos enviados como respuesta para mantener la consistencia
-          return {
-            ...mascotaFormateada,
-            IdMascota: id,
-            FotoURL: mascotaFormateada.Foto,
-          }
+        const responseData = response.data || {}
+        // Siempre asegurar que el IdMascota esté presente
+        return {
+          ...mascota,
+          ...responseData,
+          IdMascota: id, // Forzar el ID original
+          FotoURL: responseData.Foto || mascota.FotoURL,
         }
-
-        // Asegurarse de que la respuesta incluya la FotoURL para la UI
-        const mascotaActualizada = {
-          ...response.data,
-          FotoURL: response.data.Foto || mascota.FotoURL,
-        }
-
-        console.log("Mascota actualizada con éxito:", mascotaActualizada)
-        return mascotaActualizada
       } catch (error) {
         console.error("Error en primer intento de actualización:", error)
 

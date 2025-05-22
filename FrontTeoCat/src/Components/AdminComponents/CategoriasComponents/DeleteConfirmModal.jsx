@@ -13,6 +13,35 @@ import { AlertTriangle } from "lucide-react"
 const DeleteConfirmModal = ({ show, categoria, onConfirm, onCancel }) => {
   if (!categoria) return null
 
+  const confirmDelete = async () => {
+    if (categoriaToDelete) {
+      try {
+        setIsProcessing(true)
+        setProcessingMessage("Eliminando categoría...")
+
+        await CategoriasService.delete(categoriaToDelete.id) // Solo aquí se hace la petición
+
+        // Actualiza el estado local
+        setCategorias(categorias.filter((c) => c.id !== categoriaToDelete.id))
+
+        // Notificación
+        pendingToastRef.current = {
+          type: "info",
+          message: `La categoría "${categoriaToDelete.nombre}" ha sido eliminada correctamente.`,
+        }
+        setIsProcessing(false)
+      } catch (error) {
+        setIsProcessing(false)
+        pendingToastRef.current = {
+          type: "error",
+          message: error.response?.data?.message || "No se pudo eliminar la categoría. Intente nuevamente.",
+        }
+      }
+      setShowDeleteConfirm(false)
+      setCategoriaToDelete(null)
+    }
+  }
+
   return (
     <>
       {show && <div className="modal-backdrop show"></div>}

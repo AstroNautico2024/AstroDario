@@ -57,6 +57,7 @@ const CategoriasProducto = () => {
   // Referencias para las notificaciones
   const pendingToastRef = useRef(null)
   const toastShownRef = useRef(false)
+  
 
   // Función para mostrar toast después de que el loading se oculte
   const showPendingToast = () => {

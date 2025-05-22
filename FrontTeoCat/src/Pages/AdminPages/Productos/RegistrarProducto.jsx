@@ -18,7 +18,6 @@ import VariantForm from "../../../Components/AdminComponents/ProductosComponents
 import DeleteConfirmModal from "../../../Components/AdminComponents/ProductosComponents/DeleteConfirmModal"
 
 // Importar servicios
-import { uploadImageToCloudinary } from "../../../Services/uploadImageToCloudinary"
 import ProductosService from "../../../Services/ConsumoAdmin/ProductosService.js"
 import CategoriasService from "../../../Services/ConsumoAdmin/CategoriasService.js"
 
@@ -38,20 +37,25 @@ const RegistrarProducto = () => {
   // Estado para el formulario
   const [formData, setFormData] = useState({
     NombreProducto: "",
-    Descripcion: "",
-    IdCategoriaDeProducto: "",
-    Foto: "",
-    Stock: "0",
-    Precio: "0",
-    PorcentajeIVA: "19",
-    AplicaIVA: true,
-    CodigoBarras: "",
-    Referencia: "",
-    FechaVencimiento: "",
-    NoVence: false,
-    Caracteristicas: [],
-    Especificaciones: [],
-    Variantes: [],
+  Descripcion: "",
+  IdCategoriaDeProducto: "",
+  Foto: "",
+  Stock: "0",
+  Precio: "0",
+  PrecioVenta: "0", // <-- Nuevo
+  MargenGanancia: "30", // <-- Nuevo
+  UnidadMedida: "Unidad", // <-- Nuevo
+  FactorConversion: "1", // <-- Nuevo
+  PorcentajeIVA: "19",
+  AplicaIVA: true,
+  CodigoBarras: "",
+  Referencia: "",
+  FechaVencimiento: "",
+  NoVence: false,
+  Origen: "Catálogo", // <-- Nuevo
+  Caracteristicas: [],
+  Especificaciones: [],
+  Variantes: []
   })
 
   // Estado para errores de validación
@@ -1014,24 +1018,24 @@ const RegistrarProducto = () => {
       // Concatenar las URLs con un delimitador para guardarlas en un solo campo
       const fotosString = imageUrls.join("|")
 
-      // Preparar los datos para enviar a la base de datos
-      const productoData = {
-        NombreProducto: formData.NombreProducto,
-        Descripcion: formData.Descripcion || "",
-        IdCategoriaDeProducto: Number.parseInt(formData.IdCategoriaDeProducto),
-        Foto: fotosString, // URLs de imágenes separadas por |
-        Stock: Number.parseInt(formData.Stock),
-        Precio: Number.parseFloat(formData.Precio),
-        PorcentajeIVA: formData.AplicaIVA ? Number.parseFloat(formData.PorcentajeIVA) : 0,
-        AplicaIVA: formData.AplicaIVA,
-        CodigoBarras: formData.CodigoBarras || null, // Cambiar a null si está vacío
-        Referencia: formData.Referencia || null, // Cambiar a null si está vacío
-        FechaVencimiento: formData.NoVence ? null : formData.FechaVencimiento,
-        Caracteristicas: formData.Caracteristicas?.join(", ") || "",
-        Especificaciones: formData.Especificaciones?.map((item) => `${item.nombre}: ${item.valor}`)?.join(", ") || "",
-        Estado: true,
-        Variantes: formData.Variantes || [],
-      }
+     // Preparar los datos para enviar a la base de datos
+const productoData = {
+  NombreProducto: formData.NombreProducto,
+  Descripcion: formData.Descripcion || "",
+  IdCategoriaDeProducto: Number.parseInt(formData.IdCategoriaDeProducto),
+  Foto: fotosString, // URLs de imágenes separadas por |
+  Stock: Number.parseInt(formData.Stock),
+  Precio: Number.parseFloat(formData.Precio),
+  PorcentajeIVA: formData.AplicaIVA ? Number.parseFloat(formData.PorcentajeIVA) : 0,
+  AplicaIVA: formData.AplicaIVA,
+  CodigoBarras: formData.CodigoBarras || null,
+  Referencia: formData.Referencia || null,
+  FechaVencimiento: formData.NoVence ? null : formData.FechaVencimiento,
+  Caracteristicas: formData.Caracteristicas?.join(", ") || "",
+  Especificaciones: formData.Especificaciones?.map((item) => `${item.nombre}: ${item.valor}`)?.join(", ") || "",
+  Estado: true,
+  Variantes: formData.Variantes || [],
+}
 
       console.log("Datos del producto a guardar:", productoData)
 

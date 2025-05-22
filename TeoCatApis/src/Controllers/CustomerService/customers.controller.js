@@ -58,6 +58,9 @@ async function sendWelcomeEmail(email, nombre, password) {
   }
 }
 
+
+
+
 // Función para crear token de recuperación que expira en 24 horas
 async function createPasswordResetToken(userId) {
   try {
@@ -164,9 +167,44 @@ export const clientesController = {
         }
       }
 
-      // Crear usuario
       const nuevoUsuario = await usuariosModel.create(usuarioData)
+      res.status(201).json(nuevoUsuario); // <-- Esto debe incluir IdUsuario o id
+
+      // Si el usuario es de rol cliente, crea también el cliente
+      if (nuevoUsuario.IdRol === 2) {
+        const clienteExistente = await clientesModel.getByUsuario(nuevoUsuario.id);
+        if (!clienteExistente) {
+          await clientesModel.create({
+            IdUsuario: nuevoUsuario.id,
+            Nombre: nuevoUsuario.Nombre,
+            Apellido: nuevoUsuario.Apellido,
+            Correo: nuevoUsuario.Correo,
+            Telefono: nuevoUsuario.Telefono,
+            Direccion: nuevoUsuario.Direccion,
+            Documento: nuevoUsuario.Documento,
+            Estado: nuevoUsuario.Estado ? 1 : 0
+          });
+        }
+      }
+
       console.log("Usuario creado:", nuevoUsuario)
+
+      // Si el usuario es de rol cliente, crea también el cliente
+      if (nuevoUsuario.IdRol === 2) {
+        const clienteExistente = await clientesModel.getByUsuario(nuevoUsuario.id)
+        if (!clienteExistente) {
+          await clientesModel.create({
+            IdUsuario: nuevoUsuario.id,
+            Nombre: nuevoUsuario.Nombre,
+            Apellido: nuevoUsuario.Apellido,
+            Correo: nuevoUsuario.Correo,
+            Telefono: nuevoUsuario.Telefono,
+            Direccion: nuevoUsuario.Direccion,
+            Documento: nuevoUsuario.Documento,
+            Estado: nuevoUsuario.Estado ? 1 : 0
+          })
+        }
+      }
 
       // El trigger se encargará de crear el cliente automáticamente
       // Pero necesitamos obtener el ID del cliente para devolverlo
@@ -219,9 +257,39 @@ export const clientesController = {
         }
       }
 
+      // Después de crear el usuario
+      const usuarioCreado = await crearUsuarioEnAPI(datosUsuario);
+      if (usuarioCreado && usuarioCreado.IdUsuario) {
+        await sincronizador.crearClienteDesdeUsuario(usuarioCreado);
+      } else {
+        console.error("No se pudo obtener el ID del usuario creado");
+      }
+
+      // Después de crear el usuario
+      if (nuevoUsuario.IdRol === 2) { // 2 = rol cliente
+        // Verifica si ya existe un cliente asociado
+        const clienteExistente = await clientesModel.getByUsuario(nuevoUsuario.id)
+        if (!clienteExistente) {
+          // Crea el cliente asociado
+          await clientesModel.create({
+            IdUsuario: nuevoUsuario.id,
+            Nombre: nuevoUsuario.Nombre,
+            Apellido: nuevoUsuario.Apellido,
+            Correo: nuevoUsuario.Correo,
+            Telefono: nuevoUsuario.Telefono,
+            Direccion: nuevoUsuario.Direccion,
+            Documento: nuevoUsuario.Documento,
+            Estado: nuevoUsuario.Estado ? 1 : 0
+          })
+        }
+      }
+
+      try {
       // Enviar correo con credenciales temporales
       await sendWelcomeEmail(clienteData.Correo, clienteData.Nombre, tempPassword)
-
+      } catch (correoError) {
+        console.error("Error al enviar correo de bienvenida:", correoError)}
+        
       // Crear token de recuperación que expira en 24 horas para forzar cambio de contraseña
       await createPasswordResetToken(nuevoUsuario.id)
 
