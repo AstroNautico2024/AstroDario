@@ -43,7 +43,7 @@ const ProfileAddresses = ({ user, updateUser }) => {
     }
 
     try {
-      await PerfilClienteService.updatePerfil(user.id, {
+      await PerfilClienteService.updatePerfil(user.IdCliente, {
         ...user,
         Direccion: newAddressForm.direccion,
       })

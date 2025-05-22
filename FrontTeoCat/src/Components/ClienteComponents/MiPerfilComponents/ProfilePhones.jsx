@@ -48,7 +48,7 @@ const ProfilePhones = ({ user, updateUser }) => {
     }
 
     try {
-      await PerfilClienteService.updatePerfil(user.id, {
+      await PerfilClienteService.updatePerfil(user.IdCliente, {
         ...user,
         Telefono: newPhoneForm.numero,
       })

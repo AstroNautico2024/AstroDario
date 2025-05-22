@@ -5,8 +5,11 @@ import { Card, Button, Row, Col, Alert, Badge, Modal, Form } from "react-bootstr
 import { toast } from "react-toastify"
 import "./ProfilePets.scss"
 import MascotasService from "../../../Services/ConsumoCliente/MascotasClienteService.js"
+import axios from "axios"
+import PerfilClienteService from "../../../Services/ConsumoCliente/PerfilClienteService";
 
 const ProfilePets = () => {
+  console.log("ProfilePets se está renderizando");
   const fileInputRef = useRef(null)
   const editFileInputRef = useRef(null)
 
@@ -39,15 +42,41 @@ const ProfilePets = () => {
   // Estado para la mascota seleccionada para ver detalles
   const [selectedPet, setSelectedPet] = useState(null)
 
-  // Define idCliente aquí, NO dentro de useEffect
-  const idCliente = 1 // <-- Usa el id real del cliente autenticado
+  const [usuario, setUsuario] = useState(null);
+  const [idCliente, setIdCliente] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Cargar mascotas del cliente al montar el componente
+  // Cargar usuario y cliente al montar
   useEffect(() => {
-    MascotasService.getMascotasByCliente(idCliente).then((mascotas) => {
-      setPets(mascotas)
-    })
-  }, [idCliente])
+    const fetchPerfil = async () => {
+      try {
+        const rawUser = localStorage.getItem("userData");
+        console.log("userData en localStorage:", rawUser);
+        const usuarioData = await PerfilClienteService.getPerfil();
+        console.log("usuarioData retornado:", usuarioData);
+        setUsuario(usuarioData);
+        setIdCliente(usuarioData?.IdCliente);
+      } catch (error) {
+        setError(error?.message || "Error al cargar perfil");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchPerfil();
+  }, []);
+
+  // Cuando tengas el idCliente, carga las mascotas
+  useEffect(() => {
+    if (!idCliente) return;
+    MascotasService.getMascotasByCliente(idCliente).then((data) => {
+      setPets(Array.isArray(data) ? data : []);
+    });
+  }, [idCliente]);
+
+  if (loading) return <div>Cargando...</div>;
+  if (error) return <div style={{ color: "red" }}>{error}</div>;
+  if (!usuario) return <div>No autenticado</div>;
 
   // Manejar cambios en el formulario de nueva mascota
   const handleNewPetChange = (e) => {
@@ -112,7 +141,7 @@ const ProfilePets = () => {
     // Crear nueva mascota con la imagen (en producción, habría que subir la imagen)
     const newPet = {
       id: pets.length + 1,
-      idCliente: 1, // Asumimos que el ID del cliente es 1
+      idCliente: idCliente, // <-- aquí usas el idCliente real
       nombre: newPetForm.nombre,
       especie: newPetForm.especie,
       raza: newPetForm.raza,
@@ -221,6 +250,11 @@ const ProfilePets = () => {
     } else {
       return `${years} años y ${months} meses`
     }
+  }
+
+  const getPerfil = async () => {
+    const response = await axios.get("/auth/me")
+    return response.data
   }
 
   return (
@@ -608,7 +642,6 @@ const ProfilePets = () => {
                   <i className="bi bi-trash me-1"></i> Eliminar
                 </Button>
               </div>
-              {/* Mini footer con derechos de la empresa */}
               <div className="tc-pet-carnet-copyright">
                 <p>© {new Date().getFullYear()} Teo/Cat. Todos los derechos reservados.</p>
               </div>

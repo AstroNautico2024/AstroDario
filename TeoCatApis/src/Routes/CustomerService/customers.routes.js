@@ -11,7 +11,12 @@ const router = express.Router();
 router.get('/clientes', authMiddleware, validatePermission('Visualizar Clientes'), clientesController.getAll);
 router.get('/clientes/search', authMiddleware, validatePermission('Visualizar Clientes'), clientesController.search);
 router.get('/clientes/:id', authMiddleware, validatePermission('Visualizar Clientes'), clientesController.getById);
-// router.get('/usuarios/:idUsuario/cliente', authMiddleware, validatePermission('Visualizar Clientes'), clientesController.getByUsuario);
+router.get(
+  '/clientes/byUsuario/:idUsuario',
+  authMiddleware,
+  validatePermission('Visualizar Clientes'),
+  clientesController.getByUsuario // <-- asegúrate de tener este método en tu controlador
+);
 router.post('/clientes', authMiddleware, validatePermission('Crear Clientes'), uploadMiddleware.single('foto'), handleMulterError, clientesController.create);
 router.put('/clientes/:id', authMiddleware, validatePermission('Modificar Clientes'), uploadMiddleware.single('foto'), handleMulterError, clientesController.update);
 router.delete('/clientes/:id', authMiddleware, validatePermission('Eliminar Clientes'), clientesController.delete);

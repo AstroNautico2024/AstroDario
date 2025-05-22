@@ -481,6 +481,17 @@ export const clientesController = {
       res.status(500).json({ message: "Error en el servidor", error: error.message })
     }
   },
+  
+  // Obtener un cliente por IdUsuario
+  getByUsuario: async (req, res) => {
+    try {
+      const cliente = await Cliente.findOne({ where: { IdUsuario: req.params.idUsuario } });
+      if (!cliente) return res.status(404).json({ message: "Cliente no encontrado" });
+      res.json(cliente);
+    } catch (error) {
+      res.status(500).json({ message: "Error del servidor", error });
+    }
+  }
 }
 
 // Controlador para mascotas

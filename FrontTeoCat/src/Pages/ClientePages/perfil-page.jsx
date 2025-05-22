@@ -164,15 +164,14 @@ const userNormalized = user && {
   apellido: user.Apellido ?? user.apellido,
   correo: user.Correo ?? user.correo,
   documento: user.Documento ?? user.documento ?? user.Doc,
-  direccion: user.Direccion ?? user.direccion,
-  telefono: user.Telefono ?? user.telefono,
+  Direccion: user.Direccion ?? user.direccion, // <-- SIEMPRE 'Direccion'
+  Telefono: user.Telefono ?? user.telefono,     // <-- SIEMPRE 'Telefono'
   foto: user.FotoURL ?? user.Foto ?? user.foto ?? user.fotoURL,
-  // Normaliza direcciones y teléfonos como arrays para los componentes
-  direcciones: user.Direccion
-    ? [{ id: 1, direccion: user.Direccion, principal: true }]
+  direcciones: (user.Direccion ?? user.direccion)
+    ? [{ id: 1, direccion: user.Direccion ?? user.direccion, principal: true }]
     : [],
-  telefonos: user.Telefono
-    ? [{ id: 1, numero: user.Telefono, principal: true }]
+  telefonos: (user.Telefono ?? user.telefono)
+    ? [{ id: 1, numero: user.Telefono ?? user.telefono, principal: true }]
     : [],
   ...user
 }
