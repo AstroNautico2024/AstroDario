@@ -18,6 +18,8 @@ import ProfileReviews from "../../Components/ClienteComponents/MiPerfilComponent
 
 // Service para consumir el perfil real
 import PerfilClienteService from "../../Services/ConsumoCliente/PerfilClienteService"
+import CitasClienteService from "../../Services/ConsumoCliente/CitasClienteService"
+import MascotasClienteService from "../../Services/ConsumoCliente/MascotasClienteService"
 
 // Estilos
 import "./perfil-page.scss"
@@ -32,28 +34,7 @@ const PerfilPage = () => {
   const [error, setError] = useState(null)
 
   // Estado para las mascotas del usuario
-  const [pets, setPets] = useState([
-    {
-      id: 1,
-      idCliente: 1,
-      nombre: "Max",
-      especie: "Perro",
-      raza: "Labrador",
-      tamaño: "Grande",
-      fechaNacimiento: "2021-03-15",
-      image: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=300",
-    },
-    {
-      id: 2,
-      idCliente: 1,
-      nombre: "Luna",
-      especie: "Gato",
-      raza: "Siamés",
-      tamaño: "Pequeño",
-      fechaNacimiento: "2022-05-20",
-      image: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=300",
-    },
-  ])
+  const [pets, setPets] = useState([])
 
   // Estado para los pedidos del usuario
   const [orders, setOrders] = useState([
@@ -78,24 +59,7 @@ const PerfilPage = () => {
   ])
 
   // Estado para las citas del usuario
-  const [appointments, setAppointments] = useState([
-    {
-      id: "APT-2023-001",
-      service: "Peluquería Canina",
-      pet: "Max",
-      date: "2023-12-10",
-      time: "10:00 AM",
-      status: "Completada",
-    },
-    {
-      id: "APT-2024-001",
-      service: "Baño y Spa",
-      pet: "Max",
-      date: "2024-02-05",
-      time: "11:30 AM",
-      status: "Programada",
-    },
-  ])
+  const [appointments, setAppointments] = useState([])
 
   // Estado para las reseñas del usuario
   const [reviews, setReviews] = useState([
@@ -157,24 +121,74 @@ const PerfilPage = () => {
     fetchPerfil()
   }, [])
 
+  // Cargar mascotas reales
+  useEffect(() => {
+    if (!user) return
+    const fetchMascotas = async () => {
+      try {
+        const mascotas = await MascotasClienteService.getMascotasByCliente(user.IdCliente || user.idCliente || user.id)
+        setPets(
+          mascotas.map((m) => ({
+            id: m.IdMascota || m.id,
+            nombre: m.Nombre || m.nombre,
+            especie: m.Especie || m.especie,
+            raza: m.Raza || m.raza,
+            tamaño: m.Tamaño || m.tamaño,
+            fechaNacimiento: m.FechaNacimiento || m.fechaNacimiento,
+            image: m.Foto || m.imagen || "/placeholder.svg",
+            ...m,
+          }))
+        )
+      } catch (err) {
+        setError("Error al cargar mascotas")
+      }
+    }
+    fetchMascotas()
+  }, [user])
+
+  // Cargar citas reales
+  useEffect(() => {
+    if (!user) return
+    const fetchCitas = async () => {
+      try {
+        const citas = await CitasClienteService.getCitasPorCliente(user.IdCliente || user.idCliente || user.id)
+        setAppointments(
+          citas.map((cita) => ({
+            id: cita.IdCita || cita.id,
+            service: cita.Servicios?.map(s => s.Nombre).join(", ") || cita.servicio || "",
+            pet: cita.Mascota?.Nombre || cita.mascota || "",
+            date: cita.Fecha ? cita.Fecha.split("T")[0] : "",
+            time: cita.Fecha ? cita.Fecha.split("T")[1]?.substring(0, 5) : "",
+            status: cita.Estado || "Programada",
+            ...cita,
+          }))
+        )
+      } catch (err) {
+        setError("Error al cargar citas")
+      }
+    }
+    fetchCitas()
+  }, [user])
+
   // Normalizar datos del usuario para los componentes hijos
-const userNormalized = user && {
-  id: user.IdUsuario ?? user.id,
-  nombre: user.Nombre ?? user.nombre,
-  apellido: user.Apellido ?? user.apellido,
-  correo: user.Correo ?? user.correo,
-  documento: user.Documento ?? user.documento ?? user.Doc,
-  Direccion: user.Direccion ?? user.direccion, // <-- SIEMPRE 'Direccion'
-  Telefono: user.Telefono ?? user.telefono,     // <-- SIEMPRE 'Telefono'
-  foto: user.FotoURL ?? user.Foto ?? user.foto ?? user.fotoURL,
-  direcciones: (user.Direccion ?? user.direccion)
-    ? [{ id: 1, direccion: user.Direccion ?? user.direccion, principal: true }]
-    : [],
-  telefonos: (user.Telefono ?? user.telefono)
-    ? [{ id: 1, numero: user.Telefono ?? user.telefono, principal: true }]
-    : [],
-  ...user
-}
+  const userNormalized = user && {
+    id: user.IdUsuario ?? user.id,
+    nombre: user.Nombre ?? user.nombre,
+    apellido: user.Apellido ?? user.apellido,
+    correo: user.Correo ?? user.correo,
+    documento: user.Documento ?? user.documento ?? user.Doc,
+    direccion: user.Direccion ?? user.direccion,
+    telefono: user.Telefono ?? user.telefono,
+    foto: user.FotoURL ?? user.Foto ?? user.foto ?? user.fotoURL,
+    // Normaliza direcciones y teléfonos como arrays para los componentes
+    direcciones: user.Direccion
+      ? [{ id: 1, direccion: user.Direccion, principal: true }]
+      : [],
+    telefonos: user.Telefono
+      ? [{ id: 1, numero: user.Telefono, principal: true }]
+      : [],
+    ...user
+  }
 
   // Actualizar usuario
   const updateUser = (updatedUser) => {
@@ -211,6 +225,12 @@ const userNormalized = user && {
         return (
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
             <ProfilePets pets={pets} updatePets={updatePets} />
+            {pets.map(pet => (
+              <div key={pet.id}>
+                <img src={pet.imagen} alt={pet.nombre} />
+                <p>{pet.nombre} - {pet.especie} - {pet.raza}</p>
+              </div>
+            ))}
           </motion.div>
         )
       case "orders":

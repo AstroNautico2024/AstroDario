@@ -19,7 +19,11 @@ const ServiceCard = ({ service, addService, isSelected, viewMode = "grid" }) => 
             <div className="d-flex justify-content-between align-items-start">
               <Card.Title className="service-card-title">{service.name}</Card.Title>
               <div className="d-flex flex-column align-items-end">
-                <span className="service-card-price">${service.price.toLocaleString()}</span>
+                <span>
+                  {typeof service.price === "number"
+                    ? service.price.toLocaleString("es-CO", { style: "currency", currency: "COP" })
+                    : "Precio no disponible"}
+                </span>
                 <span className="service-card-duration">{service.duration} min</span>
               </div>
             </div>
@@ -62,7 +66,9 @@ const ServiceCard = ({ service, addService, isSelected, viewMode = "grid" }) => 
         <div className="d-flex justify-content-between align-items-start">
           <Card.Title className="service-card-title">{service.name}</Card.Title>
           <div className="d-flex flex-column align-items-end">
-            <span className="service-card-price">${service.price.toLocaleString()}</span>
+            <span>
+              {service.price}
+            </span>
             <span className="service-card-duration">{service.duration} min</span>
           </div>
         </div>

@@ -189,6 +189,30 @@ export const CalendarComponent = ({ selectedDate, onDateSelect, citasAgendadas }
                     {dayObj.citasCount > 0 && dayObj.isCurrentMonth && (
                       <span className={`day-status ${dayObj.disponibilidad}`}></span>
                     )}
+                    {dayObj.citasCount > 0 && dayObj.isCurrentMonth && (
+                      <div className="citas-details">
+                        {citasAgendadas
+                          .filter((cita) => {
+                            const citaDate = new Date(cita.fecha)
+                            return (
+                              citaDate.getDate() === dayObj.date.getDate() &&
+                              citaDate.getMonth() === dayObj.date.getMonth() &&
+                              citaDate.getFullYear() === dayObj.date.getFullYear()
+                            )
+                          })
+                          .map((cita, index) => (
+                            <div key={index}>
+                              <p>Cliente: {cita.Cliente.Nombre}</p>
+                              <p>Mascota: {cita.Mascota.Nombre}</p>
+                              <ul>
+                                {cita.Servicios.map((servicio) => (
+                                  <li key={servicio.IdServicio}>{servicio.Nombre}</li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                      </div>
+                    )}
                   </div>
                 </td>
               ))}

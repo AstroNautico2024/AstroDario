@@ -5,21 +5,15 @@ import { Card, Button, Row, Col, Alert, Badge, Modal, Form } from "react-bootstr
 import { toast } from "react-toastify"
 import "./ProfilePets.scss"
 import MascotasService from "../../../Services/ConsumoCliente/MascotasClienteService.js"
-import axios from "axios"
 import PerfilClienteService from "../../../Services/ConsumoCliente/PerfilClienteService";
+import EspeciesClienteService from "../../../Services/ConsumoCliente/EspeciesClienteService";
 
 const ProfilePets = () => {
-  console.log("ProfilePets se está renderizando");
   const fileInputRef = useRef(null)
   const editFileInputRef = useRef(null)
 
-  // Estado para las mascotas
   const [pets, setPets] = useState([])
-
-  // Estado para el modal de nueva mascota
   const [showPetModal, setShowPetModal] = useState(false)
-
-  // Estado para el formulario de nueva mascota
   const [newPetForm, setNewPetForm] = useState({
     nombre: "",
     especie: "",
@@ -29,34 +23,23 @@ const ProfilePets = () => {
     foto: null,
     fotoPreview: "",
   })
-
-  // Estado para el modal de editar mascota
   const [showEditPetModal, setShowEditPetModal] = useState(false)
-
-  // Estado para la mascota que se está editando
   const [editingPet, setEditingPet] = useState(null)
-
-  // Estado para mostrar detalles de mascota
   const [showPetDetails, setShowPetDetails] = useState(false)
-
-  // Estado para la mascota seleccionada para ver detalles
   const [selectedPet, setSelectedPet] = useState(null)
-
   const [usuario, setUsuario] = useState(null);
   const [idCliente, setIdCliente] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [especies, setEspecies] = useState([]);
 
   // Cargar usuario y cliente al montar
   useEffect(() => {
     const fetchPerfil = async () => {
       try {
-        const rawUser = localStorage.getItem("userData");
-        console.log("userData en localStorage:", rawUser);
         const usuarioData = await PerfilClienteService.getPerfil();
-        console.log("usuarioData retornado:", usuarioData);
         setUsuario(usuarioData);
-        setIdCliente(usuarioData?.IdCliente);
+        setIdCliente(usuarioData.cliente.id);
       } catch (error) {
         setError(error?.message || "Error al cargar perfil");
       } finally {
@@ -67,12 +50,32 @@ const ProfilePets = () => {
   }, []);
 
   // Cuando tengas el idCliente, carga las mascotas
-  useEffect(() => {
+  const fetchMascotas = async () => {
     if (!idCliente) return;
-    MascotasService.getMascotasByCliente(idCliente).then((data) => {
-      setPets(Array.isArray(data) ? data : []);
-    });
+    const data = await MascotasService.getMascotasByCliente(idCliente);
+    const mappedPets = Array.isArray(data)
+      ? data.map(m => ({
+          id: m.IdMascota ?? m.id,
+          idCliente: m.IdCliente ?? m.idCliente,
+          nombre: m.Nombre ?? m.nombre ?? "",
+          especie: m.Especie ?? m.especie ?? "",
+          raza: m.Raza ?? m.raza ?? "",
+          tamaño: m.Tamaño ?? m.tamaño ?? "",
+          fechaNacimiento: (m.FechaNacimiento ?? m.fechaNacimiento ?? "").slice(0, 10),
+          image: m.Foto ? `http://localhost:5173/${m.Foto}` : "",
+        }))
+      : [];
+    setPets(mappedPets);
+  };
+
+  useEffect(() => {
+    fetchMascotas();
+    // eslint-disable-next-line
   }, [idCliente]);
+
+  useEffect(() => {
+    EspeciesClienteService.getAll().then(setEspecies);
+  }, []);
 
   if (loading) return <div>Cargando...</div>;
   if (error) return <div style={{ color: "red" }}>{error}</div>;
@@ -122,11 +125,10 @@ const ProfilePets = () => {
     })
   }
 
-  // Agregar nueva mascota
-  const handleAddPet = (e) => {
-    e.preventDefault()
+  // Agregar nueva mascota (POST)
+  const handleAddPet = async (e) => {
+    e.preventDefault();
 
-    // Validar formulario
     if (
       !newPetForm.nombre ||
       !newPetForm.especie ||
@@ -134,50 +136,52 @@ const ProfilePets = () => {
       !newPetForm.tamaño ||
       !newPetForm.fechaNacimiento
     ) {
-      toast.error("Por favor completa todos los campos obligatorios")
-      return
+      toast.error("Por favor completa todos los campos obligatorios");
+      return;
     }
 
-    // Crear nueva mascota con la imagen (en producción, habría que subir la imagen)
-    const newPet = {
-      id: pets.length + 1,
-      idCliente: idCliente, // <-- aquí usas el idCliente real
-      nombre: newPetForm.nombre,
-      especie: newPetForm.especie,
-      raza: newPetForm.raza,
-      tamaño: newPetForm.tamaño,
-      fechaNacimiento: newPetForm.fechaNacimiento,
-      image:
-        newPetForm.fotoPreview ||
-        (newPetForm.especie === "Perro"
-          ? "https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=300"
-          : "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=300"),
+    try {
+      await MascotasService.createMascota(idCliente, {
+        IdEspecie: parseInt(newPetForm.especie, 10),
+        IdCliente: idCliente,
+        Nombre: newPetForm.nombre,
+        Foto: null, // <-- Cambia esto, no envíes el File
+        Raza: newPetForm.raza,
+        Tamaño: newPetForm.tamaño,
+        FechaNacimiento: newPetForm.fechaNacimiento,
+      });
+      setShowPetModal(false);
+      setNewPetForm({
+        nombre: "",
+        especie: "",
+        raza: "",
+        tamaño: "Pequeño",
+        fechaNacimiento: "",
+        foto: null,
+        fotoPreview: "",
+      });
+      toast.success("Mascota agregada correctamente");
+      await fetchMascotas();
+    } catch (error) {
+      toast.error(error?.message || "Error al agregar mascota");
     }
-
-    // Agregar a la lista de mascotas
-    setPets([...pets, newPet])
-
-    // Cerrar modal y resetear formulario
-    setShowPetModal(false)
-    setNewPetForm({
-      nombre: "",
-      especie: "",
-      raza: "",
-      tamaño: "Pequeño",
-      fechaNacimiento: "",
-      foto: null,
-      fotoPreview: "",
-    })
-
-    toast.success("Mascota agregada correctamente")
-  }
+  };
 
   // Abrir modal para editar mascota
   const handleEditPetClick = (pet) => {
-    const petToEdit = { ...pet, foto: null, fotoPreview: pet.image || "" }
-    setEditingPet(petToEdit)
-    setShowEditPetModal(true)
-  }
+    const petToEdit = {
+      ...pet,
+      nombre: pet.nombre ?? "",
+      especie: pet.especie ?? "",
+      raza: pet.raza ?? "",
+      tamaño: pet.tamaño ?? "",
+      fechaNacimiento: pet.fechaNacimiento ? pet.fechaNacimiento.slice(0, 10) : "",
+      foto: null,
+      fotoPreview: pet.image || "",
+    };
+    setEditingPet(petToEdit);
+    setShowEditPetModal(true);
+  };
 
   // Abrir modal para ver detalles de mascota
   const handleViewPetDetails = (pet) => {
@@ -185,11 +189,10 @@ const ProfilePets = () => {
     setShowPetDetails(true)
   }
 
-  // Guardar cambios de mascota
-  const handleSavePet = (e) => {
-    e.preventDefault()
+  // Guardar cambios de mascota (PUT)
+  const handleSavePet = async (e) => {
+    e.preventDefault();
 
-    // Validar formulario
     if (
       !editingPet.nombre ||
       !editingPet.especie ||
@@ -197,52 +200,49 @@ const ProfilePets = () => {
       !editingPet.tamaño ||
       !editingPet.fechaNacimiento
     ) {
-      toast.error("Por favor completa todos los campos")
-      return
+      toast.error("Por favor completa todos los campos");
+      return;
     }
 
-    // Actualizar mascota en la lista
-    const updatedPets = pets.map((pet) => {
-      if (pet.id === editingPet.id) {
-        // Si hay una nueva foto, usar su preview; de lo contrario, mantener la existente
-        const updatedImage = editingPet.fotoPreview || pet.image
-        return {
-          ...editingPet,
-          image: updatedImage,
-        }
-      }
-      return pet
-    })
+    try {
+      await MascotasService.updateMascota(editingPet.id, {
+        Nombre: editingPet.nombre,
+        Especie: editingPet.especie,
+        Raza: editingPet.raza,
+        Tamaño: editingPet.tamaño,
+        FechaNacimiento: editingPet.fechaNacimiento,
+        Foto: editingPet.foto,
+      });
+      setShowEditPetModal(false);
+      setEditingPet(null);
+      toast.success("Mascota actualizada correctamente");
+      await fetchMascotas();
+    } catch (error) {
+      toast.error(error?.message || "Error al actualizar mascota");
+    }
+  };
 
-    setPets(updatedPets)
-
-    // Cerrar modal
-    setShowEditPetModal(false)
-    setEditingPet(null)
-
-    toast.success("Mascota actualizada correctamente")
-  }
-
-  // Eliminar mascota
-  const handleDeletePet = (petId) => {
-    const updatedPets = pets.filter((pet) => pet.id !== petId)
-    setPets(updatedPets)
-    toast.success("Mascota eliminada correctamente")
-  }
+  // Eliminar mascota (DELETE)
+  const handleDeletePet = async (petId) => {
+    try {
+      await MascotasService.deleteMascota(petId);
+      toast.success("Mascota eliminada correctamente");
+      await fetchMascotas();
+    } catch (error) {
+      toast.error(error?.message || "Error al eliminar mascota");
+    }
+  };
 
   // Calcular la edad de la mascota en años y meses
   const calculateAge = (birthDate) => {
     const birth = new Date(birthDate)
     const today = new Date()
-
     let years = today.getFullYear() - birth.getFullYear()
     let months = today.getMonth() - birth.getMonth()
-
     if (months < 0) {
       years--
       months += 12
     }
-
     if (years === 0) {
       return `${months} meses`
     } else if (months === 0) {
@@ -250,11 +250,6 @@ const ProfilePets = () => {
     } else {
       return `${years} años y ${months} meses`
     }
-  }
-
-  const getPerfil = async () => {
-    const response = await axios.get("/auth/me")
-    return response.data
   }
 
   return (
@@ -363,10 +358,9 @@ const ProfilePets = () => {
               <Form.Label>Especie *</Form.Label>
               <Form.Select name="especie" value={newPetForm.especie} onChange={handleNewPetChange} required>
                 <option value="">Seleccionar...</option>
-                <option value="Perro">Perro</option>
-                <option value="Gato">Gato</option>
-                <option value="Ave">Ave</option>
-                <option value="Otro">Otro</option>
+                {especies.map(e => (
+                  <option key={e.IdEspecie} value={e.IdEspecie}>{e.NombreEspecie}</option>
+                ))}
               </Form.Select>
             </Form.Group>
             <Form.Group className="mb-3" controlId="petRaza">

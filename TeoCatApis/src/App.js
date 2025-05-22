@@ -16,6 +16,7 @@ import publicCatalogRoutes from '../src/Routes/ProductService/public-catalog.rou
 import publicReviewsRoutes from '../src/Routes/ReviewService/public-reviews.routes.js'; // Nueva importación
 import publicServicesRoutes from '../src/Routes/ServiceManagement/public-services.routes.js'; // Nueva importación
 import publicServicesReviewsRoutes from '../src/Routes/ReviewService/public-reviews.routes.js';// Nueva importación
+import publicCartRoutes from '../src/Routes/SalesService/public-cart.routes.js'; // Nueva importación
 import servicesRoutes from '../src/Routes/ServiceManagement/service.routes.js';
 import salesRoutes from '../src/Routes/SalesService/sales.routes.js';
 import purchasesRoutes from '../src/Routes/PurchaseService/purchases.routes.js';
@@ -117,6 +118,7 @@ app.use('/api/customers', customersRoutes);
 app.use('/api/products', productsRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/sales', salesRoutes);
+app.use('/api/sales', publicCartRoutes); // Nueva ruta pública para carrito de compras
 app.use('/api/purchases', purchasesRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/reviews', reviewsRoutes);

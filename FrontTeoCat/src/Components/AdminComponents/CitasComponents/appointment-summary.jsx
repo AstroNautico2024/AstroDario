@@ -4,36 +4,32 @@ export const AppointmentSummary = ({ formData, selectedDate }) => {
   // Calcular duración total
   const duracionTotal = formData.servicios.reduce((total, servicio) => total + servicio.duracion, 0)
 
+    const precioTotal = formData.servicios.reduce(
+      (total, servicio) => {
+        let precio = servicio.precio;
+        if (typeof precio === 'string') {
+          precio = parseFloat(precio.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.'));
+        }
+        return Number(total) + (isNaN(precio) ? 0 : precio);
+      },
+      0
+    );
   // Calcular precio total
-  const precioTotal = formData.servicios.reduce((total, servicio) => {
-    let precio = servicio.precio;
-    if (typeof precio === 'string') {
-      precio = parseFloat(precio.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.'));
-    }
-    return total + (isNaN(precio) ? 0 : precio);
-  }, 0)
-
-  // Formatear precio sin ceros iniciales
   const formatPrice = (price) => {
     if (price === null || price === undefined) return '$0';
-    
-    // Convertir a número si es string
-    if (typeof price === 'string') {
-      // Eliminar el símbolo $ y cualquier otro carácter no numérico
-      const precioLimpio = price.replace(/[^\d.,]/g, '');
-      price = parseFloat(precioLimpio.replace(/\./g, '').replace(',', '.'));
-    }
-    
-    // Asegurarse de que sea un número válido
-    if (isNaN(price)) return '$0';
-    
-    // Formatear el número con separadores de miles
-    return price.toLocaleString('es-CO', {
+  
+    // Si es string, elimina caracteres no numéricos y convierte a número
+    let num = typeof price === 'string'
+      ? parseFloat(price.replace(/[^\d.,]/g, '').replace(/\./g, '').replace(',', '.'))
+      : Number(price);
+  
+    if (isNaN(num)) return '$0';
+  
+    return num.toLocaleString('es-CO', {
       minimumFractionDigits: 0,
       maximumFractionDigits: 0
     });
   }
-
   return (
     <div className="resumen-cita">
       <h4>Resumen de la Cita</h4>

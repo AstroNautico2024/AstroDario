@@ -2,16 +2,19 @@
 import { useState, useEffect } from "react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import { Navbar as BSNavbar, Container, Nav, Button, Badge, Dropdown } from "react-bootstrap"
+import { useCart } from "../../Context/CartContext.jsx"
 import "./Navbar.scss"
 
 const Navbar = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [cartCount, setCartCount] = useState(0)
-  const [notificationCount, setNotificationCount] = useState(2) // Ejemplo de notificaciones
+  const [notificationCount, setNotificationCount] = useState(2)
   const [userData, setUserData] = useState({ nombre: "", apellido: "", correo: "" })
   const location = useLocation()
   const navigate = useNavigate()
   const [scrolled, setScrolled] = useState(false)
+
+  // Usa el contador global del contexto
+  const { cartCount } = useCart()
 
   useEffect(() => {
     // Verificar si el usuario está autenticado
@@ -20,16 +23,12 @@ const Navbar = () => {
 
     // Obtener datos del usuario si está autenticado
     if (token) {
-      // En producción, aquí harías una petición a tu API
-      // Simulación de datos de usuario
       const userDataStr = localStorage.getItem("userData")
       if (userDataStr) {
         try {
           const parsedUserData = JSON.parse(userDataStr)
           setUserData(parsedUserData)
         } catch (error) {
-          console.error("Error parsing user data:", error)
-          // Datos de usuario de ejemplo en caso de error
           setUserData({
             nombre: "Usuario",
             apellido: "Ejemplo",
@@ -37,7 +36,6 @@ const Navbar = () => {
           })
         }
       } else {
-        // Datos de usuario de ejemplo si no hay datos en localStorage
         setUserData({
           nombre: "Usuario",
           apellido: "Ejemplo",
@@ -46,32 +44,13 @@ const Navbar = () => {
       }
     }
 
-    // Obtener cantidad de productos en el carrito desde localStorage
-    const cart = JSON.parse(localStorage.getItem("cart") || "[]")
-    setCartCount(cart.length)
-
     // Efecto de scroll para el navbar
     const handleScroll = () => {
-      if (window.scrollY > 50) {
-        setScrolled(true)
-      } else {
-        setScrolled(false)
-      }
+      setScrolled(window.scrollY > 50)
     }
 
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
-  }, [])
-
-  // Actualizar el contador del carrito cuando cambia
-  useEffect(() => {
-    const handleStorageChange = () => {
-      const cart = JSON.parse(localStorage.getItem("cart") || "[]")
-      setCartCount(cart.length)
-    }
-
-    window.addEventListener("storage", handleStorageChange)
-    return () => window.removeEventListener("storage", handleStorageChange)
   }, [])
 
   // Manejar clic en notificaciones
@@ -88,7 +67,6 @@ const Navbar = () => {
   return (
     <BSNavbar expand="lg" fixed="top" className={`custom-navbar ${scrolled ? "navbar-scrolled" : ""}`}>
       <Container>
-        {/* Corregido: Usar Link directamente dentro de BSNavbar.Brand */}
         <BSNavbar.Brand className="navbar-logo">
           <Link to="/">
             <img
@@ -103,7 +81,6 @@ const Navbar = () => {
 
         <BSNavbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
-            {/* Corregido: Usar Nav.Item con Link dentro */}
             <Nav.Item>
               <Link to="/" className={`nav-link ${location.pathname === "/" ? "active" : ""}`}>
                 Inicio
@@ -141,12 +118,10 @@ const Navbar = () => {
                     </Badge>
                   )}
                 </Dropdown.Toggle>
-
                 <Dropdown.Menu className="notification-dropdown-menu">
                   <div className="notification-header px-3 py-2 border-bottom">
                     <h6 className="mb-0">Notificaciones</h6>
                   </div>
-                  {/* Corregido: Usar div en lugar de Dropdown.Item para eventos de clic */}
                   <div 
                     className="notification-item dropdown-item"
                     onClick={() => handleNotificationClick("order", "ORD-2023-001")}
@@ -172,7 +147,6 @@ const Navbar = () => {
                     </div>
                   </div>
                   <Dropdown.Divider />
-                  {/* Corregido: Usar Link directamente */}
                   <div className="text-center dropdown-item">
                     <Link to="/perfil" className="text-decoration-none">
                       <small>Ver todas las notificaciones</small>
@@ -182,7 +156,7 @@ const Navbar = () => {
               </Dropdown>
             </div>
 
-            {/* Icono del carrito - Corregido: Ya usa Link correctamente */}
+            {/* Icono del carrito */}
             <div className="cart-icon-container">
               <Link to="/carrito" className="cart-icon">
                 <i className="bi bi-cart3 fs-4"></i>
@@ -201,7 +175,6 @@ const Navbar = () => {
                     <i className="bi bi-person-circle me-1"></i>
                     <span className="user-name d-none d-md-inline">{userData.nombre}</span>
                   </Dropdown.Toggle>
-
                   <Dropdown.Menu align="end" className="user-dropdown-menu">
                     <div className="user-info px-3 py-2 text-center border-bottom">
                       <div className="user-avatar mb-2">
@@ -212,7 +185,6 @@ const Navbar = () => {
                       </h6>
                       <small className="text-muted">{userData.correo}</small>
                     </div>
-                    {/* Corregido: Usar div con Link dentro */}
                     <div className="dropdown-item p-0">
                       <Link to="/perfil" className="dropdown-item">
                         <i className="bi bi-person me-2"></i> Mi Perfil
@@ -230,34 +202,25 @@ const Navbar = () => {
                     </div>
                     <Dropdown.Divider />
                     <div className="dropdown-item p-0">
-                    <Link
-                      to="/"
-                      className="dropdown-item text-danger"
-                      onClick={(e) => {
-                        e.preventDefault(); // Prevenir la navegación por defecto
-                        
-                        // Eliminar datos del localStorage
-                        localStorage.removeItem("token");
-                        localStorage.removeItem("userRole");
-                        localStorage.removeItem("userData");
-                        
-                        // Disparar evento personalizado para notificar a RolRoutes
-                        window.dispatchEvent(new Event("logout"));
-                        
-                        // También podemos forzar una actualización del estado local
-                        setIsLoggedIn(false);
-                        
-                        // Opcional: redirigir manualmente (aunque RolRoutes debería manejarlo)
-                        navigate("/");
-                      }}
-                    >
-                      <i className="bi bi-box-arrow-right me-2"></i> Cerrar Sesión
-                    </Link>
+                      <Link
+                        to="/"
+                        className="dropdown-item text-danger"
+                        onClick={(e) => {
+                          e.preventDefault()
+                          localStorage.removeItem("token")
+                          localStorage.removeItem("userRole")
+                          localStorage.removeItem("userData")
+                          window.dispatchEvent(new Event("logout"))
+                          setIsLoggedIn(false)
+                          navigate("/")
+                        }}
+                      >
+                        <i className="bi bi-box-arrow-right me-2"></i> Cerrar Sesión
+                      </Link>
                     </div>
                   </Dropdown.Menu>
                 </Dropdown>
               ) : (
-                // Corregido: Usar Link directamente con clases de Bootstrap
                 <Link to="/login" className="btn btn-success login-btn">
                   <i className="bi bi-box-arrow-in-right me-1"></i> Iniciar Sesión
                 </Link>

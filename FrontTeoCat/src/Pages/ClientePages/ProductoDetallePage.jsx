@@ -297,13 +297,14 @@ const ProductoDetallePage = () => {
     window.dispatchEvent(new Event("storage"))
 
     // Mostrar notificación
-    toast.success(`${quantity} ${quantity > 1 ? "unidades" : "unidad"} añadidas al carrito`, {
+     toast.success(`${quantity} ${quantity > 1 ? "unidades" : "unidad"} añadidas al carrito`, {
       position: "top-right",
       autoClose: 2000,
       hideProgressBar: false,
       closeOnClick: true,
-      pauseOnHover: true,
+      pauseOnHover: false, // <--- Cambia esto a false
       draggable: true,
+      progress: undefined
     })
   }
 

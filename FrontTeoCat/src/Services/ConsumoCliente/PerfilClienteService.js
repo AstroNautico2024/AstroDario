@@ -1,4 +1,4 @@
-import axios from "../ConsumoCliente/AxiosCliente"
+import axios from "../ConsumoCliente/AxiosCliente";
 
 const PerfilClienteService = {
   getPerfil: async () => {
@@ -22,7 +22,7 @@ const PerfilClienteService = {
         // Puedes agregar más campos si lo necesitas
       };
     } catch (error) {
-      throw error?.response?.data || { message: "Error al obtener perfil de usuario" }
+      throw error?.response?.data || { message: "Error al obtener perfil de usuario" };
     }
   },
 
@@ -32,9 +32,9 @@ const PerfilClienteService = {
       const response = await axios.put(`/customers/clientes/${idCliente}`, data);
       return response.data;
     } catch (error) {
-      throw error?.response?.data || { message: "Error al actualizar perfil" }
+      throw error?.response?.data || { message: "Error al actualizar perfil" };
     }
-  }
-}
+  },
+};
 
 export default PerfilClienteService;

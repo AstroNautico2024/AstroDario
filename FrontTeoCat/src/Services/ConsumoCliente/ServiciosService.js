@@ -2,7 +2,6 @@ import axios from "../../Services/ConsumoAdmin/axios.js"
 
 /**
  * Servicio para gestionar el catálogo de servicios
- * Implementa el patrón SOA (Service-Oriented Architecture)
  */
 class ServiciosService {
   /**
@@ -24,6 +23,14 @@ class ServiciosService {
       } else if (Array.isArray(response.data)) {
         // Si la respuesta es directamente un array
         servicios = response.data
+      }
+
+      if (Array.isArray(servicios)) {
+        servicios = servicios.map(s => ({
+          ...s,
+          id: s.id || s.IdServicio, // Normaliza el id
+          price: s.price || s.Precio // Normaliza el price
+        }));
       }
 
       console.log("Array de servicios extraído:", servicios)

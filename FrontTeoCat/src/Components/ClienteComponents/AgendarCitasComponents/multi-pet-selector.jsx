@@ -40,7 +40,7 @@ const MultiPetSelector = ({ pets, selectedPets, setSelectedPets }) => {
 
       <Row className="g-3">
         {pets.map((pet) => (
-          <Col md={6} key={pet.id}>
+          <Col md={6} key={pet.id || pet._id}>
             <PetCard
               pet={pet}
               isSelected={selectedPets.includes(pet.id)}

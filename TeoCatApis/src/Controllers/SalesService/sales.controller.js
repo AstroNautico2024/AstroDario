@@ -1,6 +1,8 @@
 import { ventasModel, detalleVentasModel, detalleVentasServiciosModel } from "../../Models/SalesService/sales.model.js"
 import { query, getConnection } from "../../Config/Database.js"
 
+
+// ¡NO importes ventasController aquí!
 // Controlador para ventas
 export const ventasController = {
   // Obtener todas las ventas
@@ -204,6 +206,33 @@ getMascotaGenerica: async (req, res) => {
     res.status(500).json({ message: "Error en el servidor", error: error.message });
   }
 },
+
+  // Carrito de compras (ejemplo básico, debes adaptar la lógica a tu modelo y sesión)
+  getCarrito: async (req, res) => {
+    // Aquí deberías obtener el carrito del usuario (por sesión, token, etc.)
+    // Ejemplo: devolver un carrito vacío
+    res.json([]);
+  },
+
+  addToCarrito: async (req, res) => {
+    // Aquí deberías agregar un producto al carrito del usuario
+    res.json({ success: true, message: "Producto agregado al carrito" });
+  },
+
+  updateCarritoItem: async (req, res) => {
+    // Aquí deberías actualizar la cantidad de un producto en el carrito
+    res.json({ success: true, message: "Cantidad actualizada" });
+  },
+
+  removeFromCarrito: async (req, res) => {
+    // Aquí deberías eliminar un producto del carrito
+    res.json({ success: true, message: "Producto eliminado del carrito" });
+  },
+
+  clearCarrito: async (req, res) => {
+    // Aquí deberías vaciar el carrito del usuario
+    res.json({ success: true, message: "Carrito vaciado" });
+  },
 
   // Crear una nueva venta
   create: async (req, res) => {

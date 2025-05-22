@@ -10,7 +10,7 @@ router.put('/carrito/:id', ventasController.updateCarritoItem);
 router.delete('/carrito/:id', ventasController.removeFromCarrito);
 router.delete('/carrito', ventasController.clearCarrito);
 
-// Ruta para checkout
-router.post('/ventas', ventasController.createVenta);
+// Ruta para checkout (debe llamarse igual que en el controller: "create")
+router.post('/ventas', ventasController.create);
 
 export default router;

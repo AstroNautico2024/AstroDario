@@ -9,7 +9,9 @@ import "react-calendar/dist/Calendar.css"
 import "../../Pages/ClientePages/agendar-cita-page.scss"
 
 import CitasClienteService from "../../Services/ConsumoCliente/CitasClienteService"
-
+import PerfilClienteService from "../../Services/ConsumoCliente/PerfilClienteService"
+import MascotasClienteService from "../../Services/ConsumoCliente/MascotasClienteService"
+import ServiciosService from "../../Services/ConsumoCliente/ServiciosService"
 
 // Componentes
 import CalendarWithAvailability from "../../Components/ClienteComponents/AgendarCitasComponents/calendar-with-availability"
@@ -18,6 +20,8 @@ import ServicesSelector from "../../Components/ClienteComponents/AgendarCitasCom
 import PetCard from "../../Components/ClienteComponents/AgendarCitasComponents/pet-card"
 import MultiPetSelector from "../../Components/ClienteComponents/AgendarCitasComponents/multi-pet-selector"
 import AppointmentSummary from "../../Components/ClienteComponents/AgendarCitasComponents/appointment-summary"
+import EspeciesClienteService from "../../Services/ConsumoCliente/EspeciesClienteService";
+
 
 const AgendarCitaPage = () => {
   const [searchParams] = useSearchParams()
@@ -103,206 +107,224 @@ const AgendarCitaPage = () => {
     confirmPassword: false,
   })
 
+    
+    // ...existing code...
+    
+    const [especies, setEspecies] = useState([]);
+    
+    useEffect(() => {
+      const cargarEspecies = async () => {
+        try {
+          const data = await EspeciesClienteService.getAll();
+          setEspecies(data);
+        } catch (error) {
+          setEspecies([]);
+        }
+      };
+      cargarEspecies();
+    }, []);
+
+  // Estado para el ID del cliente
+  const [clienteId, setClienteId] = useState(null)
+
+    const handleSaveNewPet = async (e) => {
+    e.preventDefault();
+    if (
+      !petForm.nombre ||
+      !petForm.especie ||
+      !petForm.raza ||
+      !petForm.tamaño ||
+      !petForm.pelaje ||
+      !petForm.fechaNacimiento
+    ) {
+      toast.error("Por favor completa todos los campos obligatorios");
+      return;
+    }
+  
+    try {
+      await MascotasClienteService.createMascota(clienteId, {
+        IdEspecie: parseInt(petForm.especie, 10),
+        IdCliente: clienteId,
+        Nombre: petForm.nombre,
+        Foto: petForm.foto || null,
+        Raza: petForm.raza,
+        Tamaño: petForm.tamaño,
+        FechaNacimiento: petForm.fechaNacimiento,
+      });
+      toast.success("Mascota registrada correctamente");
+      setShowNewPetForm(false);
+      setPetForm({
+        nombre: "",
+        especie: "",
+        raza: "",
+        tamaño: "",
+        pelaje: "",
+        fechaNacimiento: "",
+        foto: null,
+      });
+      // Recarga las mascotas del usuario
+      const mascotas = await MascotasClienteService.getMascotasByCliente(clienteId);
+      setUserPets(
+        mascotas.map(m => ({
+          id: m.IdMascota || m.id,
+          nombre: m.Nombre || m.nombre,
+          especie: m.Especie || m.especie,
+          raza: m.Raza || m.raza,
+          tamaño: m.Tamaño || m.tamaño,
+          fechaNacimiento: m.FechaNacimiento || m.fechaNacimiento,
+          imagen: m.Foto || m.imagen || "/placeholder.svg",
+          ...m,
+        }))
+      );
+    } catch (error) {
+      toast.error(error?.response?.data?.message || "Error al registrar mascota");
+    }
+  };
+
   // Verificar si el usuario está logueado
   useEffect(() => {
-    // Simulación de verificación de login
-    // En producción, esto vendría de un contexto de autenticación o similar
-    const token = localStorage.getItem("token")
+    const token = localStorage.getItem("token");
     if (token) {
-      setIsLoggedIn(true)
-      // Cargar datos del usuario logueado
-      loadLoggedInUserData()
+      setIsLoggedIn(true);
+      cargarPerfil();
     } else {
-      setIsLoggedIn(false)
+      setIsLoggedIn(false);
     }
-  }, [])
+  }, []);
 
-  // Cargar datos del usuario logueado
-  const loadLoggedInUserData = () => {
-    // Simulación de carga de datos del usuario logueado
-    // En producción, esto vendría de una API
-    setIsRegistered(true)
-    setClientForm({
-      documento: "12345678",
-      correo: "cliente@ejemplo.com",
-      nombre: "Juan",
-      apellido: "Pérez",
-      direccion: "Calle 123 #45-67, Medellín",
-      telefono: "(604) 123-4567",
-      password: "",
-      confirmPassword: "",
-    })
+  const cargarPerfil = async () => {
+    try {
+      const perfil = await PerfilClienteService.getPerfil();
+      setClientForm({
+        documento: perfil.Documento || perfil.documento || "",
+        correo: perfil.Correo || perfil.correo || "",
+        nombre: perfil.Nombre || perfil.nombre || "",
+        apellido: perfil.Apellido || perfil.apellido || "",
+        direccion: perfil.Direccion || perfil.direccion || "",
+        telefono: perfil.Telefono || perfil.telefono || "",
+        password: "",
+        confirmPassword: "",
+      });
+      setIsRegistered(true);
+      console.log("perfil:", perfil);
+      
+      setClienteId(perfil.cliente.id);
+    } catch (error) {
+      setIsRegistered(false);
+      setClienteId(null);
+    }
+  };
 
-    // Cargar mascotas del cliente
-    const mockPets = [
-      {
-        id: 1,
-        nombre: "Max",
-        especie: "Perro",
-        raza: "Labrador",
-        edad: 3,
-        tamaño: "Grande",
-        fechaNacimiento: "2021-03-15",
-        imagen: "https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=500",
-      },
-      {
-        id: 2,
-        nombre: "Luna",
-        especie: "Gato",
-        raza: "Siamés",
-        edad: 2,
-        tamaño: "Pequeño",
-        fechaNacimiento: "2022-05-20",
-        imagen: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=500",
-      },
-      {
-        id: 3,
-        nombre: "Rocky",
-        especie: "Perro",
-        raza: "Bulldog",
-        edad: 4,
-        tamaño: "Mediano",
-        fechaNacimiento: "2020-07-10",
-        imagen: "https://images.unsplash.com/photo-1583511655826-05700442b31b?q=80&w=500",
-      },
-    ]
-
-    setUserPets(mockPets)
-  }
+  useEffect(() => {
+    if (!clienteId) return;
+    const cargarMascotas = async () => {
+      try {
+        const mascotas = await MascotasClienteService.getMascotasByCliente(clienteId);
+        setUserPets(
+          mascotas.map(m => ({
+            id: m.IdMascota || m.id,
+            nombre: m.Nombre || m.nombre,
+            especie: m.Especie || m.especie,
+            raza: m.Raza || m.raza,
+            tamaño: m.Tamaño || m.tamaño,
+            fechaNacimiento: m.FechaNacimiento || m.fechaNacimiento,
+            imagen: m.Foto || m.imagen || "/placeholder.svg",
+            ...m,
+          }))
+        );
+      } catch (error) {
+        setUserPets([]);
+      }
+    };
+    cargarMascotas();
+  }, [clienteId]);
 
   // Cargar servicios disponibles
   useEffect(() => {
-    // Simulación de carga de datos desde API
-    const mockServices = [
-      {
-        id: 1,
-        name: "Peluquería Canina",
-        description:
-          "Corte y arreglo profesional para tu perro. Incluye corte de pelo, limpieza de oídos y corte de uñas.",
-        price: 45000,
-        duration: 60, // en minutos
-        image: "https://images.unsplash.com/photo-1516734212186-a967f81ad0d7?q=80&w=500",
-      },
-      {
-        id: 2,
-        name: "Baño y Spa",
-        description:
-          "Baño completo con productos premium, secado, cepillado y perfumado para dejar a tu mascota impecable.",
-        price: 35000,
-        duration: 45,
-        image: "https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?q=80&w=500",
-      },
-      {
-        id: 3,
-        name: "Paseo de Mascotas",
-        description: "Paseos diarios con personal capacitado. Incluye recogida y entrega a domicilio.",
-        price: 25000,
-        duration: 30,
-        image: "https://images.unsplash.com/photo-1450778869180-41d0601e046e?q=80&w=500",
-        allowMultiplePets: true, // Permitir seleccionar múltiples mascotas
-      },
-      {
-        id: 4,
-        name: "Adiestramiento Básico",
-        description: "Enseñamos a tu mascota comandos básicos de obediencia y socialización con otras mascotas.",
-        price: 60000,
-        duration: 90,
-        image: "https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=500",
-      },
-      {
-        id: 5,
-        name: "Consulta Veterinaria",
-        description:
-          "Revisión general de salud, vacunación y desparasitación con nuestros veterinarios especializados.",
-        price: 50000,
-        duration: 30,
-        image: "https://images.unsplash.com/photo-1628009368231-7bb7cfcb0def?q=80&w=500",
-      },
-    ]
-
-    setAvailableServices(mockServices)
-
-    // Si hay un servicio preseleccionado en la URL, agregarlo a los servicios seleccionados
-    if (servicioParam) {
-      const selectedServiceId = Number.parseInt(servicioParam)
-      const serviceToAdd = mockServices.find((service) => service.id === selectedServiceId)
-
-      if (serviceToAdd) {
-        setSelectedServices([serviceToAdd])
-        toast.info(`Servicio "${serviceToAdd.name}" preseleccionado`)
+    const cargarServicios = async () => {
+      try {
+        const servicios = await ServiciosService.getServicios();
+        setAvailableServices(
+          servicios.map(s => ({
+            id: s.IdServicio || s.id,
+            name: s.Nombre || s.name,
+            description: s.Descripcion || s.description,
+            price: s.Precio || s.price,
+            duration: s.Duracion || s.duration,
+            image: s.Foto || s.image,
+            allowMultiplePets: s.allowMultiplePets || false,
+          }))
+        );
+        if (servicioParam) {
+          const selectedServiceId = Number.parseInt(servicioParam);
+          const serviceToAdd = servicios.find((service) => (service.IdServicio || service.id) === selectedServiceId);
+          if (serviceToAdd) {
+            setSelectedServices([serviceToAdd]);
+            toast.info(`Servicio "${serviceToAdd.Nombre || serviceToAdd.name}" preseleccionado`);
+          }
+        }
+      } catch (error) {
+        setAvailableServices([]);
       }
-    }
-  }, [servicioParam])
+    };
+    cargarServicios();
+  }, [servicioParam]);
 
   // Modificar el useEffect para sincronizar el estado de disponibilidad del calendario con los horarios
   // Generar horarios disponibles cuando cambia la fecha
   useEffect(() => {
     // Verificar si es domingo (0 = domingo)
     if (selectedDate.getDay() === 0) {
-      setAvailableTimes([])
-      return
+      setAvailableTimes([]);
+      setUnavailableTimes([]);
+      return;
     }
-
-    // Simulación de horarios disponibles
-    // En producción, esto vendría de una API basado en la fecha seleccionada
-    const times = []
-    const startHour = 9 // 9 AM
-    const endHour = 18 // 6 PM (18:00)
-    const lunchStartHour = 13 // 1 PM
-    const lunchEndHour = 14 // 2 PM
-
+  
+    // Generar horarios disponibles
+    const times = [];
+    const startHour = 9; // 9 AM
+    const endHour = 18; // 6 PM (18:00)
+    const lunchStartHour = 13; // 1 PM
+    const lunchEndHour = 14; // 2 PM
+  
     for (let hour = startHour; hour <= endHour; hour++) {
-      // Excluir la hora de almuerzo (13:00 - 14:00)
       if (hour < lunchStartHour || hour >= lunchEndHour) {
-        if (hour < endHour) times.push(`${hour}:00`)
-        if (hour < endHour && !(hour === endHour - 1 && endHour % 1 === 0.5)) times.push(`${hour}:30`)
+        if (hour < endHour) times.push(`${hour}:00`);
+        if (hour < endHour) times.push(`${hour}:30`);
       }
     }
-
-    setAvailableTimes(times)
-
-    // Simulación de horarios ocupados
-    // En producción, esto vendría de una API
-    const today = new Date()
-    const isToday =
-      selectedDate.getDate() === today.getDate() &&
-      selectedDate.getMonth() === today.getMonth() &&
-      selectedDate.getFullYear() === today.getFullYear()
-
-    // Verificar si la fecha seleccionada está en la lista de fechas ocupadas
-    const isUnavailableDate = unavailableDates.some(
-      (unavailableDate) =>
-        unavailableDate.getDate() === selectedDate.getDate() &&
-        unavailableDate.getMonth() === selectedDate.getMonth() &&
-        unavailableDate.getFullYear() === selectedDate.getFullYear(),
-    )
-
-    // Verificar si la fecha seleccionada está en la lista de fechas con pocas citas
-    const isBusyDate = busyDates.some(
-      (busyDate) =>
-        busyDate.getDate() === selectedDate.getDate() &&
-        busyDate.getMonth() === selectedDate.getMonth() &&
-        busyDate.getFullYear() === selectedDate.getFullYear(),
-    )
-
-    // Generar horarios ocupados según el estado del día
-    let mockUnavailableTimes = []
-
-    if (isUnavailableDate) {
-      // Si el día está marcado como "Lleno", casi todos los horarios están ocupados
-      mockUnavailableTimes = times.filter((_, index) => index % 5 !== 0) // Dejar solo algunos disponibles
-    } else if (isBusyDate) {
-      // Si el día está marcado como "Pocas citas", muchos horarios están ocupados
-      mockUnavailableTimes = times.filter((_, index) => index % 3 === 0 || index % 2 === 0)
-    } else {
-      // Día normal, algunos horarios ocupados
-      mockUnavailableTimes = ["9:30", "11:00", "15:30", "17:00"]
-    }
-
-    setUnavailableTimes(mockUnavailableTimes)
-    setSelectedTime("") // Resetear el horario seleccionado al cambiar de fecha
-  }, [selectedDate, unavailableDates, busyDates])
-
+    setAvailableTimes(times);
+  
+    // --- Consulta real de horarios ocupados ---
+    const fetchHorariosOcupados = async () => {
+      try {
+        const citas = await CitasClienteService.getAllCitas();
+  
+        // Formatea la fecha seleccionada a YYYY-MM-DD
+        const year = selectedDate.getFullYear();
+        const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+        const day = String(selectedDate.getDate()).padStart(2, "0");
+        const fechaSeleccionada = `${year}-${month}-${day}`;
+  
+        // Filtra las citas de ese día y extrae la hora (HH:mm)
+        const horariosOcupados = citas
+          .filter(cita => cita.Fecha.startsWith(fechaSeleccionada))
+          .map(cita => {
+            const dateObj = new Date(cita.Fecha);
+            const hours = String(dateObj.getHours()).padStart(2, "0");
+            const minutes = String(dateObj.getMinutes()).padStart(2, "0");
+            return `${hours}:${minutes}`;
+          });
+  
+        setUnavailableTimes(horariosOcupados);
+      } catch (error) {
+        setUnavailableTimes([]);
+      }
+      setSelectedTime(""); // Resetear el horario seleccionado al cambiar de fecha
+    };
+  
+    fetchHorariosOcupados();
+  }, [selectedDate]);
   // Simular fechas ocupadas y con pocas citas disponibles
   useEffect(() => {
     // Fechas completamente ocupadas (en producción, esto vendría de una API)
@@ -427,13 +449,6 @@ const AgendarCitaPage = () => {
       })
     }
   }
-
-
-
-
-
-
-
 
   // Manejar cambios en el formulario de mascota
   const handlePetFormChange = (e) => {
@@ -603,82 +618,65 @@ const AgendarCitaPage = () => {
     }
   }
 
+  // Manejar envío del formulario
+  const handleSubmit = async (e) => {
+    if (e) e.preventDefault()
 
-// Manejar envío del formulario
-const handleSubmit = async (e) => {
-  if (e) e.preventDefault()
-
-  // Validar que se hayan seleccionado todos los campos requeridos
-  if (!validateCurrentStep()) {
-    return
-  }
-
-  // Construir el objeto de cita para la API
-  const citaPayload = {
-    IdCliente: clientForm.documento,
-    IdMascota: selectedPet || (selectedPets.length > 0 ? selectedPets[0] : null),
-    Fecha: selectedDate && selectedTime
-      ? `${selectedDate.toISOString().split("T")[0]} ${selectedTime}:00`
-      : "",
-    NotasAdicionales: "",
-    servicios: selectedServices.map((s) => ({ IdServicio: s.id })),
-  }
-
-  try {
-    // Aquí se hace el consumo real de la API
-    await CitasClienteService.crearCita(citaPayload)
-    toast.success("¡Cita agendada con éxito! Pronto recibirás un correo de confirmación.")
-
-    // Resetear formulario
-    setSelectedDate(new Date())
-    setSelectedTime("")
-    setSelectedServices([])
-    setSelectedPet("")
-    setSelectedPets([])
-    setShowNewPetForm(false)
-    setCurrentStep(1)
-
-    if (!isRegistered && !isLoggedIn) {
-      setClientForm({
-        documento: "",
-        correo: "",
-        nombre: "",
-        apellido: "",
-        direccion: "",
-        telefono: "",
-        password: "",
-        confirmPassword: "",
-      })
-      setShowFullForm(false)
+    // Validar que se hayan seleccionado todos los campos requeridos
+    if (!validateCurrentStep()) {
+      return
     }
 
-    setPetForm({
-      nombre: "",
-      especie: "",
-      raza: "",
-      edad: "",
-      fechaNacimiento: "",
-    })
-  } catch (error) {
-    toast.error("Error al agendar la cita. Intenta nuevamente.")
+    // Construir el objeto de cita para la API
+    const citaPayload = {
+      IdCliente: clienteId,
+      IdMascota: selectedPet || (selectedPets.length > 0 ? selectedPets[0] : null),
+      Fecha: selectedDate && selectedTime
+        ? `${selectedDate.toISOString().split("T")[0]} ${selectedTime}:00`
+        : "",
+      NotasAdicionales: "",
+      servicios: selectedServices.map((s) => ({ IdServicio: s.id })),
+    }
+
+    try {
+      // Aquí se hace el consumo real de la API
+      await CitasClienteService.crearCita(citaPayload)
+      toast.success("¡Cita agendada con éxito! Pronto recibirás un correo de confirmación.")
+
+      // Resetear formulario
+      setSelectedDate(new Date())
+      setSelectedTime("")
+      setSelectedServices([])
+      setSelectedPet("")
+      setSelectedPets([])
+      setShowNewPetForm(false)
+      setCurrentStep(1)
+
+      if (!isRegistered && !isLoggedIn) {
+        setClientForm({
+          documento: "",
+          correo: "",
+          nombre: "",
+          apellido: "",
+          direccion: "",
+          telefono: "",
+          password: "",
+          confirmPassword: "",
+        })
+        setShowFullForm(false)
+      }
+
+      setPetForm({
+        nombre: "",
+        especie: "",
+        raza: "",
+        edad: "",
+        fechaNacimiento: "",
+      })
+    } catch (error) {
+      toast.error("El horario seleccionado no está disponible.")
+    }
   }
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   // Renderizar el paso actual
   const renderCurrentStep = () => {
@@ -1146,8 +1144,9 @@ const handleSubmit = async (e) => {
             required
           >
             <option value="">Seleccionar...</option>
-            <option value="Perro">Canino</option>
-            <option value="Gato">Felino</option>
+            {especies.map(e => (
+              <option key={e.IdEspecie} value={e.IdEspecie}>{e.NombreEspecie}</option>
+            ))}
           </Form.Select>
         </Form.Group>
       </Col>
@@ -1228,6 +1227,13 @@ const handleSubmit = async (e) => {
             required
           />
         </Form.Group>
+      </Col>
+    </Row>
+        <Row>
+      <Col className="d-flex justify-content-end mt-3">
+        <Button variant="success" onClick={handleSaveNewPet}>
+          Guardar
+        </Button>
       </Col>
     </Row>
   </div>

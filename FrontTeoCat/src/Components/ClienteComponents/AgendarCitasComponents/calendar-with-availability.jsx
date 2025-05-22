@@ -3,44 +3,47 @@ import { Calendar } from "react-calendar"
 import { Badge } from "react-bootstrap"
 import "react-calendar/dist/Calendar.css"
 
-const CalendarWithAvailability = ({ selectedDate, setSelectedDate, unavailableDates = [], busyDates = [] }) => {
-  // Función para deshabilitar fechas pasadas y domingos en el calendario
+/**
+ * @param {Object} props
+ * @param {Date} props.selectedDate
+ * @param {Function} props.setSelectedDate
+ * @param {Array} props.allCitas - Array de todas las citas reales [{ Fecha: ... }]
+ * @param {number} [props.maxCitasPorDia=12] - Máximo de citas por día para marcar como "Lleno"
+ * @param {number} [props.thresholdPocas=3] - Umbral para mostrar "Pocas citas"
+ */
+const CalendarWithAvailability = ({
+  selectedDate,
+  setSelectedDate,
+  allCitas = [],
+  maxCitasPorDia = 12,
+  thresholdPocas = 3,
+}) => {
+  // Deshabilitar fechas pasadas y domingos
   const tileDisabled = ({ date, view }) => {
     if (view === "month") {
-      // Deshabilitar fechas pasadas
       const today = new Date()
       today.setHours(0, 0, 0, 0)
-
-      // También deshabilitar domingos (0 = domingo)
       return date < today || date.getDay() === 0
     }
     return false
   }
 
-  // Función para mostrar indicadores de disponibilidad en el calendario
+  // Cuenta cuántas citas hay para una fecha dada
+  const getCitasCountForDate = (date) => {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, "0")
+    const day = String(date.getDate()).padStart(2, "0")
+    const fechaStr = `${year}-${month}-${day}`
+    return allCitas.filter(cita => cita.Fecha.startsWith(fechaStr)).length
+  }
+
+  // Muestra el badge de disponibilidad real
   const tileContent = ({ date, view }) => {
-    if (view !== "month") return null
+    if (view !== "month" || date.getDay() === 0) return null
 
-    // No mostrar indicadores en domingos
-    if (date.getDay() === 0) return null
+    const citasCount = getCitasCountForDate(date)
 
-    // Verificar si la fecha está en la lista de fechas no disponibles
-    const isUnavailable = unavailableDates.some(
-      (unavailableDate) =>
-        unavailableDate.getDate() === date.getDate() &&
-        unavailableDate.getMonth() === date.getMonth() &&
-        unavailableDate.getFullYear() === date.getFullYear(),
-    )
-
-    // Verificar si la fecha está en la lista de fechas con pocas citas disponibles
-    const isBusy = busyDates.some(
-      (busyDate) =>
-        busyDate.getDate() === date.getDate() &&
-        busyDate.getMonth() === date.getMonth() &&
-        busyDate.getFullYear() === date.getFullYear(),
-    )
-
-    if (isUnavailable) {
+    if (citasCount >= maxCitasPorDia) {
       return (
         <Badge bg="danger" className="availability-badge">
           Lleno
@@ -48,7 +51,7 @@ const CalendarWithAvailability = ({ selectedDate, setSelectedDate, unavailableDa
       )
     }
 
-    if (isBusy) {
+    if (maxCitasPorDia - citasCount <= thresholdPocas && citasCount > 0) {
       return (
         <Badge bg="warning" text="dark" className="availability-badge">
           Pocas
@@ -56,7 +59,7 @@ const CalendarWithAvailability = ({ selectedDate, setSelectedDate, unavailableDa
       )
     }
 
-    return null
+    return null // Disponible (sin badge)
   }
 
   return (
