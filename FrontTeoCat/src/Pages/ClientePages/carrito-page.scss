@@ -7,394 +7,163 @@ $teocat-blue: #00b2e3;
 @use "sass:color";
 
 .carrito-page {
-  // Estilos generales
+  padding: 2rem;
+
+  // Título de la página
   .page-title {
     color: $teocat-brown;
-    font-weight: 600;
-    margin-bottom: 0;
-    font-size: 1.75rem;
+    font-weight: 700;
+    margin-bottom: 2rem;
+    font-size: 2rem;
+    text-align: center;
   }
-  
-  // Botones
-  .btn-teocat {
-    background-color: $teocat-green;
-    border-color: $teocat-green;
-    transition: all 0.3s ease;
-    
-    &:hover, &:focus, &:active {
-      background-color: color.adjust($teocat-green, $lightness: -10%);
-      border-color: color.adjust($teocat-green, $lightness: -10%);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-  }
-  
-  .btn-teocat-outline {
-    color: $teocat-green;
-    border-color: $teocat-green;
-    transition: all 0.3s ease;
-    
-    &:hover, &:focus, &:active {
-      background-color: $teocat-green;
-      color: white;
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    }
-  }
-  
-  .btn-clear-cart {
-    transition: all 0.3s ease;
-    
-    &:hover {
-      background-color: rgba(#dc3545, 0.1);
-    }
-  }
-  
-  .btn-continue-shopping {
-    color: $teocat-brown;
-    border-color: $teocat-brown;
-    transition: all 0.3s ease;
-    
-    &:hover {
-      background-color: $teocat-brown;
-      border-color: $teocat-brown;
-      color: white;
-    }
-  }
-  
-  // Tabla de carrito
-  .cart-table {
-    th {
-      color: $teocat-brown;
-      font-weight: 600;
-      border-bottom-width: 1px;
-    }
-    
-    .cart-item {
-      transition: all 0.3s ease;
-      
-      &:hover {
-        background-color: rgba($teocat-green, 0.03);
-      }
-      
-      .cart-item-image {
-        width: 60px;
-        height: 60px;
-        overflow: hidden;
-        border-radius: 8px;
-        
-        img {
-          width: 100%;
-          height: 100%;
-          object-fit: cover;
-        }
-      }
-      
-      .cart-item-name {
-        color: $teocat-brown;
-        font-weight: 600;
-      }
-      
-      .cart-item-price {
-        color: $teocat-brown;
-        font-weight: 500;
-      }
-      
-      .cart-item-subtotal {
-        color: $teocat-green;
-        font-weight: 700;
-      }
-      
-      .cart-item-remove {
-        color: #dc3545;
-        padding: 0.25rem;
-        transition: all 0.2s ease;
-        
-        &:hover {
-          background-color: rgba(#dc3545, 0.1);
-          transform: scale(1.1);
-        }
-      }
-      
-      .cart-quantity-input {
-        width: 120px;
-        
-        .quantity-btn {
-          border-color: #ced4da;
-          
-          &:hover {
-            background-color: rgba($teocat-green, 0.1);
-            border-color: $teocat-green;
-          }
-        }
-        
-        .form-control {
-          border-left: 0;
-          border-right: 0;
-          
-          &:focus {
-            box-shadow: none;
-            border-color: #ced4da;
-          }
-        }
-      }
-    }
-  }
-  
-  // Resumen de orden
-  .order-summary-card {
-    .card-title {
-      color: $teocat-brown;
-      font-weight: 600;
-      margin-bottom: 1.5rem;
-    }
-    
-    .summary-item {
-      font-size: 0.95rem;
-      
-      .shipping-badge {
-        background-color: $teocat-green;
-        font-weight: 500;
-      }
-    }
-    
-    .summary-total {
-      .total-price {
-        color: $teocat-green;
-        font-weight: 700;
-        font-size: 1.25rem;
-      }
-    }
-    
-    .terms-section {
-      .terms-link {
-        color: $teocat-brown;
-        text-decoration: none;
-        padding: 0;
-        
-        &:hover {
-          color: $teocat-green;
-          text-decoration: underline;
-        }
-      }
-      
-      .terms-content {
-        max-height: 200px;
-        overflow-y: auto;
-        
-        .terms-card {
-          background-color: #f8f9fa;
-          
-          .terms-list {
-            padding-left: 1.25rem;
-            margin-bottom: 0;
-            
-            li {
-              margin-bottom: 0.5rem;
-              
-              &:last-child {
-                margin-bottom: 0;
-              }
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  // Tarjeta de información
-  .info-card {
-    .card-title {
-      color: $teocat-brown;
-      font-weight: 600;
-    }
-    
-    .info-item {
-      .info-icon {
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        background-color: rgba($teocat-green, 0.1);
-        color: $teocat-green;
+
+  // Elementos del carrito
+  .carrito-items {
+    margin-bottom: 2rem;
+
+    .carrito-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1rem;
+      border: 1px solid #ddd;
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+
+      .carrito-item-info {
         display: flex;
         align-items: center;
-        justify-content: center;
-      }
-    }
-  }
-  
-  // Formulario de checkout
-  .checkout-form-card {
-    .card-header {
-      h4 {
-        color: $teocat-brown;
-        font-weight: 600;
-      }
-    }
-    
-    .form-label {
-      color: $teocat-brown;
-      font-weight: 500;
-    }
-    
-    .form-control, .form-select {
-      &:focus {
-        border-color: $teocat-green;
-        box-shadow: 0 0 0 0.25rem rgba($teocat-green, 0.25);
-      }
-    }
-    
-    .input-group-text {
-      background-color: #f8f9fa;
-      color: $teocat-brown;
-    }
-    
-    .client-info-summary {
-      border-color: rgba($teocat-green, 0.2);
-      background-color: rgba($teocat-green, 0.05) !important;
-      
-      h6 {
-        color: $teocat-brown;
-      }
-    }
-  }
-}
+        gap: 1rem;
 
-// Carrito vacío
-.empty-cart {
-  padding: 3rem 0;
-  
-  .empty-cart-icon {
-    font-size: 5rem;
-    color: $teocat-green;
-    opacity: 0.8;
-  }
-  
-  h2 {
-    color: $teocat-brown;
-    font-weight: 700;
-  }
-}
+        .carrito-item-image {
+          width: 80px;
+          height: 80px;
+          object-fit: cover;
+          border-radius: 0.5rem;
+        }
 
-// Orden exitosa
-.order-success {
-  padding: 3rem 0;
-  
-  .success-icon {
-    font-size: 5rem;
-    color: $teocat-green;
-  }
-  
-  h2 {
-    color: $teocat-brown;
-    font-weight: 700;
-  }
-}
+        .carrito-item-name {
+          color: $teocat-brown;
+          font-weight: 600;
+          margin: 0;
+          font-size: 1.2rem;
+        }
 
-// Responsive
-@media (max-width: 991.98px) {
-  .carrito-page {
-    .order-summary-card {
-      position: static !important;
-      margin-top: 0;
-    }
-  }
-}
+        .carrito-item-price {
+          color: $teocat-brown;
+          font-size: 1rem;
+          margin-top: 0.5rem;
+        }
+      }
 
-@media (max-width: 767.98px) {
-  .carrito-page {
-    .cart-table {
-      .cart-item {
-        .cart-quantity-input {
-          width: 100px;
+      .carrito-item-actions {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.5rem;
+
+        .quantity-controls {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+
+          .quantity-btn {
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            background-color: #fff;
+            color: $teocat-brown;
+            font-size: 1.2rem;
+            cursor: pointer;
+
+            &:hover {
+              background-color: rgba($teocat-green, 0.1);
+              border-color: $teocat-green;
+            }
+
+            &:disabled {
+              opacity: 0.5;
+              cursor: not-allowed;
+            }
+          }
+
+          .quantity-display {
+            width: 50px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 1.2rem;
+            color: $teocat-brown;
+          }
+        }
+
+        .carrito-item-remove {
+          background-color: #dc3545;
+          color: #fff;
+          border: none;
+          padding: 0.5rem 1rem;
+          font-size: 0.9rem;
+          border-radius: 4px;
+          cursor: pointer;
+
+          &:hover {
+            background-color: #c82333;
+          }
         }
       }
     }
   }
-}
 
-.cart-icon {
-  color: $teocat-brown;
-  font-size: 1.5rem;
-}
-
-// Agregar estilos para los controles de cantidad
-.cart-quantity-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  
-  .quantity-btn {
-    width: 30px;
-    height: 30px;
-    padding: 0;
+  // Footer del carrito
+  .carrito-footer {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 4px;
-    
-    &:hover {
-      background-color: rgba($teocat-green, 0.1);
-      border-color: $teocat-green;
+    flex-direction: column; // Alinea los elementos en columna
+    align-items: flex-end; // Alinea los elementos al final
+    gap: 1rem; // Espaciado entre el total y los botones
+
+    .total-price {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: $teocat-brown;
+
+      span {
+        font-weight: 600;
+        color: #666;
+      }
     }
-  }
-  
-  .quantity-display {
-    width: 30px;
-    text-align: center;
-    font-weight: 500;
-    margin: 0 5px;
-  }
-}
 
-// Agregar estilos para los botones de editar en el formulario
-.edit-field-btn {
-  color: $teocat-green;
-  
-  &:hover {
-    color: color.adjust($teocat-green, $lightness: -10%);
-  }
-}
+    .carrito-buttons {
+      display: flex;
+      flex-direction: row; // Alinea los botones en fila
+      gap: 1rem; // Espaciado entre los botones
 
-// Modificar los estilos para el modal de checkout
-.modal-header {
-  background-color: #f8f9fa;
-  
-  .modal-title {
-    color: $teocat-brown;
-    font-weight: 600;
-  }
-}
+      .btn-clear-cart {
+        background-color: #dc3545;
+        color: #fff;
+        border: none;
+        padding: 0.7rem 1.5rem;
+        font-size: 1rem;
+        cursor: pointer;
 
-.terms-section {
-  .terms-link {
-    color: $teocat-brown;
-    text-decoration: none;
-    padding: 0;
-    
-    &:hover {
-      color: $teocat-green;
-      text-decoration: underline;
-    }
-  }
-  
-  .terms-content {
-    max-height: 200px;
-    overflow-y: auto;
-    
-    .terms-card {
-      background-color: #f8f9fa;
-      
-      .terms-list {
-        padding-left: 1.25rem;
-        margin-bottom: 0;
-        
-        li {
-          margin-bottom: 0.5rem;
-          
-          &:last-child {
-            margin-bottom: 0;
-          }
+        &:hover {
+          background-color: #c82333;
+        }
+      }
+
+      .btn-proceed-payment {
+        background-color: $teocat-green;
+        color: #fff;
+        border: none;
+        padding: 0.7rem 1.5rem;
+        font-size: 1rem;
+        cursor: pointer;
+
+        &:hover {
+          background-color: color.adjust($teocat-green, $lightness: -10%);
         }
       }
     }

@@ -191,11 +191,14 @@ const CatalogoModal = ({ show, onHide, onSelectProduct }) => {
                 <div key={producto.IdProducto} className="producto-container">
                   <div className="producto-item">
                     <div className="producto-info">
-                      {productos.some((p) => p.ProductoBase === producto.IdProducto) && (
-                        <button className="toggle-variantes" onClick={() => toggleVariantes(producto.IdProducto)}>
-                          {mostrarVariantes[producto.IdProducto] ? <ChevronDown /> : <ChevronRight />}
-                        </button>
-                      )}
+                      <img
+                        src={producto.image || "/path/to/default-image.svg"}
+                        alt={producto.NombreProducto}
+                        className="producto-imagen"
+                        onError={(e) => {
+                          e.target.src = "/path/to/default-image.svg";
+                        }}
+                      />
                       <div className="producto-detalles">
                         <span className="producto-nombre">{producto.NombreProducto}</span>
                         <div className="producto-meta">

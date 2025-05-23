@@ -1,39 +1,42 @@
-"use client"
+"use client";
 
-import { useState, memo } from "react"
-import { Link } from "react-router-dom"
-import { Card, Button } from "react-bootstrap"
-import { toast } from "react-toastify"
-import { useCart } from "../../../Context/CartContext.jsx"
-import "./ProductCard.scss"
+import { useState, memo } from "react";
+import { Link } from "react-router-dom";
+import { Card, Button } from "react-bootstrap";
+import { toast } from "react-toastify";
+import { useCart } from "../../../Context/CartContext.jsx";
+import "./ProductCard.scss";
 
-// Using memo to prevent unnecessary re-renders
 const ProductCard = memo(({ product }) => {
-  const [isHovered, setIsHovered] = useState(false)
-  const { addToCart } = useCart()
+  const [isHovered, setIsHovered] = useState(false);
+  const [imageError, setImageError] = useState(false); // Estado para manejar errores de imagen
+  const { addToCart } = useCart();
 
   if (!product) {
-    console.warn("Se intentó renderizar un ProductCard con un producto nulo o indefinido")
-    return null
+    console.warn("Se intentó renderizar un ProductCard con un producto nulo o indefinido");
+    return null;
   }
 
-  const productImage =
-    product.images && product.images.length > 0 ? product.images[0] : product.image || "/placeholder.svg"
+  const productImage = !imageError
+    ? (product.images && product.images.length > 0
+        ? product.images[0]
+        : product.image) || "/assets/images/default-product.svg"
+    : "/assets/images/default-product.svg";
 
   const handleAddToCart = (e) => {
-    e.stopPropagation()
-    e.preventDefault()
-    addToCart(product)
+    e.stopPropagation();
+    e.preventDefault();
+    addToCart(product);
     toast.success("Producto añadido al carrito", {
       position: "top-right",
-      autoClose: 2000, // Se cierra en 2 segundos
+      autoClose: 2000,
       hideProgressBar: false,
       closeOnClick: true,
-      pauseOnHover: false, // <--- Esto es importante
+      pauseOnHover: false,
       draggable: true,
       progress: undefined,
-    })
-  }
+    });
+  };
 
   return (
     <div
@@ -47,12 +50,10 @@ const ProductCard = memo(({ product }) => {
             <Card.Img
               variant="top"
               src={productImage}
-              alt={product.name}
+              alt={product.name || "Imagen no disponible"}
               className={`product-image ${isHovered ? "zoomed" : ""}`}
-              onError={(e) => {
-                e.target.src = "/placeholder.svg"
-              }}
-              loading="lazy" // Add lazy loading for better performance
+              onError={() => setImageError(true)} // Marca que la imagen ha fallado
+              loading="lazy"
             />
           </Link>
           <div className={`quick-actions ${isHovered ? "visible" : ""}`}>
@@ -91,7 +92,7 @@ const ProductCard = memo(({ product }) => {
         </Card.Body>
       </Card>
     </div>
-  )
-})
+  );
+});
 
-export default ProductCard
+export default ProductCard;

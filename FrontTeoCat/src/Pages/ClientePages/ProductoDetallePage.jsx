@@ -800,43 +800,45 @@ const ProductoDetallePage = () => {
             <h3 className="section-title mb-4">Productos Relacionados</h3>
 
             <Row className="g-4">
-              {relatedProducts.map((relatedProduct) => (
-                <Col md={4} key={relatedProduct.id}>
-                  <div className="related-product-card card h-100 border-0 shadow-sm">
-                    <Link to={`/producto/${relatedProduct.id}`} className="text-decoration-none">
-                      <div className="position-relative">
-                        <img
-                          src={
-                            relatedProduct.images && relatedProduct.images.length > 0
-                              ? relatedProduct.images[0]
-                              : relatedProduct.image || "/placeholder.svg"
-                          }
-                          alt={relatedProduct.name}
-                          className="card-img-top related-product-image"
-                          onError={(e) => {
-                            e.target.src = "/placeholder.svg"
-                          }}
-                        />
-                      </div>
+              {relatedProducts.map((relatedProduct) => {
+                const relatedProductImage =
+                  (relatedProduct.images && relatedProduct.images.length > 0
+                    ? relatedProduct.images[0]
+                    : relatedProduct.image) || "/placeholder.svg";
 
-                      <div className="card-body">
-                        <h5 className="card-title related-product-title">{relatedProduct.name}</h5>
+                return (
+                  <Col md={4} key={relatedProduct.id}>
+                    <div className="related-product-card card h-100 border-0 shadow-sm">
+                      <Link to={`/producto/${relatedProduct.id}`} className="text-decoration-none">
+                        <div className="position-relative">
+                          <img
+                            src={relatedProductImage}
+                            alt={relatedProduct.name || "Imagen no disponible"}
+                            className="card-img-top related-product-image"
+                             onError={() => setImageError(true)}
+                            loading="lazy"
+                          />
+                        </div>
 
-                        <div className="d-flex justify-content-between align-items-center mt-2">
-                          <div className="related-product-price">
-                            <span className="current-price">${relatedProduct.price.toLocaleString()}</span>
-                          </div>
+                        <div className="card-body">
+                          <h5 className="card-title related-product-title">{relatedProduct.name}</h5>
 
-                          <div className="related-product-rating">
-                            <i className="bi bi-star-fill text-warning me-1"></i>
-                            <span>{relatedProduct.rating}</span>
+                          <div className="d-flex justify-content-between align-items-center mt-2">
+                            <div className="related-product-price">
+                              <span className="current-price">${relatedProduct.price.toLocaleString()}</span>
+                            </div>
+
+                            <div className="related-product-rating">
+                              <i className="bi bi-star-fill text-warning me-1"></i>
+                              <span>{relatedProduct.rating}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    </Link>
-                  </div>
-                </Col>
-              ))}
+                      </Link>
+                    </div>
+                  </Col>
+                );
+              })}
             </Row>
           </div>
         )}
