@@ -44,20 +44,39 @@ const CarritoPage = () => {
         return;
       }
 
-      // Crear los detalles de la compra en el formato esperado por el backend
-      const detalles = cartItems.map((item) => ({
-        IdProducto: item.id,
-        Cantidad: item.quantity,
-        PrecioUnitario: item.price,
-        Subtotal: item.price * item.quantity,
-      }));
+      // Obtener y parsear el usuario desde el localStorage
+      const localStorageUser = JSON.parse(localStorage.getItem("userData")) || {}; // Parsear el JSON
 
-      // Puedes agregar aquí datos del cliente si tu backend lo requiere
-      const compraData = {
-        Total: totalPrice,
-        Detalles: detalles,
-        // ClienteId: user.id, // si tienes autenticación
-      };
+      // Validar que los datos necesarios existan
+      if (!localStorageUser.cliente?.id || !localStorageUser.id) {
+        toast.error("No se pudo obtener la información del usuario. Por favor, inicia sesión.");
+        setIsProcessing(false);
+        return;
+      }
+
+
+          const detallesProductos = cartItems.map((item) => ({
+      IdProducto: item.id,
+      Cantidad: item.quantity,
+      PrecioUnitario: item.price,
+      Subtotal: item.price * item.quantity,
+    }));
+
+    // Crear el objeto de compra
+    // Crear el objeto de compra
+    const compraData = {
+      venta: {
+        IdCliente: localStorageUser.cliente.id, // Agregar IdCliente
+        IdUsuario: localStorageUser.id, // Agregar IdUsuario
+        FechaVenta: new Date().toISOString().slice(0, 19).replace("T", " "), // Formato compatible con MySQL
+        TotalMonto: totalPrice, // Total de la compra
+        Estado: "Pendiente", // Estado inicial de la compra
+        MetodoPago: "Transferencia", // Método de pago inicial
+      },
+      detallesProductos, // Detalles de los productos
+    };
+
+
 
       // Enviar la compra al backend usando ComprasCliente.create
       await ComprasCliente.create(compraData);
@@ -92,7 +111,6 @@ const CarritoPage = () => {
       setIsProcessing(false);
     }
   };
-
   return (
     <div className="carrito-page">
       <ToastContainer /> {/* Asegúrate de que el ToastContainer no interfiera */}

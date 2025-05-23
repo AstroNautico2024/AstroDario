@@ -244,9 +244,18 @@ getMascotaGenerica: async (req, res) => {
       console.log("Datos recibidos en el controlador:", JSON.stringify(req.body, null, 2))
 
       if (!venta) {
-        return res.status(400).json({ message: "Datos de venta no proporcionados" })
+        return res.status(400).json({ message: "El objeto 'venta' no fue proporcionado en la solicitud." });
       }
-
+      
+      // Verificar campos obligatorios en el objeto 'venta'
+      const camposRequeridos = ["IdCliente", "IdUsuario", "FechaVenta", "TotalMonto"];
+      const camposFaltantes = camposRequeridos.filter((campo) => !venta[campo]);
+      
+      if (camposFaltantes.length > 0) {
+        return res.status(400).json({
+          message: `Faltan los siguientes campos obligatorios en 'venta': ${camposFaltantes.join(", ")}`,
+        });
+      }
       // Validamos que detallesProductos sea un array (puede estar vacío)
       if (detallesProductos !== undefined && !Array.isArray(detallesProductos)) {
         return res.status(400).json({ message: "Formato inválido para detallesProductos, debe ser un array" })
@@ -1389,8 +1398,17 @@ else if (detalle.IdMascota !== undefined && detalle.IdMascota !== null && detall
       console.log("Datos de devolución recibidos:", JSON.stringify(req.body, null, 2));
 
       if (!venta) {
-        await connection.rollback();
-        return res.status(400).json({ message: "Datos de venta no proporcionados" });
+        return res.status(400).json({ message: "El objeto 'venta' no fue proporcionado en la solicitud." });
+      }
+      
+      // Verificar campos obligatorios en el objeto 'venta'
+      const camposRequeridos = ["IdVentaOriginal", "IdCliente", "IdUsuario", "FechaVenta", "TotalMonto"];
+      const camposFaltantes = camposRequeridos.filter((campo) => !venta[campo]);
+      
+      if (camposFaltantes.length > 0) {
+        return res.status(400).json({
+          message: `Faltan los siguientes campos obligatorios en 'venta': ${camposFaltantes.join(", ")}`,
+        });
       }
 
       if (!venta.IdVentaOriginal) {
