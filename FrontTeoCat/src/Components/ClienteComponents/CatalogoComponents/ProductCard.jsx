@@ -1,13 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, memo } from "react"
 import { Link } from "react-router-dom"
 import { Card, Button } from "react-bootstrap"
 import { toast } from "react-toastify"
 import { useCart } from "../../../Context/CartContext.jsx"
 import "./ProductCard.scss"
 
-const ProductCard = ({ product }) => {
+// Using memo to prevent unnecessary re-renders
+const ProductCard = memo(({ product }) => {
   const [isHovered, setIsHovered] = useState(false)
   const { addToCart } = useCart()
 
@@ -17,9 +18,7 @@ const ProductCard = ({ product }) => {
   }
 
   const productImage =
-    product.images && product.images.length > 0
-      ? product.images[0]
-      : product.image || "/placeholder.svg"
+    product.images && product.images.length > 0 ? product.images[0] : product.image || "/placeholder.svg"
 
   const handleAddToCart = (e) => {
     e.stopPropagation()
@@ -53,6 +52,7 @@ const ProductCard = ({ product }) => {
               onError={(e) => {
                 e.target.src = "/placeholder.svg"
               }}
+              loading="lazy" // Add lazy loading for better performance
             />
           </Link>
           <div className={`quick-actions ${isHovered ? "visible" : ""}`}>
@@ -82,9 +82,7 @@ const ProductCard = ({ product }) => {
 
           <div className="d-flex justify-content-between align-items-center mt-3">
             <div className="product-price">
-              <span className="current-price">
-                ${product.price ? product.price.toLocaleString() : "0"}
-              </span>
+              <span className="current-price">${product.price ? product.price.toLocaleString() : "0"}</span>
             </div>
             <Button variant="brown" className="d-md-none" onClick={handleAddToCart}>
               <i className="bi bi-cart-plus"></i>
@@ -94,6 +92,6 @@ const ProductCard = ({ product }) => {
       </Card>
     </div>
   )
-}
+})
 
 export default ProductCard

@@ -162,7 +162,7 @@ const RegistrarVenta = () => {
           autoClose: 4000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -404,7 +404,7 @@ const RegistrarVenta = () => {
           autoClose: 4000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -555,7 +555,7 @@ const RegistrarVenta = () => {
           autoClose: 4000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -579,7 +579,7 @@ const RegistrarVenta = () => {
               autoClose: 4000,
               hideProgressBar: false,
               closeOnClick: true,
-              pauseOnHover: true,
+              pauseOnHover: false,
               draggable: true,
             },
           )
@@ -616,7 +616,7 @@ const RegistrarVenta = () => {
             autoClose: 4000,
             hideProgressBar: false,
             closeOnClick: true,
-            pauseOnHover: true,
+            pauseOnHover: false,
             draggable: true,
           },
         )
@@ -638,7 +638,7 @@ const RegistrarVenta = () => {
           autoClose: 4000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -721,7 +721,7 @@ const RegistrarVenta = () => {
           autoClose: 4000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -739,7 +739,7 @@ const RegistrarVenta = () => {
           autoClose: 4000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -757,7 +757,7 @@ const RegistrarVenta = () => {
           autoClose: 4000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -775,7 +775,7 @@ const RegistrarVenta = () => {
           autoClose: 4000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -797,7 +797,7 @@ const RegistrarVenta = () => {
           autoClose: 4000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -878,7 +878,7 @@ const RegistrarVenta = () => {
           autoClose: 4000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -924,7 +924,7 @@ const RegistrarVenta = () => {
           autoClose: 3000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
           onClose: () => {
             // Redirigir a la lista de ventas después de que se cierre la notificación
@@ -960,7 +960,7 @@ const RegistrarVenta = () => {
           autoClose: 4000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -1083,7 +1083,7 @@ const RegistrarVenta = () => {
           autoClose: 3000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -1104,7 +1104,7 @@ const RegistrarVenta = () => {
           autoClose: 2000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -1129,7 +1129,7 @@ const RegistrarVenta = () => {
           autoClose: 3000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -1184,7 +1184,7 @@ const RegistrarVenta = () => {
             autoClose: 2000,
             hideProgressBar: false,
             closeOnClick: true,
-            pauseOnHover: true,
+            pauseOnHover: false,
             draggable: true,
           },
         )
@@ -1207,7 +1207,7 @@ const RegistrarVenta = () => {
             autoClose: 3000,
             hideProgressBar: false,
             closeOnClick: true,
-            pauseOnHover: true,
+            pauseOnHover: false,
             draggable: true,
           },
         )
@@ -1224,7 +1224,7 @@ const RegistrarVenta = () => {
           autoClose: 3000,
           hideProgressBar: false,
           closeOnClick: true,
-          pauseOnHover: true,
+          pauseOnHover: false,
           draggable: true,
         },
       )
@@ -1330,7 +1330,7 @@ const RegistrarVenta = () => {
                     autoClose: 2000,
                     hideProgressBar: false,
                     closeOnClick: true,
-                    pauseOnHover: true,
+                    pauseOnHover: false,
                     draggable: true,
                   },
                 )
@@ -1345,7 +1345,7 @@ const RegistrarVenta = () => {
                     autoClose: 3000,
                     hideProgressBar: false,
                     closeOnClick: true,
-                    pauseOnHover: true,
+                    pauseOnHover: false,
                     draggable: true,
                   },
                 )
@@ -1362,7 +1362,7 @@ const RegistrarVenta = () => {
                   autoClose: 3000,
                   hideProgressBar: false,
                   closeOnClick: true,
-                  pauseOnHover: true,
+                  pauseOnHover: false,
                   draggable: true,
                 },
               )

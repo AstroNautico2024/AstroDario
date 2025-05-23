@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import { useSearchParams } from "react-router-dom"
 import { Container, Row, Col, Form, Button, InputGroup, Card, Pagination } from "react-bootstrap"
 import ProductCard from "../../Components/ClienteComponents/CatalogoComponents/ProductCard"
@@ -25,11 +25,11 @@ const CatalogoPage = () => {
   const [paginatedProducts, setPaginatedProducts] = useState([])
 
   // Filtros - Modificar los valores iniciales
-const [selectedCategory, setSelectedCategory] = useState(categoriaParam || "todos");
-const [priceRange, setPriceRange] = useState([0, 1000000]); // Aumentar el rango máximo de precio
-const [sortBy, setSortBy] = useState("featured");
-const [searchTerm, setSearchTerm] = useState("");
-const [selectedRating, setSelectedRating] = useState(0); // Asegurarse de que comience en 0
+  const [selectedCategory, setSelectedCategory] = useState(categoriaParam || "todos")
+  const [priceRange, setPriceRange] = useState([0, 1000000]) // Aumentar el rango máximo de precio
+  const [sortBy, setSortBy] = useState("featured")
+  const [searchTerm, setSearchTerm] = useState("")
+  const [selectedRating, setSelectedRating] = useState(0) // Asegurarse de que comience en 0
 
   // Cargar categorías
   useEffect(() => {
@@ -46,176 +46,200 @@ const [selectedRating, setSelectedRating] = useState(0); // Asegurarse de que co
     fetchCategories()
   }, [])
 
-  // Cargar productos
+  // Cargar productos - Optimizado para reducir re-renders
   useEffect(() => {
+    let isMounted = true // Para evitar actualizar el estado si el componente se desmonta
+
     const fetchProducts = async () => {
-      setLoading(true);
-      setError(null);
-    
+      if (!isMounted) return
+
+      setLoading(true)
+      setError(null)
+
       try {
-        let productosData = [];
-    
+        let productosData = []
+
         // Si hay una categoría seleccionada, obtener productos de esa categoría
         if (selectedCategory !== "todos" && !isNaN(selectedCategory)) {
-          const categoriaId = Number.parseInt(selectedCategory);
-          const response = await CatalogoService.getProductosByCategoria(categoriaId);
-          console.log("Respuesta de productos por categoría:", response);
-          productosData = CatalogoService.formatProductosList(response);
+          const categoriaId = Number.parseInt(selectedCategory)
+          const response = await CatalogoService.getProductosByCategoria(categoriaId)
+          if (isMounted) {
+            productosData = CatalogoService.formatProductosList(response)
+          }
         } else if (searchTerm) {
           // Si hay un término de búsqueda, buscar productos
-          const response = await CatalogoService.searchProductos(searchTerm);
-          console.log("Respuesta de búsqueda de productos:", response);
-          productosData = CatalogoService.formatProductosList(response);
+          const response = await CatalogoService.searchProductos(searchTerm)
+          if (isMounted) {
+            productosData = CatalogoService.formatProductosList(response)
+          }
         } else {
           // Si no, obtener todos los productos
-          const response = await CatalogoService.getProductos();
-          console.log("Respuesta de todos los productos:", response);
-          
-          // Verificar la estructura de la respuesta
-          if (Array.isArray(response)) {
-            console.log("La respuesta es un array de productos");
-          } else if (response && response.data && Array.isArray(response.data)) {
-            console.log("La respuesta tiene una propiedad data que es un array");
-          } else {
-            console.log("Estructura de respuesta desconocida:", response);
+          const response = await CatalogoService.getProductos()
+          if (isMounted) {
+            productosData = CatalogoService.formatProductosList(response)
           }
-          
-          productosData = CatalogoService.formatProductosList(response);
         }
-    
-        console.log("Productos formateados:", productosData);
-        
-        // Verificar si hay productos
-        if (productosData.length === 0) {
-          console.warn("No se encontraron productos");
+
+        if (isMounted) {
+          setProducts(productosData)
+          setLoading(false)
         }
-    
-        setProducts(productosData);
-        setFilteredProducts(productosData); // Establecer los productos filtrados igual a todos los productos inicialmente
-        setLoading(false);
       } catch (error) {
-        console.error("Error al cargar productos:", error);
-        setError("No se pudieron cargar los productos. Por favor, intenta de nuevo más tarde.");
-        setLoading(false);
+        if (isMounted) {
+          console.error("Error al cargar productos:", error)
+          setError("No se pudieron cargar los productos. Por favor, intenta de nuevo más tarde.")
+          setLoading(false)
+        }
       }
-    };
+    }
 
     fetchProducts()
+
+    return () => {
+      isMounted = false // Limpiar cuando el componente se desmonte
+    }
   }, [selectedCategory, searchTerm])
 
-
-  // Aplicar filtros cuando cambien
-useEffect(() => {
-  if (!Array.isArray(products) || products.length === 0) {
-    setFilteredProducts([]);
-    return;
-  }
-
-  console.log("Aplicando filtros a productos:", products);
-  console.log("Filtros actuales:", { priceRange, sortBy, selectedRating });
-
-  let result = [...products];
-
-  // Verificar si hay productos antes de aplicar filtros
-  console.log("Productos antes de filtrar:", result.length);
-
-  // Filtrar por rango de precio (asegurarse de que price es un número)
-  result = result.filter((product) => {
-    const price = parseFloat(product.price || 0);
-    return price >= priceRange[0] && price <= priceRange[1];
-  });
-  console.log("Productos después de filtrar por precio:", result.length);
-
-  // Filtrar por valoración
-  if (selectedRating > 0) {
-    result = result.filter((product) => {
-      const rating = parseFloat(product.rating || 0);
-      return rating >= selectedRating;
-    });
-    console.log("Productos después de filtrar por valoración:", result.length);
-  }
-
-  // Aplicar ordenamiento
-  if (sortBy === "price-asc") {
-    result.sort((a, b) => parseFloat(a.price || 0) - parseFloat(b.price || 0));
-  } else if (sortBy === "price-desc") {
-    result.sort((a, b) => parseFloat(b.price || 0) - parseFloat(a.price || 0));
-  } else if (sortBy === "rating") {
-    result.sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0));
-  }
-
-  console.log("Productos después de aplicar todos los filtros:", result);
-  setFilteredProducts(result);
-  setCurrentPage(1); // Resetear a la primera página cuando cambian los filtros
-}, [priceRange, sortBy, selectedRating, products]);
-
-  // Calcular productos paginados (paginación en el cliente)
+  // Aplicar filtros cuando cambien - Optimizado con useMemo
   useEffect(() => {
-    const indexOfLastProduct = currentPage * productsPerPage
+    if (!Array.isArray(products) || products.length === 0) {
+      setFilteredProducts([])
+      return
+    }
+
+    // Usar una función separada para aplicar filtros para evitar cálculos repetidos
+    const applyFilters = () => {
+      let result = [...products]
+
+      // Filtrar por rango de precio (asegurarse de que price es un número)
+      result = result.filter((product) => {
+        const price = Number.parseFloat(product.price || 0)
+        return price >= priceRange[0] && price <= priceRange[1]
+      })
+
+      // Filtrar por valoración
+      if (selectedRating > 0) {
+        result = result.filter((product) => {
+          const rating = Number.parseFloat(product.rating || 0)
+          return rating >= selectedRating
+        })
+      }
+
+      // Aplicar ordenamiento
+      if (sortBy === "price-asc") {
+        result.sort((a, b) => Number.parseFloat(a.price || 0) - Number.parseFloat(b.price || 0))
+      } else if (sortBy === "price-desc") {
+        result.sort((a, b) => Number.parseFloat(b.price || 0) - Number.parseFloat(a.price || 0))
+      } else if (sortBy === "rating") {
+        result.sort((a, b) => Number.parseFloat(b.rating || 0) - Number.parseFloat(a.rating || 0))
+      }
+
+      return result
+    }
+
+    // Aplicar filtros y actualizar el estado
+    const filteredResult = applyFilters()
+    setFilteredProducts(filteredResult)
+  }, [priceRange, sortBy, selectedRating, products])
+
+  // Calcular productos paginados (paginación en el cliente) - Optimizado
+  useEffect(() => {
+    if (!Array.isArray(filteredProducts)) {
+      setPaginatedProducts([])
+      setTotalPages(1)
+      return
+    }
+
+    // Calcular el número total de páginas
+    const calculatedTotalPages = Math.ceil(filteredProducts.length / productsPerPage)
+    setTotalPages(calculatedTotalPages)
+
+    // Asegurarse de que la página actual es válida
+    const validCurrentPage = Math.min(currentPage, calculatedTotalPages || 1)
+    if (validCurrentPage !== currentPage) {
+      setCurrentPage(validCurrentPage)
+      return // Salir para evitar cálculos adicionales, el siguiente useEffect se encargará
+    }
+
+    // Calcular los productos para la página actual
+    const indexOfLastProduct = validCurrentPage * productsPerPage
     const indexOfFirstProduct = indexOfLastProduct - productsPerPage
     const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct)
 
+    // Actualizar los productos paginados
     setPaginatedProducts(currentProducts)
-    setTotalPages(Math.ceil(filteredProducts.length / productsPerPage))
   }, [filteredProducts, currentPage, productsPerPage])
 
-  const handlePriceChange = (e) => {
+  // Memoizar los handlers para evitar recreaciones en cada render
+  const handlePriceChange = useCallback((e) => {
     setPriceRange([0, Number.parseInt(e.target.value)])
-  }
+  }, [])
 
-  const handleCategoryChange = (category) => {
-    setSelectedCategory(category);
-  
-    // Actualizar URL con el parámetro de categoría
-    if (category !== "todos") {
-      // Asegurarse de que category sea un valor válido antes de convertirlo a minúsculas
-      try {
-        // No usar toLowerCase() en el ID de categoría, solo en el nombre si es necesario
-        setSearchParams({ categoria: category });
-      } catch (error) {
-        console.error("Error al actualizar parámetros de búsqueda:", error);
-        setSearchParams({ categoria: category });
+  const handleCategoryChange = useCallback(
+    (category) => {
+      setSelectedCategory(category)
+
+      // Actualizar URL con el parámetro de categoría
+      if (category !== "todos") {
+        setSearchParams({ categoria: category })
+      } else {
+        setSearchParams({})
       }
-    } else {
-      setSearchParams({});
-    }
-  };
+    },
+    [setSearchParams],
+  )
 
-  const handleSortChange = (e) => {
+  const handleSortChange = useCallback((e) => {
     setSortBy(e.target.value)
-  }
+  }, [])
 
-  const handleSearch = (e) => {
+  const handleSearch = useCallback((e) => {
     e.preventDefault()
     // El término de búsqueda ya se actualiza con el onChange del input
-  }
+  }, [])
 
-  const handleSearchInputChange = (e) => {
+  const handleSearchInputChange = useCallback((e) => {
     setSearchTerm(e.target.value)
-  }
+  }, [])
 
-  const handleRatingChange = (rating) => {
-    setSelectedRating(rating === selectedRating ? 0 : rating)
-  }
+  const handleRatingChange = useCallback(
+    (rating) => {
+      setSelectedRating(rating === selectedRating ? 0 : rating)
+    },
+    [selectedRating],
+  )
 
-  const handlePageChange = (pageNumber) => {
+  const handlePageChange = useCallback((pageNumber) => {
     setCurrentPage(pageNumber)
     // Scroll to top
     window.scrollTo(0, 0)
-  }
+  }, [])
 
-  const toggleFilters = () => {
+  const toggleFilters = useCallback(() => {
     setShowFilters(!showFilters)
-  }
+  }, [showFilters])
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     setSelectedCategory("todos")
     setPriceRange([0, 200000])
     setSortBy("featured")
     setSearchTerm("")
     setSelectedRating(0)
     setSearchParams({})
-  }
+  }, [setSearchParams])
+
+  // Memoizar los elementos de paginación para evitar recálculos
+  const paginationItems = useMemo(() => {
+    const items = []
+    for (let number = 1; number <= totalPages; number++) {
+      items.push(
+        <Pagination.Item key={number} active={number === currentPage} onClick={() => handlePageChange(number)}>
+          {number}
+        </Pagination.Item>,
+      )
+    }
+    return items
+  }, [totalPages, currentPage, handlePageChange])
 
   if (loading) {
     return (
@@ -243,16 +267,6 @@ useEffect(() => {
           </Button>
         </Container>
       </div>
-    )
-  }
-
-  // Generar elementos de paginación
-  const paginationItems = []
-  for (let number = 1; number <= totalPages; number++) {
-    paginationItems.push(
-      <Pagination.Item key={number} active={number === currentPage} onClick={() => handlePageChange(number)}>
-        {number}
-      </Pagination.Item>,
     )
   }
 
@@ -318,15 +332,16 @@ useEffect(() => {
                       >
                         Todos los productos
                       </div>
-                      {Array.isArray(categories) && categories.map((category) => (
-  <div
-    key={category?.id || "unknown"}
-    className={`category-filter-item ${selectedCategory === String(category?.id) ? "active" : ""}`}
-    onClick={() => handleCategoryChange(String(category?.id))}
-  >
-    {category?.name || "Sin nombre"}
-  </div>
-))}
+                      {Array.isArray(categories) &&
+                        categories.map((category) => (
+                          <div
+                            key={category?.id || "unknown"}
+                            className={`category-filter-item ${selectedCategory === String(category?.id) ? "active" : ""}`}
+                            onClick={() => handleCategoryChange(String(category?.id))}
+                          >
+                            {category?.name || "Sin nombre"}
+                          </div>
+                        ))}
                     </div>
                   </div>
 
@@ -416,11 +431,12 @@ useEffect(() => {
 
                 <div className="products-grid-container">
                   <Row className="g-4">
-                  {Array.isArray(paginatedProducts) && paginatedProducts.map((product, index) => (
-  <Col md={6} lg={4} key={product?.id || `product-${index}`}>
-    <ProductCard product={product} />
-  </Col>
-                    ))}
+                    {Array.isArray(paginatedProducts) &&
+                      paginatedProducts.map((product, index) => (
+                        <Col md={6} lg={4} key={product?.id || `product-${index}`}>
+                          <ProductCard product={product} />
+                        </Col>
+                      ))}
                   </Row>
                 </div>
 

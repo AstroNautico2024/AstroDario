@@ -235,3 +235,13 @@ $teocat-blue: #00b2e3;
   }
 }
 
+/* Optimizaciones para prevenir parpadeos */
+.products-grid-container {
+  min-height: 400px; /* Altura mínima para evitar saltos de contenido */
+  contain: content; /* Mejora el rendimiento de renderizado */
+}
+
+/* Prevenir cambios de layout durante la carga */
+.row.g-4 {
+  will-change: contents; /* Optimización para cambios de contenido */
+}

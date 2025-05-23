@@ -38,7 +38,6 @@ const RegistrarServicio = () => {
   const [nuevoBeneficio, setNuevoBeneficio] = useState("")
   const [nuevoQueIncluye, setNuevoQueIncluye] = useState({
     nombre: "",
-    valor: "",
   })
 
   // Estado para los tipos de servicio
@@ -112,10 +111,7 @@ const RegistrarServicio = () => {
       if (servicio.Que_incluye) {
         try {
           servicio.Que_incluye.split(", ").forEach((item) => {
-            const [nombre, valor] = item.split(": ")
-            if (nombre && valor) {
-              queIncluye.push({ nombre, valor })
-            }
+            queIncluye.push({ nombre: item.trim() })
           })
         } catch (error) {
           console.error("Error al procesar Que_incluye:", error)
@@ -388,7 +384,7 @@ const RegistrarServicio = () => {
    * Manejador para agregar un nuevo elemento a "Que incluye"
    */
   const handleAddQueIncluye = (item) => {
-    if (item.nombre.trim() === "" || item.valor.trim() === "") {
+    if (item.nombre.trim() === "") {
       return
     }
 
@@ -407,7 +403,6 @@ const RegistrarServicio = () => {
       ...formData.queIncluye,
       {
         nombre: item.nombre.trim(),
-        valor: item.valor.trim(),
       },
     ]
 
@@ -420,7 +415,6 @@ const RegistrarServicio = () => {
     // Limpiar el input
     setNuevoQueIncluye({
       nombre: "",
-      valor: "",
     })
   }
 
@@ -536,7 +530,7 @@ const RegistrarServicio = () => {
       Foto: fotoString, // URLs de imágenes separadas por |
       Descripcion: formData.descripcion,
       Beneficios: formData.beneficios.join(", "), // Convertir array a string separado por comas
-      Que_incluye: formData.queIncluye.map((item) => `${item.nombre}: ${item.valor}`).join(", "), // Convertir a string
+      Que_incluye: formData.queIncluye.map((item) => item.nombre).join(", "), // Convertir a string solo con nombres
       Precio: Number.parseFloat(formData.precio), // Precio base
       PrecioGrande: Number.parseFloat(formData.precio), // Usar el mismo precio para PrecioGrande
       Duracion: Number.parseInt(formData.duracion),

@@ -18,7 +18,7 @@ const IncludesSection = ({ queIncluye, nuevoQueIncluye, setNuevoQueIncluye, onAd
   // Manejar el envío del formulario
   const handleSubmit = (e) => {
     e.preventDefault() // Prevenir el comportamiento por defecto del formulario
-    if (nuevoQueIncluye.nombre.trim() && nuevoQueIncluye.valor.trim()) {
+    if (nuevoQueIncluye.nombre.trim()) {
       onAddQueIncluye(nuevoQueIncluye)
     }
   }
@@ -28,7 +28,7 @@ const IncludesSection = ({ queIncluye, nuevoQueIncluye, setNuevoQueIncluye, onAd
       <label className="form-label small mb-1">Qué Incluye</label>
       <form onSubmit={handleSubmit} className="mb-2">
         <div className="row g-1">
-          <div className="col-5">
+          <div className="col-10">
             <input
               type="text"
               className="form-control form-control-sm"
@@ -38,23 +38,13 @@ const IncludesSection = ({ queIncluye, nuevoQueIncluye, setNuevoQueIncluye, onAd
               onChange={handleInputChange}
             />
           </div>
-          <div className="col-5">
-            <input
-              type="text"
-              className="form-control form-control-sm"
-              placeholder="Valor (ej: 60 minutos)"
-              name="valor"
-              value={nuevoQueIncluye.valor}
-              onChange={handleInputChange}
-            />
-          </div>
           <div className="col-2">
             <button
-              type="button" // Cambiado de submit a button
+              type="button"
               className="btn btn-outline-primary btn-sm w-100"
-              disabled={!nuevoQueIncluye.nombre.trim() || !nuevoQueIncluye.valor.trim()}
+              disabled={!nuevoQueIncluye.nombre.trim()}
               title="Agregar elemento"
-              onClick={handleSubmit} // Usar el mismo manejador
+              onClick={handleSubmit}
             >
               <Plus size={16} />
             </button>
@@ -67,8 +57,7 @@ const IncludesSection = ({ queIncluye, nuevoQueIncluye, setNuevoQueIncluye, onAd
           <table className="table table-sm table-bordered small">
             <thead className="table-light">
               <tr>
-                <th style={{ width: "45%" }}>Elemento</th>
-                <th style={{ width: "45%" }}>Detalle</th>
+                <th style={{ width: "90%" }}>Elemento</th>
                 <th style={{ width: "10%" }}></th>
               </tr>
             </thead>
@@ -76,7 +65,6 @@ const IncludesSection = ({ queIncluye, nuevoQueIncluye, setNuevoQueIncluye, onAd
               {queIncluye.map((item, index) => (
                 <tr key={index}>
                   <td>{item.nombre}</td>
-                  <td>{item.valor}</td>
                   <td className="text-center">
                     <button
                       type="button"
