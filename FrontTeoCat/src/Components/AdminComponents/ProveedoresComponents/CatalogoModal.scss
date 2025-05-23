@@ -207,16 +207,16 @@ $transition: all 0.3s ease;
       }
     }
     
-    .producto-item {
-      @include flex(row, space-between, center);
-      padding: 1rem;
-      background-color: $color-white;
-      
-      &.variante {
-        background-color: $color-gray-light;
-        border-top: 1px dashed $color-border;
-      }
-    }
+.producto-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.producto-item img {
+  margin-right: 10px;
+  border-radius: 5px;
+}
     
     .producto-info {
       @include flex(row, flex-start, center);

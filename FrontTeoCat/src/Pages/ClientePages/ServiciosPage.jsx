@@ -103,19 +103,6 @@ const ServiciosPage = () => {
           ))}
         </div>
 
-        {/* Botón central para agendar cita */}
-        <div className="text-center mb-5">
-          <Button
-            as={Link}
-            to="/agendar-cita"
-            className="btn-lg"
-            style={{ backgroundColor: "#7ab51d", color: "white" }}
-          >
-            <i className="bi bi-calendar-check me-2"></i>
-            Agendar una Cita Ahora
-          </Button>
-          <p className="mt-2 text-muted">Agenda fácilmente y elige el servicio que tu mascota necesita</p>
-        </div>
 
         {/* Sección de información adicional */}
         <div className="row g-4 mb-5">

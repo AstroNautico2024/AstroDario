@@ -272,13 +272,15 @@ const ProductoDetallePage = () => {
 
   const addToCart = () => {
     if (!product) return;
-
+  
+    console.log("Producto a agregar al carrito:", product);
+  
     // Obtener el carrito actual del localStorage
     const currentCart = JSON.parse(localStorage.getItem("cart") || "[]");
-
+  
     // Verificar si el producto ya está en el carrito
     const existingProductIndex = currentCart.findIndex((item) => item.id === product.id);
-
+  
     if (existingProductIndex >= 0) {
       // Si el producto ya está en el carrito, incrementar la cantidad
       currentCart[existingProductIndex].quantity += quantity;
@@ -289,13 +291,13 @@ const ProductoDetallePage = () => {
         quantity: quantity,
       });
     }
-
+  
     // Guardar el carrito actualizado en localStorage
     localStorage.setItem("cart", JSON.stringify(currentCart));
-
+  
     // Disparar evento para actualizar contador del carrito
     window.dispatchEvent(new Event("storage"));
-
+  
     // Mostrar notificación
     toast.success(`${quantity} ${quantity > 1 ? "unidades" : "unidad"} añadidas al carrito`, {
       position: "top-right",
@@ -306,7 +308,7 @@ const ProductoDetallePage = () => {
       draggable: true,
       progress: undefined,
     });
-  }
+  };
 
   const handleThumbnailClick = (index) => {
     setSelectedImage(index)

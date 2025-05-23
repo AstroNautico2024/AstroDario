@@ -1,14 +1,14 @@
-"use client"
+"use client";
 
-import { useRef } from "react"
-import { Link } from "react-router-dom"
-import { Card, Nav } from "react-bootstrap"
-import { toast } from "react-toastify"
-import PerfilClienteService from "../../../Services/ConsumoCliente/PerfilClienteService"
-import "../MiPerfilComponents/ProfileSidebar.scss"
+import { useRef } from "react";
+import { Link } from "react-router-dom";
+import { Card, Nav } from "react-bootstrap";
+import { toast } from "react-toastify";
+import PerfilClienteService from "../../../Services/ConsumoCliente/PerfilClienteService";
+import "../MiPerfilComponents/ProfileSidebar.scss";
 
 const ProfileSidebar = ({ user, activeTab, setActiveTab, updateUser }) => {
-  const fileInputRef = useRef(null)
+  const fileInputRef = useRef(null);
 
   const handleFotoChange = async (e) => {
     const file = e.target.files[0];
@@ -18,8 +18,6 @@ const ProfileSidebar = ({ user, activeTab, setActiveTab, updateUser }) => {
       await PerfilClienteService.updateFoto(user.id, file);
       // Refresca el usuario desde el backend
       const refreshed = await PerfilClienteService.getPerfil();
-      // Depuración: muestra el usuario refrescado en consola
-      console.log("Usuario refrescado:", refreshed);
       if (updateUser) {
         updateUser(refreshed);
       }
@@ -27,45 +25,29 @@ const ProfileSidebar = ({ user, activeTab, setActiveTab, updateUser }) => {
     } catch (err) {
       toast.error("Error al actualizar la foto");
     }
-  }
+  };
 
   return (
     <Card className="tc-profile-sidebar border-0 shadow">
       <Card.Body className="p-0">
         <div className="tc-profile-header">
           <div
-            className="tc-profile-image-container"
-            style={{ cursor: "pointer" }}
-            onClick={() => fileInputRef.current && fileInputRef.current.click()}
+            className="tc-profile-image-container d-flex align-items-center justify-content-center"
+            style={{ width: "120px", height: "120px", margin: "0 auto" }}
           >
-
-
-            <img
-  src={
-    user.foto
-      ? `${user.foto}?t=${Date.now()}`
-      : user.Foto
-      ? `${user.Foto}?t=${Date.now()}`
-      : user.profileImage
-      ? `${user.profileImage}?t=${Date.now()}`
-      : "/placeholder.svg"
-  }
-  alt={user.nombre}
-  className="tc-profile-image"
-/>
-
-
-
-            <div className="tc-profile-image-overlay">
-              <i className="bi bi-camera"></i>
-            </div>
-            <input
-              type="file"
-              accept="image/*"
-              style={{ display: "none" }}
-              ref={fileInputRef}
-              onChange={handleFotoChange}
-            />
+            {/* Ícono de perfil */}
+            <i
+              className="bi bi-person-circle text-muted"
+              style={{
+                fontSize: "120px",
+                width: "100%",
+                height: "100%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                objectFit: "cover"
+              }}
+            ></i>
           </div>
           <h4 className="tc-profile-name">
             {user.nombre} {user.apellido}
@@ -92,7 +74,7 @@ const ProfileSidebar = ({ user, activeTab, setActiveTab, updateUser }) => {
             onClick={() => setActiveTab("orders")}
           >
             <i className="bi bi-box-seam tc-nav-icon"></i>
-            Mis Pedidos
+            Mis compras
           </Nav.Link>
           <Nav.Link
             as="button"
@@ -125,7 +107,7 @@ const ProfileSidebar = ({ user, activeTab, setActiveTab, updateUser }) => {
         </Nav>
       </Card.Body>
     </Card>
-  )
-}
+  );
+};
 
-export default ProfileSidebar
+export default ProfileSidebar;

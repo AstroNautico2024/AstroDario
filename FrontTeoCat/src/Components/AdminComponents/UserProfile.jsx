@@ -423,12 +423,6 @@ const UserProfile = () => {
                   </div>
                 )}
               </div>
-
-              <div className="notification-footer">
-                <Link to="/inventario/notificaciones" onClick={() => setIsNotificationsOpen(false)}>
-                  Ver todas las notificaciones
-                </Link>
-              </div>
             </motion.div>
           )}
         </AnimatePresence>

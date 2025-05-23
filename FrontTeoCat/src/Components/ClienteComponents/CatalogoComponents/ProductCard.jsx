@@ -19,8 +19,8 @@ const ProductCard = memo(({ product }) => {
 
   const productImage = !imageError
     ? (product.images && product.images.length > 0
-        ? product.images[0]
-        : product.image) || "/assets/images/default-product.svg"
+        ? product.images[0] // Mostrar la primera imagen del array
+        : "/assets/images/default-product.svg")
     : "/assets/images/default-product.svg";
 
   const handleAddToCart = (e) => {
@@ -52,7 +52,7 @@ const ProductCard = memo(({ product }) => {
               src={productImage}
               alt={product.name || "Imagen no disponible"}
               className={`product-image ${isHovered ? "zoomed" : ""}`}
-              onError={() => setImageError(true)} // Marca que la imagen ha fallado
+              onError={() => setImageError(true)} // Manejar errores de carga de imagen
               loading="lazy"
             />
           </Link>
