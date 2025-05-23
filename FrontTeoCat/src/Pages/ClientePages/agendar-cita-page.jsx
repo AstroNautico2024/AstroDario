@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from "react"
 import { Container, Row, Col, Form, Button, Card, Collapse } from "react-bootstrap"
-import { toast } from "react-toastify"
 import { useSearchParams } from "react-router-dom"
 import { motion, AnimatePresence } from "framer-motion"
 import "react-calendar/dist/Calendar.css"
 import "../../Pages/ClientePages/agendar-cita-page.scss"
+import { toast, ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 import CitasClienteService from "../../Services/ConsumoCliente/CitasClienteService"
 import PerfilClienteService from "../../Services/ConsumoCliente/PerfilClienteService"
@@ -660,7 +661,7 @@ const AgendarCitaPage = () => {
     }
   }
 
-  // Renderizar el paso actual
+  // Renderizar el paso current
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 1:
@@ -1200,6 +1201,7 @@ const AgendarCitaPage = () => {
 
   return (
     <div className="agendar-cita-page">
+      <ToastContainer /> {/* Asegúrate de que este componente esté aquí */}
       <Container className="py-5 mt-5">
         <div className="page-header mb-5">
           <h1 className="page-title">Agendar Cita</h1>
