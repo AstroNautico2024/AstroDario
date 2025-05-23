@@ -215,85 +215,32 @@ formatProductoData(producto) {
     console.warn("Se intentó formatear un producto nulo o indefinido");
     return null;
   }
-  
+
   console.log("Formateando producto individual:", producto);
 
-  // Procesar imágenes (pueden venir separadas por |)
+  // Procesar imágenes (pueden venir separadas por | o como un solo string)
   let images = [];
-  const imageField = producto.Foto || producto.ImagenURL || producto.imagen || null;
+  const imageField = producto.FotosProductoBase || producto.ImagenURL || producto.imagen || null;
   if (imageField) {
     if (typeof imageField === 'string' && imageField.includes('|')) {
-      images = imageField.split('|');
+      images = imageField.split('|').map((img) => img.trim());
     } else {
       images = [imageField];
     }
   }
 
-  // Procesar características (pueden venir como string)
-  let features = [];
-  const caracteristicasField = producto.Caracteristicas || producto.caracteristicas || '';
-  if (caracteristicasField) {
-    if (typeof caracteristicasField === 'string') {
-      // Si es un string, dividir por líneas o comas
-      if (caracteristicasField.includes('\n')) {
-        features = caracteristicasField.split('\n').filter(item => item.trim() !== '');
-      } else if (caracteristicasField.includes(',')) {
-        features = caracteristicasField.split(',').filter(item => item.trim() !== '');
-      } else {
-        features = [caracteristicasField];
-      }
-    } else if (Array.isArray(caracteristicasField)) {
-      features = caracteristicasField;
-    }
-  }
-
-  // Procesar especificaciones (pueden venir como string con formato "clave: valor")
-  let specs = {};
-  const especificacionesField = producto.Especificaciones || producto.especificaciones || '';
-  if (especificacionesField) {
-    if (typeof especificacionesField === 'string') {
-      // Intentar parsear como JSON primero
-      try {
-        specs = JSON.parse(especificacionesField);
-      } catch (error) {
-        // Si no es JSON válido, intentar dividir por líneas y luego por ":"
-        if (especificacionesField.includes('\n')) {
-          const lines = especificacionesField.split('\n');
-          lines.forEach(line => {
-            if (line.includes(':')) {
-              const [key, value] = line.split(':').map(item => item.trim());
-              if (key && value) {
-                specs[key] = value;
-              }
-            }
-          });
-        } else if (especificacionesField.includes(':')) {
-          const [key, value] = especificacionesField.split(':').map(item => item.trim());
-          if (key && value) {
-            specs[key] = value;
-          }
-        } else {
-          specs = { "Especificación": especificacionesField };
-        }
-      }
-    } else if (typeof especificacionesField === 'object') {
-      specs = especificacionesField;
-    }
+  // Si no hay imágenes, usar una imagen predeterminada
+  if (images.length === 0) {
+    images = ["/assets/images/default-product.svg"];
   }
 
   return {
     id: producto.IdProducto || producto.id || 0,
     name: producto.NombreProducto || producto.nombre || "Sin nombre",
-    description: producto.Descripcion || producto.descripcion || "",
     price: parseFloat(producto.Precio || producto.precio || 0),
-    stock: producto.Stock || producto.stock || 0,
-    images: images, // Ahora devolvemos un array de imágenes
-    image: images.length > 0 ? images[0] : null, // Para compatibilidad con código existente
+    images: images, // Siempre será un array con al menos una imagen
     category: producto.NombreCategoria || producto.categoria || "Sin categoría",
-    categoryId: producto.IdCategoriaDeProducto || producto.IdCategoriaDeProductos || producto.categoriaId || 0,
     rating: producto.Valoracion || producto.rating || 0,
-    specifications: specs, // Ahora es un objeto con pares clave-valor
-    features: features, // Ahora es un array de características
   };
 }
 }

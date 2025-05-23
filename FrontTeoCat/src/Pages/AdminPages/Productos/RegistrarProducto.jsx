@@ -6,6 +6,7 @@ import { Save, ArrowLeft, X } from "lucide-react"
 import { ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
 import "../../../Styles/AdminStyles/ToastStyles.css"
+import { uploadImageToCloudinary } from "../../../Services/uploadImageToCloudinary.js";
 
 // Importar componentes actualizados
 import BasicInfoSection from "../../../Components/AdminComponents/ProductosComponents/BasicInfoSection"
@@ -486,6 +487,8 @@ const RegistrarProducto = () => {
       try {
         // Subir imagen a Cloudinary
         const imageUrl = await uploadImageToCloudinary(file, "productos")
+        console.log("URL de imagen subida:", imageUrl);
+        
 
         if (imageUrl) {
           // Actualizar la vista previa con la URL de Cloudinary
@@ -1023,7 +1026,7 @@ const productoData = {
   NombreProducto: formData.NombreProducto,
   Descripcion: formData.Descripcion || "",
   IdCategoriaDeProducto: Number.parseInt(formData.IdCategoriaDeProducto),
-  Foto: fotosString, // URLs de imágenes separadas por |
+  FotosProductoBase: fotosString, // URLs de imágenes separadas por |
   Stock: Number.parseInt(formData.Stock),
   Precio: Number.parseFloat(formData.Precio),
   PorcentajeIVA: formData.AplicaIVA ? Number.parseFloat(formData.PorcentajeIVA) : 0,
