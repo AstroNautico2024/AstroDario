@@ -202,11 +202,11 @@ export const CalendarComponent = ({ selectedDate, onDateSelect, citasAgendadas }
                           })
                           .map((cita, index) => (
                             <div key={index}>
-                              <p>Cliente: {cita.Cliente.Nombre}</p>
-                              <p>Mascota: {cita.Mascota.Nombre}</p>
+                              <p>Cliente: {cita.Cliente?.Nombre ?? "Sin nombre"}</p>
+                              <p>Mascota: {cita.Mascota?.Nombre ?? "Sin nombre"}</p>
                               <ul>
-                                {cita.Servicios.map((servicio) => (
-                                  <li key={servicio.IdServicio}>{servicio.Nombre}</li>
+                                {(cita.Servicios ?? []).map((servicio, i) => (
+                                  <li key={servicio?.IdServicio ?? i}>{servicio?.Nombre ?? "Servicio"}</li>
                                 ))}
                               </ul>
                             </div>

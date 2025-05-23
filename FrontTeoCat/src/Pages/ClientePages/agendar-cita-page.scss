@@ -134,6 +134,13 @@ $teocat-blue: #00b2e3;
   
   // Estilos para el calendario
   .calendar-container {
+    max-width: 370px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    padding: 1.2rem 0.5rem 0.5rem 0.5rem;
+
     .appointment-calendar {
       width: 100%;
       border: none;
@@ -204,24 +211,157 @@ $teocat-blue: #00b2e3;
           position: absolute;
           bottom: 2px;
           right: 2px;
-          font-size: 0.6rem;
+          font-size: 0.7rem;
           padding: 0.1rem 0.25rem;
+          margin-top: 2px;
         }
       }
     }
     
     .calendar-legend {
+      margin-top: 0.5rem;
       .legend-color {
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        margin-right: 5px;
+        width: 16px;
+        height: 16px;
+        border-radius: 4px;
+        margin-right: 0.5rem;
+        display: inline-block;
       }
       
       .legend-text {
-        font-size: 0.75rem;
+        font-size: 0.95rem;
+        margin-right: 1.2rem;
         color: #6c757d;
       }
+    }
+  }
+
+  .calendar-wrapper {
+    max-width: 370px; // más compacto
+    min-width: 320px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 1rem;
+    box-shadow: 0 2px 16px rgba(0,0,0,0.08);
+    padding: 1.2rem 0.5rem 0.5rem 0.5rem;
+    overflow-x: hidden; // evita scroll horizontal
+  }
+
+  .calendar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+    h4 {
+      font-size: 1.2rem;
+      margin: 0;
+      color: $teocat-brown;
+    }
+  }
+
+  .calendar-table {
+    table-layout: fixed; // fuerza celdas iguales
+    width: 100%;
+    border-collapse: collapse;
+    th, td {
+      text-align: center;
+      padding: 0.2rem 0.1rem;
+      font-size: 0.85rem;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      max-width: 40px;
+    }
+    th {
+      color: $teocat-brown;
+      font-weight: 700;
+      background: #f8f9fa;
+      border-radius: 0.3rem;
+    }
+    td {
+      min-width: 36px;
+      height: 38px;
+      border-radius: 0.4rem;
+      vertical-align: top;
+      background: #fff;
+      transition: background 0.2s;
+      cursor: pointer;
+      position: relative;
+    }
+    td.selected {
+      background: $teocat-green;
+      color: #fff;
+    }
+    td.today {
+      border: 2px solid $teocat-blue;
+    }
+    td.past {
+      color: #bbb;
+      background: #f5f5f5;
+      cursor: not-allowed;
+    }
+    td.sunday {
+      color: #e74c3c;
+    }
+    td.lleno {
+      background: #ffeaea;
+    }
+    td.pocas {
+      background: #fffbe6;
+    }
+    td.disponible {
+      background: #eaffea;
+    }
+    .day-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .day-number {
+      font-weight: 600;
+      font-size: 1rem;
+    }
+    .day-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 2px;
+      &.lleno { background: #e74c3c; }
+      &.pocas { background: #f1c40f; }
+      &.disponible { background: #7ab51d; }
+    }
+    .citas-details {
+      max-width: 90px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      background: #f8f9fa;
+      border-radius: 0.3rem;
+      padding: 1px 2px;
+      margin: 0 auto;
+      font-size: 0.65rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+    }
+  }
+
+  .calendar-legend {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      .legend-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .disponible { background: #7ab51d; }
+      .pocas { background: #f1c40f; }
+      .lleno { background: #e74c3c; }
     }
   }
   

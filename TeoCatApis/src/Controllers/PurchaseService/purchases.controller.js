@@ -526,10 +526,7 @@ export const comprasController = {
           })
 
           // Actualizar stock del producto
-          await connection.query(`UPDATE Productos SET Stock = Stock + ? WHERE IdProducto = ?`, [
-            detalle.Cantidad,
-            detalle.IdProducto,
-          ])
+          await productosModel.updateStock(detalle.IdProducto, detalle.Cantidad)
 
           // Acumular totales
           subtotal += subtotalDetalle

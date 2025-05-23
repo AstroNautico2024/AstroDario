@@ -2,7 +2,7 @@
 import { Calendar } from "react-calendar"
 import { Badge } from "react-bootstrap"
 import "react-calendar/dist/Calendar.css"
-
+import "./agendar-cita-components.scss"
 /**
  * @param {Object} props
  * @param {Date} props.selectedDate
@@ -89,6 +89,12 @@ const CalendarWithAvailability = ({
       </div>
     </div>
   )
+
+
+
+
+  
 }
 
 export default CalendarWithAvailability
+
