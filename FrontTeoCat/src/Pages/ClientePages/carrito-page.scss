@@ -2,6 +2,7 @@
 $teocat-brown: #5a3921;
 $teocat-green: #7ab51d;
 $teocat-blue: #00b2e3;
+$teocat-gray: #f8f9fa;
 
 // Importar el módulo de color de Sass
 @use "sass:color";
@@ -14,8 +15,10 @@ $teocat-blue: #00b2e3;
     color: $teocat-brown;
     font-weight: 700;
     margin-bottom: 2rem;
-    font-size: 2rem;
+    font-size: 2.5rem;
     text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 1px;
   }
 
   // Elementos del carrito
@@ -26,34 +29,44 @@ $teocat-blue: #00b2e3;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 1rem;
+      padding: 1.5rem;
       border: 1px solid #ddd;
-      border-radius: 0.5rem;
-      margin-bottom: 1rem;
+      border-radius: 0.75rem;
+      margin-bottom: 1.5rem;
+      background-color: $teocat-gray;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      transition: transform 0.2s, box-shadow 0.2s;
+
+      &:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+      }
 
       .carrito-item-info {
         display: flex;
         align-items: center;
-        gap: 1rem;
+        gap: 1.5rem;
 
         .carrito-item-image {
-          width: 80px;
-          height: 80px;
+          width: 100px;
+          height: 100px;
           object-fit: cover;
-          border-radius: 0.5rem;
+          border-radius: 0.75rem;
+          border: 2px solid $teocat-brown;
         }
 
         .carrito-item-name {
           color: $teocat-brown;
           font-weight: 600;
           margin: 0;
-          font-size: 1.2rem;
+          font-size: 1.5rem;
         }
 
         .carrito-item-price {
-          color: $teocat-brown;
-          font-size: 1rem;
+          color: $teocat-green;
+          font-size: 1.2rem;
           margin-top: 0.5rem;
+          font-weight: 700;
         }
       }
 
@@ -61,12 +74,12 @@ $teocat-blue: #00b2e3;
         display: flex;
         flex-direction: column;
         align-items: flex-end;
-        gap: 0.5rem;
+        gap: 1rem;
 
         .quantity-controls {
           display: flex;
           align-items: center;
-          gap: 0.5rem;
+          gap: 0.75rem;
 
           .quantity-btn {
             width: 40px;
@@ -75,15 +88,17 @@ $teocat-blue: #00b2e3;
             align-items: center;
             justify-content: center;
             border: 1px solid #ced4da;
-            border-radius: 4px;
+            border-radius: 50%;
             background-color: #fff;
             color: $teocat-brown;
             font-size: 1.2rem;
             cursor: pointer;
+            transition: background-color 0.2s, transform 0.2s;
 
             &:hover {
               background-color: rgba($teocat-green, 0.1);
               border-color: $teocat-green;
+              transform: scale(1.1);
             }
 
             &:disabled {
@@ -109,6 +124,7 @@ $teocat-blue: #00b2e3;
           font-size: 0.9rem;
           border-radius: 4px;
           cursor: pointer;
+          transition: background-color 0.2s;
 
           &:hover {
             background-color: #c82333;
@@ -121,12 +137,12 @@ $teocat-blue: #00b2e3;
   // Footer del carrito
   .carrito-footer {
     display: flex;
-    flex-direction: column; // Alinea los elementos en columna
-    align-items: flex-end; // Alinea los elementos al final
-    gap: 1rem; // Espaciado entre el total y los botones
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1.5rem;
 
     .total-price {
-      font-size: 1.5rem;
+      font-size: 1.8rem;
       font-weight: 700;
       color: $teocat-brown;
 
@@ -138,19 +154,22 @@ $teocat-blue: #00b2e3;
 
     .carrito-buttons {
       display: flex;
-      flex-direction: row; // Alinea los botones en fila
-      gap: 1rem; // Espaciado entre los botones
+      flex-direction: row;
+      gap: 1rem;
 
       .btn-clear-cart {
         background-color: #dc3545;
         color: #fff;
         border: none;
-        padding: 0.7rem 1.5rem;
+        padding: 0.8rem 1.5rem;
         font-size: 1rem;
+        border-radius: 0.5rem;
         cursor: pointer;
+        transition: background-color 0.2s, transform 0.2s;
 
         &:hover {
           background-color: #c82333;
+          transform: translateY(-2px);
         }
       }
 
@@ -158,15 +177,17 @@ $teocat-blue: #00b2e3;
         background-color: $teocat-green;
         color: #fff;
         border: none;
-        padding: 0.7rem 1.5rem;
+        padding: 0.8rem 1.5rem;
         font-size: 1rem;
+        border-radius: 0.5rem;
         cursor: pointer;
+        transition: background-color 0.2s, transform 0.2s;
 
         &:hover {
           background-color: color.adjust($teocat-green, $lightness: -10%);
+          transform: translateY(-2px);
         }
       }
     }
   }
 }
-
