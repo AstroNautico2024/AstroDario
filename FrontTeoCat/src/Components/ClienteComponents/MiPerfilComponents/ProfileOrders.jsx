@@ -7,7 +7,7 @@ import "../MiPerfilComponents/ProfileOrders.scss"
 const ProfileOrders = ({ orders }) => {
   // Función para abrir WhatsApp con mensaje predefinido
   const openWhatsApp = (orderId) => {
-    const message = `Hola, necesito ayuda con mi pedido #${orderId} en Teo/Cat.`
+    const message = `Hola, necesito ayuda con mi compra #${orderId} en Teo/Cat.`
     const whatsappUrl = `https://wa.me/+573XXXXXXXXX?text=${encodeURIComponent(message)}`
     window.open(whatsappUrl, "_blank")
   }
@@ -15,14 +15,14 @@ const ProfileOrders = ({ orders }) => {
   return (
     <Card className="border-0 shadow">
       <Card.Header className="tc-profile-card-header">
-        <h4 className="mb-0">Mis Pedidos</h4>
+        <h4 className="mb-0">Mis compras</h4>
       </Card.Header>
       <Card.Body>
         {orders.length === 0 ? (
           <div className="text-center py-4">
             <i className="bi bi-box-seam fs-1 mb-3" style={{ color: "#7ab51d" }}></i>
-            <h5>No tienes pedidos aún</h5>
-            <p className="mb-4">¡Explora nuestro catálogo y realiza tu primer pedido!</p>
+            <h5>No tienes compras aún</h5>
+            <p className="mb-4">¡Explora nuestro catálogo y realiza tu primera compra!</p>
             <Link to="/catalogo" className="btn btn-success">
               Ir al Catálogo
             </Link>
@@ -40,7 +40,7 @@ const ProfileOrders = ({ orders }) => {
                   >
                     <div className="d-flex justify-content-between align-items-center w-100 me-3">
                       <span className="tc-order-id">
-                        <strong>Pedido:</strong> {order.id}
+                        <strong>Compra:</strong> {order.id}
                       </span>
                       <span className="tc-order-date d-none d-md-block">
                         <strong>Fecha:</strong> {order.date}
@@ -102,7 +102,7 @@ const ProfileOrders = ({ orders }) => {
                       </Button>
                       {order.status !== "Entregado" && (
                         <Button variant="outline-danger" size="sm">
-                          <i className="bi bi-x-circle me-1"></i> Cancelar Pedido
+                          <i className="bi bi-x-circle me-1"></i> Cancelar Compra
                         </Button>
                       )}
                     </div>

@@ -92,7 +92,7 @@ const ProfileSidebar = ({ user, activeTab, setActiveTab, updateUser }) => {
             onClick={() => setActiveTab("orders")}
           >
             <i className="bi bi-box-seam tc-nav-icon"></i>
-            Mis Pedidos
+            Mis compras
           </Nav.Link>
           <Nav.Link
             as="button"

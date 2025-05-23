@@ -130,7 +130,7 @@ const Navbar = () => {
                       <i className="bi bi-box-seam text-success"></i>
                     </div>
                     <div className="notification-content">
-                      <p className="mb-0">Tu pedido #ORD-2023-001 ha sido enviado</p>
+                      <p className="mb-0">Tu compra #ORD-2023-001 ha sido enviado</p>
                       <small className="text-muted">Hace 2 horas</small>
                     </div>
                   </div>
@@ -192,7 +192,7 @@ const Navbar = () => {
                     </div>
                     <div className="dropdown-item p-0">
                       <Link to="/perfil?tab=orders" className="dropdown-item">
-                        <i className="bi bi-box-seam me-2"></i> Mis Pedidos
+                        <i className="bi bi-box-seam me-2"></i> Mis compras
                       </Link>
                     </div>
                     <div className="dropdown-item p-0">
