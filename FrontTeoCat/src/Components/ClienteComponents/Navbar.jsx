@@ -106,55 +106,6 @@ const Navbar = () => {
             </Nav.Item>
           </Nav>
 
-          <div className="d-flex align-items-center">
-            {/* Icono de notificaciones */}
-            <div className="notification-icon-container">
-              <Dropdown align="end">
-                <Dropdown.Toggle variant="link" id="dropdown-notifications" className="notification-toggle">
-                  <i className="bi bi-bell fs-4"></i>
-                  {notificationCount > 0 && (
-                    <Badge pill bg="danger" className="position-absolute top-0 start-100 translate-middle">
-                      {notificationCount}
-                    </Badge>
-                  )}
-                </Dropdown.Toggle>
-                <Dropdown.Menu className="notification-dropdown-menu">
-                  <div className="notification-header px-3 py-2 border-bottom">
-                    <h6 className="mb-0">Notificaciones</h6>
-                  </div>
-                  <div 
-                    className="notification-item dropdown-item"
-                    onClick={() => handleNotificationClick("order", "ORD-2023-001")}
-                  >
-                    <div className="notification-icon bg-success-light">
-                      <i className="bi bi-box-seam text-success"></i>
-                    </div>
-                    <div className="notification-content">
-                      <p className="mb-0">Tu compra #ORD-2023-001 ha sido enviado</p>
-                      <small className="text-muted">Hace 2 horas</small>
-                    </div>
-                  </div>
-                  <div 
-                    className="notification-item dropdown-item"
-                    onClick={() => handleNotificationClick("appointment")}
-                  >
-                    <div className="notification-icon bg-primary-light">
-                      <i className="bi bi-calendar-check text-primary"></i>
-                    </div>
-                    <div className="notification-content">
-                      <p className="mb-0">Recordatorio: Tienes una cita mañana</p>
-                      <small className="text-muted">Hace 1 día</small>
-                    </div>
-                  </div>
-                  <Dropdown.Divider />
-                  <div className="text-center dropdown-item">
-                    <Link to="/perfil" className="text-decoration-none">
-                      <small>Ver todas las notificaciones</small>
-                    </Link>
-                  </div>
-                </Dropdown.Menu>
-              </Dropdown>
-            </div>
 
             {/* Icono del carrito */}
             <div className="cart-icon-container">
@@ -226,7 +177,6 @@ const Navbar = () => {
                 </Link>
               )}
             </div>
-          </div>
         </BSNavbar.Collapse>
       </Container>
     </BSNavbar>

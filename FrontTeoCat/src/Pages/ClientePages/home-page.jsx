@@ -203,36 +203,12 @@ const HomePage = () => {
   const categories = [
     {
       id: 1,
-      name: "Alimentos",
-      description: "Nutrición premium para tu mascota",
+      name: "Catálogo",
+      description: "",
       icon: "bi-basket",
       image: "https://images.unsplash.com/photo-1589924691995-400dc9ecc119?q=80&w=500",
       color: "#7ab51d",
-    },
-    {
-      id: 2,
-      name: "Juguetes",
-      description: "Diversión y entretenimiento",
-      icon: "bi-controller",
-      image: "https://images.unsplash.com/photo-1526947425960-945c6e72858f?q=80&w=500",
-      color: "#e67e22",
-    },
-    {
-      id: 3,
-      name: "Accesorios",
-      description: "Comodidad y estilo para tu mascota",
-      icon: "bi-tag",
-      image: "https://images.unsplash.com/photo-1567612529009-afe25813a308?q=80&w=500",
-      color: "#3498db",
-    },
-    {
-      id: 4,
-      name: "Higiene",
-      description: "Cuidado y limpieza",
-      icon: "bi-droplet",
-      image: "https://images.unsplash.com/photo-1584305574647-0cc949a2bb9f?q=80&w=500",
-      color: "#9b59b6",
-    },
+    }
   ]
 
   // Datos para beneficios
@@ -270,27 +246,7 @@ const HomePage = () => {
       {/* Sección de beneficios */}
       <BenefitsSection benefits={benefits} isVisible={isVisible.benefits} />
 
-      {/* Sección de Productos Destacados */}
-      <FeaturedSection
-        title="Productos Destacados"
-        subtitle="Seleccionados especialmente para tu mascota"
-        items={featuredProducts}
-        linkTo="/catalogo"
-        linkText="Ver Todos"
-        isVisible={isVisible.products}
-        sectionName="products"
-      />
 
-      {/* Sección de Servicios */}
-      <ServicesSection
-        title="Servicios Profesionales"
-        subtitle="Cuidamos de tu mascota con amor y dedicación"
-        items={popularServices}
-        linkTo="/servicios"
-        linkText="Ver Todos"
-        isVisible={isVisible.services}
-        sectionName="services"
-      />
 
       {/* Sección de Testimonios */}
       <TestimonialsSection testimonials={testimonials} isVisible={isVisible.testimonials} sectionName="testimonials" />
