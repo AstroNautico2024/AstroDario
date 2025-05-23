@@ -1,6 +1,6 @@
 import axiosInstance from "../ConsumoAdmin/axios.js";
 
-const API_BASE_URL = "/compras"; // Base URL para las rutas de compras
+const API_BASE_URL = "/sales/ventas"; // Así coincide con tu backend
 
 const ComprasCliente = {
   // Obtener todas las compras
@@ -28,11 +28,7 @@ const ComprasCliente = {
   // Crear una nueva compra
   create: async (compraData) => {
     try {
-      const response = await axiosInstance.post(API_BASE_URL, compraData, {
-        headers: {
-          "Content-Type": "multipart/form-data", // Si estás enviando un archivo como ComprobantePago
-        },
-      });
+      const response = await axiosInstance.post(API_BASE_URL, compraData);
       return response.data;
     } catch (error) {
       console.error("Error al crear la compra:", error);

@@ -14,6 +14,10 @@ import ComprasService from "../../../Services/ConsumoAdmin/ComprasService.js"
 import ProveedoresService from "../../../Services/ConsumoAdmin/ProveedoresService.js"
 import ProductosService from "../../../Services/ConsumoAdmin/ProductosService.js"
 
+
+
+import "./CatalogoProveedor.scss"; // Crea este archivo para estilos personalizados
+
 /**
  * Componente para registrar compras de productos
  * Permite seleccionar proveedor, agregar productos y registrar la compra

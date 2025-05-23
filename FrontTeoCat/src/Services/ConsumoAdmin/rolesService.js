@@ -121,6 +121,21 @@ const rolesService = {
       throw error
     }
   },
+
+  /**
+   * Obtiene los usuarios asignados a un rol
+   * @param {number} id - ID del rol
+   * @returns {Promise} Promesa con la respuesta
+   */
+  getUsuariosByRol: async (id) => {
+    try {
+      const response = await api.get(`/auth/roles/${id}/usuarios`);
+      return response.data; // debe ser un array de usuarios
+    } catch (error) {
+      console.error(`Error al obtener usuarios del rol con ID ${id}:`, error);
+      throw error;
+    }
+  },
 }
 
 export default rolesService

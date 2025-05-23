@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useCart } from "../../Context/CartContext.jsx";
 import { Link } from "react-router-dom";
 import ComprasCliente from "../../Services/ConsumoCliente/ComprasCliente.js";
@@ -10,6 +10,7 @@ import "../../Pages/ClientePages/carrito-page.scss";
 
 const CarritoPage = () => {
   const { cartItems, cartCount, updateQuantity, removeItem, clearCart } = useCart();
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Calcular el total de las compras
   const totalPrice = cartItems.reduce((total, item) => total + item.price * item.quantity, 0);
@@ -33,7 +34,16 @@ const CarritoPage = () => {
   };
 
   const handleProceedToPayment = async () => {
+    if (isProcessing) return; // Evita doble envío
+    setIsProcessing(true);
+
     try {
+      if (cartItems.length === 0) {
+        toast.error("Tu carrito está vacío.");
+        setIsProcessing(false);
+        return;
+      }
+
       // Crear los detalles de la compra en el formato esperado por el backend
       const detalles = cartItems.map((item) => ({
         IdProducto: item.id,
@@ -42,53 +52,44 @@ const CarritoPage = () => {
         Subtotal: item.price * item.quantity,
       }));
 
-      // Crear el objeto de compra
+      // Puedes agregar aquí datos del cliente si tu backend lo requiere
       const compraData = {
         Total: totalPrice,
-        Detalles: detalles, // Incluye los detalles de la compra
+        Detalles: detalles,
+        // ClienteId: user.id, // si tienes autenticación
       };
 
       // Enviar la compra al backend usando ComprasCliente.create
       await ComprasCliente.create(compraData);
 
-      console.log("Compra registrada exitosamente");
-
-      // Mostrar notificación de éxito antes de limpiar el carrito
       toast.success("Compra registrada exitosamente. Redirigiendo a WhatsApp...", {
         position: "top-right",
         autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
       });
 
-      // Limpiar el carrito después de mostrar el toast
       setTimeout(() => {
         clearCart();
-      }, 3200); // Esperar un poco antes de limpiar el carrito
+      }, 3200);
 
       // Redirigir a WhatsApp
-      const phoneNumber = "3128914563"; // Reemplaza con el número de WhatsApp del negocio
+      const phoneNumber = "3128914563";
       const message = `Hola, quiero proceder con el pago de mi carrito. El total es: $${totalPrice.toLocaleString()}`;
       const whatsappURL = `https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`;
       setTimeout(() => {
         window.open(whatsappURL, "_blank");
-      }, 3000); // Esperar a que el toast se cierre antes de redirigir
+        setIsProcessing(false);
+      }, 3000);
     } catch (error) {
       console.error("Error al registrar la compra:", error);
-
-      // Mostrar notificación de error
-      toast.error("Hubo un error al procesar tu compra. Por favor, inténtalo de nuevo.", {
-        position: "top-right",
-        autoClose: 3000,
-        hideProgressBar: false,
-        closeOnClick: true,
-        pauseOnHover: true,
-        draggable: true,
-        progress: undefined,
-      });
+      toast.error(
+        error?.response?.data?.message ||
+          "Hubo un error al procesar tu compra. Por favor, inténtalo de nuevo.",
+        {
+          position: "top-right",
+          autoClose: 3000,
+        }
+      );
+      setIsProcessing(false);
     }
   };
 
@@ -144,8 +145,9 @@ const CarritoPage = () => {
           <button
             className="btn btn-success btn-proceed-payment"
             onClick={handleProceedToPayment}
+            disabled={isProcessing}
           >
-            Proceder al pago
+            {isProcessing ? "Procesando..." : "Proceder al pago"}
           </button>
         </div>
       </div>

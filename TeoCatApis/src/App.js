@@ -23,7 +23,6 @@ import purchasesRoutes from '../src/Routes/PurchaseService/purchases.routes.js';
 import appointmentsRoutes from '../src/Routes/AppointmentService/appointment.routes.js';
 import reviewsRoutes from '../src/Routes/ReviewService/reviews.routes.js';
 import notificationsRoutes from '../src/Routes/NotificationService/notifications.routes.js';
-import clientPurchasesRouter from '../src/Routes/PurchaseService/puraches.Clientes.routes.js'; // <--- AGREGA ESTA LÍNEA
 
 // Configurar variables de entorno
 dotenv.config();
@@ -124,7 +123,6 @@ app.use('/api/purchases', purchasesRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/reviews', reviewsRoutes);
 app.use('/api/notifications', notificationsRoutes);
-app.use('/api', clientPurchasesRouter);
 
 // Middleware para manejo de errores
 app.use((err, req, res, next) => {

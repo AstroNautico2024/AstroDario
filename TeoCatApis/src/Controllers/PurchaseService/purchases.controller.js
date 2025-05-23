@@ -526,7 +526,7 @@ export const comprasController = {
           })
 
           // Actualizar stock del producto
-          await productosModel.updateStock(detalle.IdProducto, detalle.Cantidad)
+          await productosModel.updateStock(connection, detalle.IdProducto, detalle.Cantidad)
 
           // Acumular totales
           subtotal += subtotalDetalle
@@ -936,7 +936,7 @@ export const detalleComprasController = {
       })
 
       // Actualizar stock del producto
-      await productosModel.updateStock(detalleData.IdProducto, detalleData.Cantidad)
+      await productosModel.updateStock(connection, detalleData.IdProducto, detalleData.Cantidad)
 
       // Actualizar totales de la compra
       const detalles = await detalleComprasModel.getByCompraId(detalleData.IdCompra)
@@ -1124,7 +1124,7 @@ export const detalleComprasController = {
       const detalleActual = detalles[0]
 
       // Actualizar stock del producto (restar)
-      await productosModel.updateStock(detalleActual.IdProducto, -detalleActual.Cantidad)
+      await productosModel.updateStock(connection, detalleActual.IdProducto, -detalleActual.Cantidad)
 
       // Eliminar el detalle
       await detalleComprasModel.delete(id)

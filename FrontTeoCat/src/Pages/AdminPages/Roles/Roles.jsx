@@ -307,29 +307,37 @@ const Roles = () => {
       try {
         setShowDeleteConfirm(false);
         setIsProcessing(true);
+        setProcessingMessage("Verificando usuarios asociados...");
+
+        // 1. Consultar usuarios asociados al rol
+        const usuarios = await rolesService.getUsuariosByRol(roleToDelete.IdRol);
+
+        if (usuarios && usuarios.length > 0) {
+          setIsProcessing(false);
+          pendingToastRef.current = {
+            type: "error",
+            message: `No se puede eliminar el rol "${roleToDelete.NombreRol}" porque tiene usuarios asociados.`
+          };
+          showPendingToast();
+          return;
+        }
+
         setProcessingMessage("Eliminando rol...");
-        
-        // Limpiar cualquier notificación pendiente anterior
-        pendingToastRef.current = null;
-        toastShownRef.current = false;
-        
+
+        // 2. Si no hay usuarios, eliminar el rol
         await rolesService.delete(roleToDelete.IdRol);
 
-        // Actualizar la lista de roles
         setRoles(roles.filter((r) => r.IdRol !== roleToDelete.IdRol));
-        
-        // Guardar el toast para después
+
         pendingToastRef.current = {
           type: "success",
           message: `El rol "${roleToDelete.NombreRol}" ha sido eliminado correctamente`
         };
-        
+
         setIsProcessing(false);
       } catch (err) {
         setIsProcessing(false);
         console.error("Error al eliminar rol:", err);
-        
-        // En caso de error, también guardar el toast para después
         pendingToastRef.current = {
           type: "error",
           message: "Error al eliminar el rol"

@@ -336,8 +336,8 @@ export const productosModel = {
     return { id, estado };
   },
 
-  updateStock: async (id, cantidad) => {
-    await query(
+  updateStock: async (connection, id, cantidad) => {
+    await connection.query(
       `UPDATE Productos SET Stock = Stock + ? WHERE IdProducto = ?`,
       [cantidad, id]
     );
