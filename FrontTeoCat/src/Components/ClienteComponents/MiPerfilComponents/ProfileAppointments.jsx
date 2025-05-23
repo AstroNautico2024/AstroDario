@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Card, Badge, Button } from "react-bootstrap";
 import { toast, ToastContainer } from "react-toastify";
@@ -5,19 +6,33 @@ import "react-toastify/dist/ReactToastify.css";
 import CitasClienteService from "../../../Services/ConsumoCliente/CitasClienteService";
 import "../MiPerfilComponents/ProfileAppointments.scss";
 
-const ProfileAppointments = ({ appointments, fetchAppointments }) => {
+const ProfileAppointments = ({ appointments: initialAppointments, fetchAppointments }) => {
+  const [appointments, setAppointments] = useState(initialAppointments);
+
   // Manejar la eliminación de una cita
   const handleRemoveAppointment = async (idCita) => {
     try {
       await CitasClienteService.cancelarCita(idCita);
       toast.success("Cita cancelada correctamente");
-      // Refrescar la lista de citas después de cancelar
+
+      // Actualizar el estado local eliminando la cita
+      setAppointments((prevAppointments) =>
+        prevAppointments.filter((appointment) => appointment.id !== idCita)
+      );
+
+      // Opcional: Refrescar la lista de citas desde el backend
       if (fetchAppointments) {
         fetchAppointments();
       }
     } catch (error) {
       console.error("Error al cancelar la cita:", error);
-      toast.error("No se pudo cancelar la cita. Inténtalo de nuevo.");
+
+      // Verifica si el error es de permisos
+      if (error.response?.data?.requiredPermission === "Eliminar Citas") {
+        toast.error("No tienes permiso para eliminar citas.");
+      } else {
+        toast.error("No se pudo cancelar la cita. Inténtalo de nuevo.");
+      }
     }
   };
 
