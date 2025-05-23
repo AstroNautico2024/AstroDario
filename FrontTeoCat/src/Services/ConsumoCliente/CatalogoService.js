@@ -241,6 +241,7 @@ formatProductoData(producto) {
     images: images, // Siempre será un array con al menos una imagen
     category: producto.NombreCategoria || producto.categoria || "Sin categoría",
     rating: producto.Valoracion || producto.rating || 0,
+    stock: producto.Stock || producto.stock || 0,
   };
 }
 }
