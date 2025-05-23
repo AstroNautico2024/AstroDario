@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, Link } from "react-router-dom"
 import { Container, Row, Col, Button, Tabs, Tab, Form } from "react-bootstrap"
-import { toast } from "react-toastify"
+import { toast, ToastContainer } from "react-toastify"
 import CatalogoService from "../../Services/ConsumoCliente/CatalogoService.js"
 import ReviewsService from "../../Services/ConsumoCliente/ReviewsService.js"
 import { uploadImageToCloudinary } from "../../Services/uploadImageToCloudinary.js"
@@ -271,41 +271,41 @@ const ProductoDetallePage = () => {
   }
 
   const addToCart = () => {
-    if (!product) return
+    if (!product) return;
 
     // Obtener el carrito actual del localStorage
-    const currentCart = JSON.parse(localStorage.getItem("cart") || "[]")
+    const currentCart = JSON.parse(localStorage.getItem("cart") || "[]");
 
     // Verificar si el producto ya está en el carrito
-    const existingProductIndex = currentCart.findIndex((item) => item.id === product.id)
+    const existingProductIndex = currentCart.findIndex((item) => item.id === product.id);
 
     if (existingProductIndex >= 0) {
       // Si el producto ya está en el carrito, incrementar la cantidad
-      currentCart[existingProductIndex].quantity += quantity
+      currentCart[existingProductIndex].quantity += quantity;
     } else {
       // Si no, añadir el producto con la cantidad seleccionada
       currentCart.push({
         ...product,
         quantity: quantity,
-      })
+      });
     }
 
     // Guardar el carrito actualizado en localStorage
-    localStorage.setItem("cart", JSON.stringify(currentCart))
+    localStorage.setItem("cart", JSON.stringify(currentCart));
 
     // Disparar evento para actualizar contador del carrito
-    window.dispatchEvent(new Event("storage"))
+    window.dispatchEvent(new Event("storage"));
 
     // Mostrar notificación
-     toast.success(`${quantity} ${quantity > 1 ? "unidades" : "unidad"} añadidas al carrito`, {
+    toast.success(`${quantity} ${quantity > 1 ? "unidades" : "unidad"} añadidas al carrito`, {
       position: "top-right",
       autoClose: 2000,
       hideProgressBar: false,
       closeOnClick: true,
-      pauseOnHover: false, // <--- Cambia esto a false
+      pauseOnHover: false,
       draggable: true,
-      progress: undefined
-    })
+      progress: undefined,
+    });
   }
 
   const handleThumbnailClick = (index) => {
@@ -367,6 +367,7 @@ const ProductoDetallePage = () => {
 
   return (
     <div className="producto-detalle-page">
+      <ToastContainer /> {/* Asegúrate de que esté presente */}
       <Container className="py-5 mt-5">
         {/* Breadcrumb */}
         <nav aria-label="breadcrumb" className="mb-4">

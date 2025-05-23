@@ -17,6 +17,20 @@ export const CartProvider = ({ children }) => {
     setCartCount(storedCart.reduce((acc, item) => acc + (item.quantity || 1), 0));
   }, []);
 
+  useEffect(() => {
+    const syncCart = () => {
+      const storedCart = JSON.parse(localStorage.getItem("cart") || "[]");
+      setCartItems(storedCart);
+      setCartCount(storedCart.reduce((acc, item) => acc + (item.quantity || 1), 0));
+    };
+
+    window.addEventListener("storage", syncCart);
+
+    return () => {
+      window.removeEventListener("storage", syncCart);
+    };
+  }, []);
+
   const addToCart = (producto, quantity = 1) => {
     if (!producto) return;
 
