@@ -119,7 +119,11 @@ const CarritoPage = () => {
         {cartItems.map((item) => (
           <div key={item.id} className="carrito-item">
             <div className="carrito-item-info">
-              <img src={item.image} alt={item.name} className="carrito-item-image" />
+                     <img
+          src={item.images || "/placeholder.svg"} // Verifica si `item.image` está disponible
+          alt={item.name}
+          className="carrito-item-image img-fluid rounded"
+        />
               <div>
                 <h3 className="carrito-item-name">{item.name}</h3>
                 <p className="carrito-item-price">Precio: ${item.price.toLocaleString()}</p>
